@@ -327,19 +327,12 @@ html, body {
 .section-toggle:hover .chevron { color: rgba(255,255,255,0.48); }
 .settings-section.collapsed .chevron { transform: rotate(-90deg); }
 
-/* Collapsible body */
+/* Collapsible body — height managed by JS so height:0 is exact */
 .section-body {
-  display: grid;
-  grid-template-rows: 1fr;
-  overflow: hidden; /* clips child borders/edges during collapse */
-  transition: grid-template-rows 0.22s ease;
-}
-.settings-section.collapsed .section-body { grid-template-rows: 0fr; }
-.section-body-inner {
   overflow: hidden;
-  min-height: 0;
-  padding-bottom: 0.5rem;
+  transition: height 0.24s cubic-bezier(0.4, 0, 0.2, 1);
 }
+.section-body-inner { padding-bottom: 0.5rem; }
 .settings-hint {
   font-weight: 400;
   text-transform: none;

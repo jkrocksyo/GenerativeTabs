@@ -192,18 +192,49 @@ function initSettings() {
 
 function initSectionToggles() {
   const collapsed = settings.collapsedSections || {};
+
   document.querySelectorAll('.settings-section').forEach(section => {
-    const key = section.dataset.section;
-    const btn = section.querySelector('.section-toggle');
+    const key  = section.dataset.section;
+    const btn  = section.querySelector('.section-toggle');
+    const body = section.querySelector('.section-body');
+
+    // Apply initial state instantly — no transition on load
     if (collapsed[key]) {
+      body.style.height = '0px';
       section.classList.add('collapsed');
       btn.setAttribute('aria-expanded', 'false');
+    } else {
+      // Pin open height so transitions have an explicit value to start from
+      body.style.height = body.scrollHeight + 'px';
+      // Release to auto after one frame so the panel can resize freely
+      requestAnimationFrame(() => { body.style.height = ''; });
     }
+
     btn.addEventListener('click', () => {
-      const isNowCollapsed = section.classList.toggle('collapsed');
-      btn.setAttribute('aria-expanded', String(!isNowCollapsed));
+      const isCollapsed = section.classList.contains('collapsed');
+
+      if (isCollapsed) {
+        // Expand: 0 → natural height, then release to auto
+        section.classList.remove('collapsed');
+        btn.setAttribute('aria-expanded', 'true');
+        body.style.height = '0px';
+        // Force layout so transition starts from 0
+        body.getBoundingClientRect();
+        body.style.height = body.scrollHeight + 'px';
+        body.addEventListener('transitionend', () => {
+          body.style.height = '';
+        }, { once: true });
+      } else {
+        // Collapse: natural height → exact 0
+        body.style.height = body.scrollHeight + 'px';
+        body.getBoundingClientRect(); // commit explicit height
+        body.style.height = '0px';
+        section.classList.add('collapsed');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+
       settings.collapsedSections = settings.collapsedSections || {};
-      settings.collapsedSections[key] = isNowCollapsed;
+      settings.collapsedSections[key] = !isCollapsed;
       Storage.save({ collapsedSections: settings.collapsedSections });
     });
   });
