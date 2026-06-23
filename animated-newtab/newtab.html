@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Tab</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- Canvas is injected here by ThemeEngine -->
+  <div id="canvas-container"></div>
+
+  <!-- Blocks white flash on load; removed after first paint -->
+  <div id="fade-overlay"></div>
+
+  <!-- Main UI overlay -->
+  <main id="main-ui" aria-label="New tab page">
+
+    <div id="clock-container">
+      <div id="clock-time">
+        <span id="clock-hm">--:--</span><span id="clock-s" class="clock-sub">:--</span><span id="clock-ampm" class="clock-sub"> --</span>
+      </div>
+      <div id="clock-date"></div>
+    </div>
+
+    <div id="search-container">
+      <input
+        id="search-input"
+        type="text"
+        placeholder="Search the web…"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+        aria-label="Search"
+      >
+    </div>
+
+    <div id="quick-links" role="list" aria-label="Quick links"></div>
+
+  </main>
+
+  <!-- Gear button -->
+  <button id="settings-btn" aria-label="Open settings" title="Settings">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" fill="currentColor"/>
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M8.257 1.566a1.75 1.75 0 013.486 0l.171.822a6.513 6.513 0 011.388.573l.734-.454a1.75 1.75 0 012.457 2.457l-.454.734c.23.44.42.906.573 1.388l.822.171a1.75 1.75 0 010 3.486l-.822.171a6.513 6.513 0 01-.573 1.388l.454.734a1.75 1.75 0 01-2.457 2.457l-.734-.454a6.512 6.512 0 01-1.388.573l-.171.822a1.75 1.75 0 01-3.486 0l-.171-.822a6.512 6.512 0 01-1.388-.573l-.734.454a1.75 1.75 0 01-2.457-2.457l.454-.734A6.512 6.512 0 013.39 11.4l-.822-.171a1.75 1.75 0 010-3.486l.822-.171A6.512 6.512 0 013.963 6.18l-.454-.734a1.75 1.75 0 012.457-2.457l.734.454a6.512 6.512 0 011.388-.573l.17-.822zM10 13.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7z" fill="currentColor"/>
+    </svg>
+  </button>
+
+  <!-- Settings overlay -->
+  <div id="settings-overlay" class="hidden" role="dialog" aria-modal="true" aria-label="Settings">
+    <div id="settings-panel" aria-hidden="true">
+
+      <div class="settings-header">
+        <span class="settings-title">Settings</span>
+        <button id="settings-close" type="button" aria-label="Close settings">✕</button>
+      </div>
+
+      <div class="settings-body">
+
+        <section class="settings-section">
+          <h3>Background</h3>
+          <div id="theme-picker" role="group" aria-label="Choose background theme"></div>
+        </section>
+
+        <section class="settings-section">
+          <h3>Clock</h3>
+          <label class="setting-row">
+            <span>12-hour format</span>
+            <input type="checkbox" id="setting-12h">
+          </label>
+          <label class="setting-row">
+            <span>Show seconds</span>
+            <input type="checkbox" id="setting-seconds">
+          </label>
+          <label class="setting-row">
+            <span>Show date</span>
+            <input type="checkbox" id="setting-date">
+          </label>
+        </section>
+
+        <section class="settings-section">
+          <h3>Search</h3>
+          <div class="setting-row">
+            <label for="setting-engine">Engine</label>
+            <select id="setting-engine">
+              <option value="google">Google</option>
+              <option value="bing">Bing</option>
+              <option value="duckduckgo">DuckDuckGo</option>
+              <option value="custom">Custom URL</option>
+            </select>
+          </div>
+          <div id="custom-url-row" class="setting-row hidden">
+            <label for="setting-custom-url">URL template</label>
+            <input type="text" id="setting-custom-url" placeholder="https://example.com/search?q={query}">
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h3>Quick Links <span class="settings-hint">(up to 6)</span></h3>
+          <div id="quick-links-editor"></div>
+          <button id="add-quick-link" type="button" class="add-btn">+ Add link</button>
+        </section>
+
+        <section class="settings-section">
+          <h3>Animation</h3>
+          <div class="setting-row">
+            <span>Intensity</span>
+            <div class="button-group" role="group" aria-label="Animation intensity">
+              <button class="intensity-btn" data-value="low"    type="button">Low</button>
+              <button class="intensity-btn" data-value="medium" type="button">Medium</button>
+              <button class="intensity-btn" data-value="high"   type="button">High</button>
+            </div>
+          </div>
+          <label class="setting-row">
+            <span>Static mode <span class="settings-hint">(no animation)</span></span>
+            <input type="checkbox" id="setting-static">
+          </label>
+        </section>
+
+      </div><!-- /.settings-body -->
+    </div><!-- /#settings-panel -->
+  </div><!-- /#settings-overlay -->
+
+  <!-- Scripts — order matters (globals set up before newtab.js) -->
+  <script src="js/storage.js"></script>
+  <script src="js/themes/engine.js"></script>
+  <script src="js/themes/starfield.js"></script>
+  <script src="js/themes/nebula.js"></script>
+  <script src="js/themes/galaxy.js"></script>
+  <script src="js/themes/aurora.js"></script>
+  <script src="js/themes/particles.js"></script>
+  <script src="js/newtab.js"></script>
+</body>
+</html>
