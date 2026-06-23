@@ -9,6 +9,7 @@ const Storage = (() => {
     showSeconds:    true,
     showDate:       true,       // show date below when layout=time
     showTimeInDate: false,      // show time below when layout=date
+    collapsedSections: {},
     hideText:       false,
     hideSearch:     false,
     quickLinks:     [],

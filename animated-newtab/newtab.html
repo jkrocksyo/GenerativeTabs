@@ -13,26 +13,21 @@
 
   <main id="main-ui" aria-label="New tab page">
 
-    <!-- Header: one of logo / time / date is visible at a time -->
     <div id="header">
-
       <div id="header-logo">
         <div class="wordmark">Google</div>
       </div>
-
       <div id="header-time" hidden>
         <div class="time-row">
           <span id="clock-hm">--:--</span><span id="clock-s" class="clock-sub">:--</span><span id="clock-ampm" class="clock-sub"> --</span>
         </div>
         <div id="clock-date-line"></div>
       </div>
-
       <div id="header-date" hidden>
         <div id="date-weekday"></div>
         <div id="date-full"></div>
         <div id="date-time-small"></div>
       </div>
-
     </div>
 
     <div id="search-container">
@@ -69,76 +64,111 @@
 
       <div class="settings-body">
 
-        <section class="settings-section">
-          <h3>Background</h3>
-          <div id="theme-picker" role="group" aria-label="Choose background theme"></div>
+        <section class="settings-section" data-section="background">
+          <button class="section-toggle" type="button" aria-expanded="true">
+            <span>Background</span>
+            <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="section-body"><div class="section-body-inner">
+            <div id="theme-picker" role="group" aria-label="Choose background theme"></div>
+          </div></div>
         </section>
 
-        <section class="settings-section">
-          <h3>Font</h3>
-          <div id="font-picker"></div>
+        <section class="settings-section" data-section="font">
+          <button class="section-toggle" type="button" aria-expanded="true">
+            <span>Font</span>
+            <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="section-body"><div class="section-body-inner">
+            <div id="font-picker"></div>
+          </div></div>
         </section>
 
-        <section class="settings-section">
-          <h3>Display</h3>
-          <div class="setting-row">
-            <span>Header</span>
-            <div class="button-group" role="group" aria-label="Header content">
-              <button class="layout-btn" data-value="logo" type="button">Logo</button>
-              <button class="layout-btn" data-value="time" type="button">Time</button>
-              <button class="layout-btn" data-value="date" type="button">Date</button>
+        <section class="settings-section" data-section="display">
+          <button class="section-toggle" type="button" aria-expanded="true">
+            <span>Display</span>
+            <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="section-body"><div class="section-body-inner">
+            <div class="setting-row">
+              <span>Header</span>
+              <div class="button-group" role="group" aria-label="Header content">
+                <button class="layout-btn" data-value="logo" type="button">Logo</button>
+                <button class="layout-btn" data-value="time" type="button">Time</button>
+                <button class="layout-btn" data-value="date" type="button">Date</button>
+              </div>
             </div>
-          </div>
-          <label class="setting-row">
-            <span>Hide text</span>
-            <input type="checkbox" id="setting-hide-text">
-          </label>
-          <label class="setting-row">
-            <span>Hide search bar</span>
-            <input type="checkbox" id="setting-hide-search">
-          </label>
-          <div id="time-sub-settings">
             <label class="setting-row">
-              <span>12-hour</span>
-              <input type="checkbox" id="setting-12h">
+              <span>Hide text</span>
+              <input type="checkbox" id="setting-hide-text">
             </label>
             <label class="setting-row">
-              <span>Seconds</span>
-              <input type="checkbox" id="setting-seconds">
+              <span>Hide search bar</span>
+              <input type="checkbox" id="setting-hide-search">
             </label>
-            <label class="setting-row">
-              <span>Date below</span>
-              <input type="checkbox" id="setting-date">
-            </label>
-          </div>
-          <div id="date-sub-settings">
-            <label class="setting-row">
-              <span>Time below</span>
-              <input type="checkbox" id="setting-time-in-date">
-            </label>
-          </div>
-        </section>
-
-        <section class="settings-section">
-          <h3>Quick Links <span class="settings-hint">(up to 6)</span></h3>
-          <div id="quick-links-editor"></div>
-          <button id="add-quick-link" type="button" class="add-btn">+ Add link</button>
-        </section>
-
-        <section class="settings-section">
-          <h3>Animation</h3>
-          <div class="setting-row">
-            <span>Intensity</span>
-            <div class="button-group" role="group" aria-label="Animation intensity">
-              <button class="intensity-btn" data-value="low"    type="button">Low</button>
-              <button class="intensity-btn" data-value="medium" type="button">Medium</button>
-              <button class="intensity-btn" data-value="high"   type="button">High</button>
+            <div id="time-sub-settings">
+              <label class="setting-row">
+                <span>12-hour</span>
+                <input type="checkbox" id="setting-12h">
+              </label>
+              <label class="setting-row">
+                <span>Seconds</span>
+                <input type="checkbox" id="setting-seconds">
+              </label>
+              <label class="setting-row">
+                <span>Date below</span>
+                <input type="checkbox" id="setting-date">
+              </label>
             </div>
-          </div>
-          <label class="setting-row">
-            <span>Static mode <span class="settings-hint">(no animation)</span></span>
-            <input type="checkbox" id="setting-static">
-          </label>
+            <div id="date-sub-settings">
+              <label class="setting-row">
+                <span>Time below</span>
+                <input type="checkbox" id="setting-time-in-date">
+              </label>
+            </div>
+          </div></div>
+        </section>
+
+        <section class="settings-section" data-section="quicklinks">
+          <button class="section-toggle" type="button" aria-expanded="true">
+            <span>Quick Links <span class="settings-hint">(up to 6)</span></span>
+            <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="section-body"><div class="section-body-inner">
+            <div id="quick-links-editor"></div>
+            <button id="add-quick-link" type="button" class="add-btn">+ Add link</button>
+          </div></div>
+        </section>
+
+        <section class="settings-section" data-section="animation">
+          <button class="section-toggle" type="button" aria-expanded="true">
+            <span>Animation</span>
+            <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="section-body"><div class="section-body-inner">
+            <div class="setting-row">
+              <span>Intensity</span>
+              <div class="button-group" role="group" aria-label="Animation intensity">
+                <button class="intensity-btn" data-value="low"    type="button">Low</button>
+                <button class="intensity-btn" data-value="medium" type="button">Medium</button>
+                <button class="intensity-btn" data-value="high"   type="button">High</button>
+              </div>
+            </div>
+            <label class="setting-row">
+              <span>Static mode <span class="settings-hint">(no animation)</span></span>
+              <input type="checkbox" id="setting-static">
+            </label>
+          </div></div>
         </section>
 
       </div>

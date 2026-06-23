@@ -187,6 +187,26 @@ function initSettings() {
   buildDisplaySettings();
   buildQuickLinksEditor();
   buildAnimationSettings();
+  initSectionToggles();
+}
+
+function initSectionToggles() {
+  const collapsed = settings.collapsedSections || {};
+  document.querySelectorAll('.settings-section').forEach(section => {
+    const key = section.dataset.section;
+    const btn = section.querySelector('.section-toggle');
+    if (collapsed[key]) {
+      section.classList.add('collapsed');
+      btn.setAttribute('aria-expanded', 'false');
+    }
+    btn.addEventListener('click', () => {
+      const isNowCollapsed = section.classList.toggle('collapsed');
+      btn.setAttribute('aria-expanded', String(!isNowCollapsed));
+      settings.collapsedSections = settings.collapsedSections || {};
+      settings.collapsedSections[key] = isNowCollapsed;
+      Storage.save({ collapsedSections: settings.collapsedSections });
+    });
+  });
 }
 
 // Theme picker
