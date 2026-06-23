@@ -2,15 +2,16 @@
 
 const Storage = (() => {
   const DEFAULTS = {
-    theme: 'starfield',
-    clockFormat: '12h',
-    showSeconds: true,
-    showDate: true,
-    searchEngine: 'google',
-    customSearchUrl: 'https://example.com/search?q={query}',
-    quickLinks: [],
-    intensity: 'medium',
-    staticMode: false
+    theme:          'starfield',
+    layout:         'logo',     // 'logo' | 'time' | 'date'
+    font:           'system',
+    clockFormat:    '12h',
+    showSeconds:    true,
+    showDate:       true,       // show date below when layout=time
+    showTimeInDate: false,      // show time below when layout=date
+    quickLinks:     [],
+    intensity:      'medium',
+    staticMode:     false,
   };
 
   const INTENSITY_MAP = { low: 0.5, medium: 1.0, high: 1.6 };
@@ -20,7 +21,6 @@ const Storage = (() => {
       if (typeof chrome !== 'undefined' && chrome.storage) {
         chrome.storage.local.get(DEFAULTS, items => resolve(items));
       } else {
-        // Fallback for dev testing outside extension context
         const stored = {};
         for (const [k, v] of Object.entries(DEFAULTS)) {
           const raw = localStorage.getItem('__liv_' + k);

@@ -8,27 +8,38 @@
 </head>
 <body>
 
-  <!-- Canvas is injected here by ThemeEngine -->
   <div id="canvas-container"></div>
-
-  <!-- Blocks white flash on load; removed after first paint -->
   <div id="fade-overlay"></div>
 
-  <!-- Main UI overlay -->
   <main id="main-ui" aria-label="New tab page">
 
-    <div id="clock-container">
-      <div id="clock-time">
-        <span id="clock-hm">--:--</span><span id="clock-s" class="clock-sub">:--</span><span id="clock-ampm" class="clock-sub"> --</span>
+    <!-- Header: one of logo / time / date is visible at a time -->
+    <div id="header">
+
+      <div id="header-logo">
+        <div class="wordmark">LIV</div>
       </div>
-      <div id="clock-date"></div>
+
+      <div id="header-time" hidden>
+        <div class="time-row">
+          <span id="clock-hm">--:--</span><span id="clock-s" class="clock-sub">:--</span><span id="clock-ampm" class="clock-sub"> --</span>
+        </div>
+        <div id="clock-date-line"></div>
+      </div>
+
+      <div id="header-date" hidden>
+        <div id="date-weekday"></div>
+        <div id="date-full"></div>
+        <div id="date-time-small"></div>
+      </div>
+
     </div>
 
     <div id="search-container">
       <input
         id="search-input"
         type="text"
-        placeholder="Search the web…"
+        placeholder="Search…"
         autocomplete="off"
         autocorrect="off"
         autocapitalize="off"
@@ -41,15 +52,13 @@
 
   </main>
 
-  <!-- Gear button -->
   <button id="settings-btn" aria-label="Open settings" title="Settings">
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" fill="currentColor"/>
       <path fill-rule="evenodd" clip-rule="evenodd" d="M8.257 1.566a1.75 1.75 0 013.486 0l.171.822a6.513 6.513 0 011.388.573l.734-.454a1.75 1.75 0 012.457 2.457l-.454.734c.23.44.42.906.573 1.388l.822.171a1.75 1.75 0 010 3.486l-.822.171a6.513 6.513 0 01-.573 1.388l.454.734a1.75 1.75 0 01-2.457 2.457l-.734-.454a6.512 6.512 0 01-1.388.573l-.171.822a1.75 1.75 0 01-3.486 0l-.171-.822a6.512 6.512 0 01-1.388-.573l-.734.454a1.75 1.75 0 01-2.457-2.457l.454-.734A6.512 6.512 0 013.39 11.4l-.822-.171a1.75 1.75 0 010-3.486l.822-.171A6.512 6.512 0 013.963 6.18l-.454-.734a1.75 1.75 0 012.457-2.457l.734.454a6.512 6.512 0 011.388-.573l.17-.822zM10 13.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7z" fill="currentColor"/>
     </svg>
   </button>
 
-  <!-- Settings overlay -->
   <div id="settings-overlay" class="hidden" role="dialog" aria-modal="true" aria-label="Settings">
     <div id="settings-panel" aria-hidden="true">
 
@@ -66,35 +75,39 @@
         </section>
 
         <section class="settings-section">
-          <h3>Clock</h3>
-          <label class="setting-row">
-            <span>12-hour format</span>
-            <input type="checkbox" id="setting-12h">
-          </label>
-          <label class="setting-row">
-            <span>Show seconds</span>
-            <input type="checkbox" id="setting-seconds">
-          </label>
-          <label class="setting-row">
-            <span>Show date</span>
-            <input type="checkbox" id="setting-date">
-          </label>
+          <h3>Font</h3>
+          <div id="font-picker"></div>
         </section>
 
         <section class="settings-section">
-          <h3>Search</h3>
+          <h3>Display</h3>
           <div class="setting-row">
-            <label for="setting-engine">Engine</label>
-            <select id="setting-engine">
-              <option value="google">Google</option>
-              <option value="bing">Bing</option>
-              <option value="duckduckgo">DuckDuckGo</option>
-              <option value="custom">Custom URL</option>
-            </select>
+            <span>Header</span>
+            <div class="button-group" role="group" aria-label="Header content">
+              <button class="layout-btn" data-value="logo" type="button">Logo</button>
+              <button class="layout-btn" data-value="time" type="button">Time</button>
+              <button class="layout-btn" data-value="date" type="button">Date</button>
+            </div>
           </div>
-          <div id="custom-url-row" class="setting-row hidden">
-            <label for="setting-custom-url">URL template</label>
-            <input type="text" id="setting-custom-url" placeholder="https://example.com/search?q={query}">
+          <div id="time-sub-settings">
+            <label class="setting-row">
+              <span>12-hour</span>
+              <input type="checkbox" id="setting-12h">
+            </label>
+            <label class="setting-row">
+              <span>Seconds</span>
+              <input type="checkbox" id="setting-seconds">
+            </label>
+            <label class="setting-row">
+              <span>Date below</span>
+              <input type="checkbox" id="setting-date">
+            </label>
+          </div>
+          <div id="date-sub-settings">
+            <label class="setting-row">
+              <span>Time below</span>
+              <input type="checkbox" id="setting-time-in-date">
+            </label>
           </div>
         </section>
 
@@ -120,17 +133,15 @@
           </label>
         </section>
 
-      </div><!-- /.settings-body -->
-    </div><!-- /#settings-panel -->
-  </div><!-- /#settings-overlay -->
+      </div>
+    </div>
+  </div>
 
-  <!-- Scripts — order matters (globals set up before newtab.js) -->
   <script src="js/storage.js"></script>
   <script src="js/themes/engine.js"></script>
   <script src="js/themes/starfield.js"></script>
   <script src="js/themes/nebula.js"></script>
   <script src="js/themes/galaxy.js"></script>
-  <script src="js/themes/aurora.js"></script>
   <script src="js/themes/particles.js"></script>
   <script src="js/newtab.js"></script>
 </body>

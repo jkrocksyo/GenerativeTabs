@@ -4,7 +4,6 @@ const THEME_MAP = {
   starfield: StarfieldTheme,
   nebula:    NebulaTheme,
   galaxy:    GalaxyTheme,
-  aurora:    AuroraTheme,
   particles: ParticlesTheme,
 };
 
@@ -12,20 +11,19 @@ const THEME_LABELS = {
   starfield: 'Deep Space',
   nebula:    'Nebula Drift',
   galaxy:    'Galaxy Spiral',
-  aurora:    'Aurora Borealis',
   particles: 'Drift',
 };
 
-const SEARCH_URLS = {
-  google:     q => `https://www.google.com/search?q=${encodeURIComponent(q)}`,
-  bing:       q => `https://www.bing.com/search?q=${encodeURIComponent(q)}`,
-  duckduckgo: q => `https://duckduckgo.com/?q=${encodeURIComponent(q)}`,
-  custom:     (q, url) => url.replace('{query}', encodeURIComponent(q)),
+const FONTS = {
+  system:    { label: 'System',   stack: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' },
+  georgia:   { label: 'Serif',    stack: 'Georgia, "Times New Roman", serif' },
+  trebuchet: { label: 'Rounded',  stack: '"Trebuchet MS", "Gill Sans MT", Calibri, sans-serif' },
+  helvetica: { label: 'Clean',    stack: '"Helvetica Neue", Helvetica, Arial, sans-serif' },
+  mono:      { label: 'Mono',     stack: '"SF Mono", "Fira Code", "Courier New", monospace' },
 };
 
 let engine;
 let settings;
-let clockInterval;
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 
@@ -39,26 +37,40 @@ let clockInterval;
   });
   engine.switchTheme(THEME_MAP[settings.theme] || StarfieldTheme);
 
+  applyFont();
+  renderHeader();
   initClock();
   initSearch();
   renderQuickLinks();
   initSettings();
 
-  // Fade in — remove overlay after first paint
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      const overlay = document.getElementById('fade-overlay');
-      overlay.style.opacity = '0';
-      setTimeout(() => overlay.remove(), 600);
-    });
-  });
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const overlay = document.getElementById('fade-overlay');
+    overlay.style.opacity = '0';
+    setTimeout(() => overlay.remove(), 600);
+  }));
 })();
+
+// ── Font ──────────────────────────────────────────────────────────────────────
+
+function applyFont() {
+  const font = FONTS[settings.font] || FONTS.system;
+  document.documentElement.style.setProperty('--ui-font', font.stack);
+}
+
+// ── Header / Layout ───────────────────────────────────────────────────────────
+
+function renderHeader() {
+  document.getElementById('header-logo').hidden = settings.layout !== 'logo';
+  document.getElementById('header-time').hidden = settings.layout !== 'time';
+  document.getElementById('header-date').hidden = settings.layout !== 'date';
+}
 
 // ── Clock ─────────────────────────────────────────────────────────────────────
 
 function initClock() {
   tickClock();
-  clockInterval = setInterval(tickClock, 1000);
+  setInterval(tickClock, 1000);
 }
 
 function tickClock() {
@@ -68,38 +80,38 @@ function tickClock() {
   const s = now.getSeconds();
 
   const is12 = settings.clockFormat === '12h';
-  let ampm = '';
-  if (is12) {
-    ampm = h >= 12 ? 'PM' : 'AM';
-    h = h % 12 || 12;
-  }
+  const ampm = is12 ? (h >= 12 ? 'PM' : 'AM') : '';
+  if (is12) h = h % 12 || 12;
 
+  // Time header
   document.getElementById('clock-hm').textContent = `${h}:${pad(m)}`;
 
   const secEl = document.getElementById('clock-s');
-  if (settings.showSeconds) {
-    secEl.textContent = `:${pad(s)}`;
-    secEl.hidden = false;
-  } else {
-    secEl.hidden = true;
-  }
+  secEl.textContent = `:${pad(s)}`;
+  secEl.hidden = !settings.showSeconds;
 
   const ampmEl = document.getElementById('clock-ampm');
-  if (is12) {
-    ampmEl.textContent = ` ${ampm}`;
-    ampmEl.hidden = false;
+  ampmEl.textContent = ` ${ampm}`;
+  ampmEl.hidden = !is12;
+
+  const dateLine = document.getElementById('clock-date-line');
+  if (settings.showDate) {
+    dateLine.textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    dateLine.hidden = false;
   } else {
-    ampmEl.hidden = true;
+    dateLine.hidden = true;
   }
 
-  const dateEl = document.getElementById('clock-date');
-  if (settings.showDate) {
-    dateEl.textContent = now.toLocaleDateString('en-US', {
-      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
-    });
-    dateEl.hidden = false;
+  // Date header
+  document.getElementById('date-weekday').textContent = now.toLocaleDateString('en-US', { weekday: 'long' });
+  document.getElementById('date-full').textContent    = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  const timeSmall = document.getElementById('date-time-small');
+  if (settings.showTimeInDate) {
+    timeSmall.textContent = `${h}:${pad(m)}${is12 ? ' ' + ampm : ''}`;
+    timeSmall.hidden = false;
   } else {
-    dateEl.hidden = true;
+    timeSmall.hidden = true;
   }
 }
 
@@ -110,14 +122,10 @@ function pad(n) { return String(n).padStart(2, '0'); }
 function initSearch() {
   const input = document.getElementById('search-input');
   input.focus();
-
   input.addEventListener('keydown', e => {
     if (e.key !== 'Enter') return;
     const q = input.value.trim();
-    if (!q) return;
-    const eng = settings.searchEngine;
-    const fn = SEARCH_URLS[eng] || SEARCH_URLS.google;
-    window.location.href = fn(q, settings.customSearchUrl);
+    if (q) window.location.href = `https://www.google.com/search?q=${encodeURIComponent(q)}`;
   });
 }
 
@@ -126,9 +134,7 @@ function initSearch() {
 function renderQuickLinks() {
   const container = document.getElementById('quick-links');
   container.innerHTML = '';
-  const links = settings.quickLinks || [];
-  if (!links.length) return;
-  links.forEach(link => {
+  (settings.quickLinks || []).forEach(link => {
     if (!link.label || !link.url) return;
     const a = document.createElement('a');
     a.className = 'quick-link';
@@ -142,40 +148,33 @@ function renderQuickLinks() {
 // ── Settings panel ────────────────────────────────────────────────────────────
 
 function initSettings() {
-  const btn      = document.getElementById('settings-btn');
-  const overlay  = document.getElementById('settings-overlay');
-  const panel    = document.getElementById('settings-panel');
-  const closeBtn = document.getElementById('settings-close');
+  const btn     = document.getElementById('settings-btn');
+  const overlay = document.getElementById('settings-overlay');
+  const panel   = document.getElementById('settings-panel');
+  const closeBtn= document.getElementById('settings-close');
 
-  const openPanel = () => {
-    overlay.classList.remove('hidden');
+  const open = () => {
+    overlay.classList.remove('hidden', 'closing');
     overlay.classList.add('open');
     panel.setAttribute('aria-hidden', 'false');
     closeBtn.focus();
   };
-  const closePanel = () => {
+  const close = () => {
     overlay.classList.remove('open');
     overlay.classList.add('closing');
-    setTimeout(() => {
-      overlay.classList.add('hidden');
-      overlay.classList.remove('closing');
-    }, 280);
+    setTimeout(() => { overlay.classList.add('hidden'); overlay.classList.remove('closing'); }, 280);
     panel.setAttribute('aria-hidden', 'true');
     btn.focus();
   };
 
-  btn.addEventListener('click', openPanel);
-  closeBtn.addEventListener('click', closePanel);
-  overlay.addEventListener('click', e => { if (e.target === overlay) closePanel(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.classList.contains('open')) closePanel(); });
+  btn.addEventListener('click', open);
+  closeBtn.addEventListener('click', close);
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.classList.contains('open')) close(); });
 
-  buildSettingsUI();
-}
-
-function buildSettingsUI() {
   buildThemePicker();
-  buildClockSettings();
-  buildSearchSettings();
+  buildFontSettings();
+  buildDisplaySettings();
   buildQuickLinksEditor();
   buildAnimationSettings();
 }
@@ -200,51 +199,80 @@ function buildThemePicker() {
   }
 }
 
-// Clock settings
-function buildClockSettings() {
-  const h12 = document.getElementById('setting-12h');
-  const secs = document.getElementById('setting-seconds');
-  const date = document.getElementById('setting-date');
+// Font picker
+function buildFontSettings() {
+  const container = document.getElementById('font-picker');
+  container.innerHTML = '';
+  for (const [key, font] of Object.entries(FONTS)) {
+    const btn = document.createElement('button');
+    btn.className = 'font-option' + (settings.font === key ? ' active' : '');
+    btn.dataset.font = key;
+    btn.type = 'button';
+    btn.style.fontFamily = font.stack;
+    btn.textContent = font.label;
+    btn.addEventListener('click', () => {
+      settings.font = key;
+      Storage.save({ font: key });
+      applyFont();
+      document.querySelectorAll('.font-option').forEach(b => b.classList.toggle('active', b === btn));
+    });
+    container.appendChild(btn);
+  }
+}
 
-  h12.checked  = settings.clockFormat === '12h';
-  secs.checked = settings.showSeconds;
-  date.checked = settings.showDate;
+// Display / Layout settings
+function buildDisplaySettings() {
+  const layoutBtns = document.querySelectorAll('.layout-btn');
+  const timeSubEl  = document.getElementById('time-sub-settings');
+  const dateSubEl  = document.getElementById('date-sub-settings');
+  const h12El      = document.getElementById('setting-12h');
+  const secsEl     = document.getElementById('setting-seconds');
+  const dateEl     = document.getElementById('setting-date');
+  const timeDateEl = document.getElementById('setting-time-in-date');
 
-  h12.addEventListener('change', () => {
-    settings.clockFormat = h12.checked ? '12h' : '24h';
+  const updateSubSections = () => {
+    timeSubEl.hidden = settings.layout !== 'time';
+    dateSubEl.hidden = settings.layout !== 'date';
+  };
+
+  // Init states
+  layoutBtns.forEach(b => b.classList.toggle('active', b.dataset.value === settings.layout));
+  h12El.checked      = settings.clockFormat === '12h';
+  secsEl.checked     = settings.showSeconds;
+  dateEl.checked     = settings.showDate;
+  timeDateEl.checked = settings.showTimeInDate;
+  updateSubSections();
+
+  layoutBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      settings.layout = btn.dataset.value;
+      Storage.save({ layout: btn.dataset.value });
+      layoutBtns.forEach(b => b.classList.toggle('active', b === btn));
+      updateSubSections();
+      renderHeader();
+      tickClock();
+    });
+  });
+
+  h12El.addEventListener('change', () => {
+    settings.clockFormat = h12El.checked ? '12h' : '24h';
     Storage.save({ clockFormat: settings.clockFormat });
     tickClock();
   });
-  secs.addEventListener('change', () => {
-    settings.showSeconds = secs.checked;
-    Storage.save({ showSeconds: secs.checked });
+  secsEl.addEventListener('change', () => {
+    settings.showSeconds = secsEl.checked;
+    Storage.save({ showSeconds: secsEl.checked });
     tickClock();
   });
-  date.addEventListener('change', () => {
-    settings.showDate = date.checked;
-    Storage.save({ showDate: date.checked });
+  dateEl.addEventListener('change', () => {
+    settings.showDate = dateEl.checked;
+    Storage.save({ showDate: dateEl.checked });
     tickClock();
   });
-}
-
-// Search settings
-function buildSearchSettings() {
-  const sel  = document.getElementById('setting-engine');
-  const cRow = document.getElementById('custom-url-row');
-  const cUrl = document.getElementById('setting-custom-url');
-
-  sel.value  = settings.searchEngine;
-  cUrl.value = settings.customSearchUrl;
-  cRow.classList.toggle('hidden', settings.searchEngine !== 'custom');
-
-  sel.addEventListener('change', () => {
-    settings.searchEngine = sel.value;
-    Storage.save({ searchEngine: sel.value });
-    cRow.classList.toggle('hidden', sel.value !== 'custom');
-  });
-  cUrl.addEventListener('input', () => {
-    settings.customSearchUrl = cUrl.value;
-    Storage.save({ customSearchUrl: cUrl.value });
+  timeDateEl.addEventListener('change', () => {
+    settings.showTimeInDate = timeDateEl.checked;
+    Storage.save({ showTimeInDate: timeDateEl.checked });
+    tickClock();
   });
 }
 
@@ -255,40 +283,30 @@ function buildQuickLinksEditor() {
 
   const renderEditor = () => {
     container.innerHTML = '';
-    const links = settings.quickLinks || [];
-    links.forEach((link, i) => {
+    (settings.quickLinks || []).forEach((link, i) => {
       const row = document.createElement('div');
       row.className = 'ql-row';
       row.innerHTML = `
         <input class="ql-label" type="text" placeholder="Label" value="${escHtml(link.label || '')}" maxlength="20">
-        <input class="ql-url"   type="url"  placeholder="https://..." value="${escHtml(link.url || '')}">
+        <input class="ql-url"   type="url"  placeholder="https://…"  value="${escHtml(link.url   || '')}">
         <button class="ql-remove" type="button" aria-label="Remove">✕</button>
       `;
-      row.querySelector('.ql-label').addEventListener('input', e => {
-        settings.quickLinks[i].label = e.target.value;
-        saveAndRender();
-      });
-      row.querySelector('.ql-url').addEventListener('input', e => {
-        settings.quickLinks[i].url = e.target.value;
-        saveAndRender();
-      });
-      row.querySelector('.ql-remove').addEventListener('click', () => {
-        settings.quickLinks.splice(i, 1);
-        saveAndRender(true);
-      });
+      row.querySelector('.ql-label').addEventListener('input', e => { settings.quickLinks[i].label = e.target.value; persist(); });
+      row.querySelector('.ql-url').addEventListener('input',   e => { settings.quickLinks[i].url   = e.target.value; persist(); });
+      row.querySelector('.ql-remove').addEventListener('click', () => { settings.quickLinks.splice(i, 1); persist(true); });
       container.appendChild(row);
     });
-    addBtn.disabled = links.length >= 6;
+    addBtn.disabled = (settings.quickLinks || []).length >= 6;
   };
 
-  const saveAndRender = (rebuildEditor = false) => {
+  const persist = (rebuildEditor = false) => {
     Storage.save({ quickLinks: settings.quickLinks });
     renderQuickLinks();
     if (rebuildEditor) renderEditor();
   };
 
   addBtn.addEventListener('click', () => {
-    if (settings.quickLinks.length >= 6) return;
+    if ((settings.quickLinks || []).length >= 6) return;
     settings.quickLinks.push({ label: '', url: '' });
     renderEditor();
   });
@@ -299,10 +317,10 @@ function buildQuickLinksEditor() {
 // Animation settings
 function buildAnimationSettings() {
   const btns   = document.querySelectorAll('.intensity-btn');
-  const static_ = document.getElementById('setting-static');
+  const staticEl = document.getElementById('setting-static');
 
   btns.forEach(b => b.classList.toggle('active', b.dataset.value === settings.intensity));
-  static_.checked = settings.staticMode;
+  staticEl.checked = settings.staticMode;
 
   btns.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -310,15 +328,14 @@ function buildAnimationSettings() {
       Storage.save({ intensity: btn.dataset.value });
       btns.forEach(b => b.classList.toggle('active', b === btn));
       engine.setOptions({ intensity: Storage.intensityValue(btn.dataset.value) });
-      // Re-init theme with new intensity
       engine.switchTheme(THEME_MAP[settings.theme] || StarfieldTheme);
     });
   });
 
-  static_.addEventListener('change', () => {
-    settings.staticMode = static_.checked;
-    Storage.save({ staticMode: static_.checked });
-    engine.setOptions({ staticMode: static_.checked });
+  staticEl.addEventListener('change', () => {
+    settings.staticMode = staticEl.checked;
+    Storage.save({ staticMode: staticEl.checked });
+    engine.setOptions({ staticMode: staticEl.checked });
   });
 }
 
