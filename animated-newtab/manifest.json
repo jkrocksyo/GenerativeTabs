@@ -1,16 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Liv",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Beautiful animated new tab — deep space, nebula, galaxy, aurora, and particles. Zero network requests. Only storage permission required.",
   "chrome_url_overrides": { "newtab": "newtab.html" },
-  "action": {},
-  "side_panel": { "default_path": "sidepanel.html" },
-  "background": { "service_worker": "js/background.js" },
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "permissions": ["storage", "sidePanel"]
+  "permissions": ["storage"]
 }
