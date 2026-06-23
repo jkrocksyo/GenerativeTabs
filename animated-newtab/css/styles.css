@@ -64,15 +64,15 @@ html, body {
   user-select: none;
 }
 
-/* Logo */
-.wordmark {
-  font-family: var(--ui-font);
-  font-size: clamp(2.6rem, 8vw, 5rem);
-  font-weight: 100;
-  letter-spacing: 0.42em;
-  padding-left: 0.42em;
-  color: rgba(255,255,255,0.88);
-  text-shadow: 0 0 80px rgba(255,255,255,0.14), 0 2px 8px rgba(0,0,0,0.5);
+/* Google wordmark */
+.google-wordmark {
+  font-family: 'Product Sans', 'Google Sans', 'Helvetica Neue', Arial, sans-serif;
+  font-size: clamp(3rem, 10vw, 6rem);
+  font-weight: 400;
+  letter-spacing: -0.5px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 16px rgba(0,0,0,0.45));
+  user-select: none;
 }
 
 /* Time header */
