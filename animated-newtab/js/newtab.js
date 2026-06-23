@@ -39,6 +39,7 @@ let settings;
 
   applyFont();
   renderHeader();
+  renderSearch();
   initClock();
   initSearch();
   renderQuickLinks();
@@ -61,9 +62,18 @@ function applyFont() {
 // ── Header / Layout ───────────────────────────────────────────────────────────
 
 function renderHeader() {
-  document.getElementById('header-logo').hidden = settings.layout !== 'logo';
-  document.getElementById('header-time').hidden = settings.layout !== 'time';
-  document.getElementById('header-date').hidden = settings.layout !== 'date';
+  const hide = settings.hideText;
+  document.getElementById('header-logo').hidden = settings.layout !== 'logo' || hide;
+  document.getElementById('header-time').hidden = settings.layout !== 'time' || hide;
+  document.getElementById('header-date').hidden = settings.layout !== 'date' || hide;
+  // Remove active highlight from layout buttons when text is hidden
+  document.querySelectorAll('.layout-btn').forEach(b =>
+    b.classList.toggle('active', !hide && b.dataset.value === settings.layout)
+  );
+}
+
+function renderSearch() {
+  document.getElementById('search-container').hidden = settings.hideSearch;
 }
 
 // ── Clock ─────────────────────────────────────────────────────────────────────
@@ -222,13 +232,15 @@ function buildFontSettings() {
 
 // Display / Layout settings
 function buildDisplaySettings() {
-  const layoutBtns = document.querySelectorAll('.layout-btn');
-  const timeSubEl  = document.getElementById('time-sub-settings');
-  const dateSubEl  = document.getElementById('date-sub-settings');
-  const h12El      = document.getElementById('setting-12h');
-  const secsEl     = document.getElementById('setting-seconds');
-  const dateEl     = document.getElementById('setting-date');
-  const timeDateEl = document.getElementById('setting-time-in-date');
+  const layoutBtns  = document.querySelectorAll('.layout-btn');
+  const timeSubEl   = document.getElementById('time-sub-settings');
+  const dateSubEl   = document.getElementById('date-sub-settings');
+  const h12El       = document.getElementById('setting-12h');
+  const secsEl      = document.getElementById('setting-seconds');
+  const dateEl      = document.getElementById('setting-date');
+  const timeDateEl  = document.getElementById('setting-time-in-date');
+  const hideTextEl  = document.getElementById('setting-hide-text');
+  const hideSearchEl= document.getElementById('setting-hide-search');
 
   const updateSubSections = () => {
     timeSubEl.hidden = settings.layout !== 'time';
@@ -236,11 +248,13 @@ function buildDisplaySettings() {
   };
 
   // Init states
-  layoutBtns.forEach(b => b.classList.toggle('active', b.dataset.value === settings.layout));
-  h12El.checked      = settings.clockFormat === '12h';
-  secsEl.checked     = settings.showSeconds;
-  dateEl.checked     = settings.showDate;
-  timeDateEl.checked = settings.showTimeInDate;
+  layoutBtns.forEach(b => b.classList.toggle('active', !settings.hideText && b.dataset.value === settings.layout));
+  h12El.checked       = settings.clockFormat === '12h';
+  secsEl.checked      = settings.showSeconds;
+  dateEl.checked      = settings.showDate;
+  timeDateEl.checked  = settings.showTimeInDate;
+  hideTextEl.checked  = settings.hideText;
+  hideSearchEl.checked= settings.hideSearch;
   updateSubSections();
 
   layoutBtns.forEach(btn => {
@@ -273,6 +287,18 @@ function buildDisplaySettings() {
     settings.showTimeInDate = timeDateEl.checked;
     Storage.save({ showTimeInDate: timeDateEl.checked });
     tickClock();
+  });
+
+  hideTextEl.addEventListener('change', () => {
+    settings.hideText = hideTextEl.checked;
+    Storage.save({ hideText: hideTextEl.checked });
+    renderHeader();
+  });
+
+  hideSearchEl.addEventListener('change', () => {
+    settings.hideSearch = hideSearchEl.checked;
+    Storage.save({ hideSearch: hideSearchEl.checked });
+    renderSearch();
   });
 }
 
