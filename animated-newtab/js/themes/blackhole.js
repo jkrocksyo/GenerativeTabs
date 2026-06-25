@@ -24,29 +24,34 @@ void main(){
   float rd=length(pd); float ad=atan(pd.y,pd.x);
   vec3 col=vec3(0.0);
 
-  // ── Deep space background (renders behind everything) ──────────────────
+  // ── Deep space background (renders behind everything, drifts left→right) ─
+  // Parallax drift: distant stars slowest, foreground fastest
+  float sd1=u_time*0.010; float sd2=u_time*0.022; float sd3=u_time*0.038;
   // Layer 1: dense faint distant stars
-  vec2 sg1=floor(p*480.+vec2(17.3,41.7));
+  vec2 mp1=p+vec2(sd1,0.0);
+  vec2 sg1=floor(mp1*480.+vec2(17.3,41.7));
   float sb1=smoothstep(0.988,1.0,hash(sg1));
-  vec2 sf1=fract(p*480.+vec2(17.3,41.7))-.5;
+  vec2 sf1=fract(mp1*480.+vec2(17.3,41.7))-.5;
   col+=vec3(0.85,0.92,1.0)*sb1*exp(-length(sf1)*55.)*0.65;
   // Layer 2: mid-field stars with colour tint variation
-  vec2 sg2=floor(p*260.+vec2(53.1,87.4));
+  vec2 mp2=p+vec2(sd2,0.0);
+  vec2 sg2=floor(mp2*260.+vec2(53.1,87.4));
   float sha2=hash(sg2); float sb2=smoothstep(0.980,1.0,sha2);
-  vec2 sf2=fract(p*260.+vec2(53.1,87.4))-.5;
+  vec2 sf2=fract(mp2*260.+vec2(53.1,87.4))-.5;
   float stc2=hash(sg2+0.5);
   vec3 sc2=stc2<0.6?vec3(1.0,1.0,1.0):stc2<0.82?vec3(0.70,0.84,1.0):vec3(1.0,0.88,0.65);
   col+=sc2*sb2*exp(-length(sf2)*38.)*1.0;
   // Layer 3: sparse bright stars with soft glow and subtle twinkle
-  vec2 sg3=floor(p*145.+vec2(123.4,67.8));
+  vec2 mp3=p+vec2(sd3,0.0);
+  vec2 sg3=floor(mp3*145.+vec2(123.4,67.8));
   float sha3=hash(sg3); float sb3=smoothstep(0.973,1.0,sha3);
-  vec2 sf3=fract(p*145.+vec2(123.4,67.8))-.5; float sl3=length(sf3);
+  vec2 sf3=fract(mp3*145.+vec2(123.4,67.8))-.5; float sl3=length(sf3);
   float stc3=hash(sg3+0.7);
   vec3 sc3=stc3<0.5?vec3(1.0,1.0,1.0):stc3<0.75?vec3(0.65,0.80,1.0):vec3(1.0,0.87,0.60);
   float tw3=0.88+0.12*sin(u_time*(0.3+sha3*0.7)+sha3*6.28);
   col+=sc3*sb3*tw3*(exp(-sl3*20.)+exp(-sl3*7.)*0.25)*1.6;
-  // Subtle deep-space nebula dust
-  float sneb=fbm(p*1.6+vec2(0.3,0.7));
+  // Subtle deep-space nebula dust (slow drift)
+  float sneb=fbm(p*1.6+vec2(u_time*0.006+0.3,0.7));
   col+=vec3(0.03,0.02,0.08)*sneb*0.55;
 
   float flow=u_time*0.33;
