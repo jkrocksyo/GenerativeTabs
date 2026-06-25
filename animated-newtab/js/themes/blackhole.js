@@ -26,7 +26,7 @@ void main(){
 
   // ── Deep space background (renders behind everything, drifts left→right) ─
   // Parallax drift: distant stars slowest, foreground fastest
-  float sd1=u_time*0.010; float sd2=u_time*0.022; float sd3=u_time*0.038;
+  float sd1=u_time*0.0009; float sd2=u_time*0.003; float sd3=u_time*0.007;
   // Layer 1: dense faint distant stars
   vec2 mp1=p+vec2(sd1,0.0);
   vec2 sg1=floor(mp1*480.+vec2(17.3,41.7));
@@ -51,7 +51,7 @@ void main(){
   float tw3=0.88+0.12*sin(u_time*(0.3+sha3*0.7)+sha3*6.28);
   col+=sc3*sb3*tw3*(exp(-sl3*20.)+exp(-sl3*7.)*0.25)*1.6;
   // Subtle deep-space nebula dust (slow drift)
-  float sneb=fbm(p*1.6+vec2(u_time*0.006+0.3,0.7));
+  float sneb=fbm(p*1.6+vec2(u_time*0.0008+0.3,0.7));
   col+=vec3(0.03,0.02,0.08)*sneb*0.55;
 
   float flow=u_time*0.33;
