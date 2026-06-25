@@ -12,7 +12,7 @@ class ThemeEngine {
     this._webglFailed = false;
     this._dpr = 1;
 
-    this.options = { intensity: 1.0, staticMode: false };
+    this.options = { intensity: 1.0, staticMode: false, speed: 1.0 };
 
     this._prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -119,12 +119,21 @@ class ThemeEngine {
 
   setOptions(opts) {
     Object.assign(this.options, opts);
+    if (this.currentTheme && opts.speed !== undefined) {
+      this.currentTheme.speed = opts.speed;
+    }
     this._checkShouldAnimate();
   }
 
   switchTheme(ThemeClass) {
     this._stopLoop();
-    if (this.currentTheme) { this.currentTheme.destroy(); this.currentTheme = null; }
+    if (this.currentTheme) {
+      this.currentTheme.destroy();
+      this.currentTheme = null;
+      // Force canvas recreation: destroy() calls loseContext() on WebGL themes,
+      // so reusing the same canvas would give the new theme a dead context.
+      this._activeContextType = null;
+    }
 
     const theme = new ThemeClass();
     const needsType = theme.contextType || '2d';

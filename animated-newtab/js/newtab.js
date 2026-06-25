@@ -1,18 +1,33 @@
 'use strict';
 
 const THEME_MAP = {
-  starfield: StarfieldTheme,
-  nebula:    NebulaTheme,
-  galaxy:    GalaxyTheme,
-  particles: ParticlesTheme,
+  starfield:  StarfieldTheme,
+  nebula:     NebulaTheme,
+  galaxy:     GalaxyTheme,
+  particles:  ParticlesTheme,
+  hyperspace: HyperspaceTheme,
+  meteor:     MeteorShowerTheme,
+  blackhole:  BlackHoleTheme,
+  sakura:     SakuraPetalsTheme,
+  fireflies:  ForestFirefliesTheme,
 };
 
 const THEME_LABELS = {
-  starfield: 'Deep Space',
-  nebula:    'Nebula Drift',
-  galaxy:    'Galaxy Spiral',
-  particles: 'Drift',
+  starfield:  'Deep Space',
+  nebula:     'Nebula Drift',
+  galaxy:     'Galaxy Spiral',
+  particles:  'Constellations',
+  hyperspace: 'Hyperspace',
+  meteor:     'Meteor Shower',
+  blackhole:  'Black Hole',
+  sakura:     'Sakura Petals',
+  fireflies:  'Forest Fireflies',
 };
+
+const THEME_GROUPS = [
+  { key: 'space',  label: 'Space',  themes: ['starfield','nebula','galaxy','particles','hyperspace','meteor','blackhole'] },
+  { key: 'nature', label: 'Nature', themes: ['sakura', 'fireflies'] },
+];
 
 const FONTS = {
   system:    { label: 'System',   stack: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' },
@@ -33,6 +48,7 @@ let settings;
   engine = new ThemeEngine(document.getElementById('canvas-container'));
   engine.setOptions({
     intensity:  Storage.intensityValue(settings.intensity),
+    speed:      settings.animSpeed,
     staticMode: settings.staticMode,
   });
   engine.switchTheme(THEME_MAP[settings.theme] || StarfieldTheme);
@@ -244,20 +260,62 @@ function initSectionToggles() {
 function buildThemePicker() {
   const container = document.getElementById('theme-picker');
   container.innerHTML = '';
-  for (const [key, label] of Object.entries(THEME_LABELS)) {
-    const btn = document.createElement('button');
-    btn.className = 'theme-option' + (settings.theme === key ? ' active' : '');
-    btn.dataset.theme = key;
-    btn.type = 'button';
-    btn.innerHTML = `<span class="theme-dot theme-dot-${key}"></span><span>${label}</span>`;
-    btn.addEventListener('click', () => {
-      settings.theme = key;
-      Storage.save({ theme: key });
-      document.querySelectorAll('.theme-option').forEach(b => b.classList.toggle('active', b.dataset.theme === key));
-      engine.switchTheme(THEME_MAP[key]);
+
+  THEME_GROUPS.forEach(({ key, label, themes }) => {
+    const stateKey = 'theme-' + key;
+    const collapsed = (settings.collapsedSections || {})[stateKey] || false;
+
+    const group = document.createElement('div');
+    group.className = 'theme-group';
+
+    const toggle = document.createElement('button');
+    toggle.className = 'theme-group-toggle';
+    toggle.type = 'button';
+    toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    toggle.innerHTML = `<span>${label}</span><svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+    const body = document.createElement('div');
+    body.className = 'theme-group-body';
+    if (collapsed) body.style.height = '0px';
+
+    themes.forEach(themeKey => {
+      const btn = document.createElement('button');
+      btn.className = 'theme-option' + (settings.theme === themeKey ? ' active' : '');
+      btn.dataset.theme = themeKey;
+      btn.type = 'button';
+      btn.innerHTML = `<span class="theme-dot theme-dot-${themeKey}"></span><span>${THEME_LABELS[themeKey]}</span>`;
+      btn.addEventListener('click', () => {
+        settings.theme = themeKey;
+        Storage.save({ theme: themeKey });
+        document.querySelectorAll('.theme-option').forEach(b => b.classList.toggle('active', b.dataset.theme === themeKey));
+        engine.switchTheme(THEME_MAP[themeKey]);
+      });
+      body.appendChild(btn);
     });
-    container.appendChild(btn);
-  }
+
+    toggle.addEventListener('click', () => {
+      const isCollapsed = toggle.getAttribute('aria-expanded') === 'false';
+      if (isCollapsed) {
+        toggle.setAttribute('aria-expanded', 'true');
+        body.style.height = '0px';
+        body.getBoundingClientRect();
+        body.style.height = body.scrollHeight + 'px';
+        body.addEventListener('transitionend', () => { body.style.height = ''; }, { once: true });
+      } else {
+        toggle.setAttribute('aria-expanded', 'false');
+        body.style.height = body.scrollHeight + 'px';
+        body.getBoundingClientRect();
+        body.style.height = '0px';
+      }
+      settings.collapsedSections = settings.collapsedSections || {};
+      settings.collapsedSections[stateKey] = !isCollapsed;
+      Storage.save({ collapsedSections: settings.collapsedSections });
+    });
+
+    group.appendChild(toggle);
+    group.appendChild(body);
+    container.appendChild(group);
+  });
 }
 
 // Font picker
@@ -393,11 +451,17 @@ function buildQuickLinksEditor() {
 
 // Animation settings
 function buildAnimationSettings() {
-  const btns   = document.querySelectorAll('.intensity-btn');
+  const btns     = document.querySelectorAll('.intensity-btn');
   const staticEl = document.getElementById('setting-static');
+  const speedEl  = document.getElementById('setting-speed');
+  const speedLbl = document.getElementById('speed-label');
 
   btns.forEach(b => b.classList.toggle('active', b.dataset.value === settings.intensity));
   staticEl.checked = settings.staticMode;
+
+  const spd = settings.animSpeed || 1.0;
+  speedEl.value = spd;
+  speedLbl.textContent = spd.toFixed(2).replace(/\.?0+$/, '') + '×';
 
   btns.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -407,6 +471,15 @@ function buildAnimationSettings() {
       engine.setOptions({ intensity: Storage.intensityValue(btn.dataset.value) });
       engine.switchTheme(THEME_MAP[settings.theme] || StarfieldTheme);
     });
+  });
+
+  speedEl.addEventListener('input', () => {
+    const v = parseFloat(speedEl.value);
+    settings.animSpeed = v;
+    Storage.save({ animSpeed: v });
+    engine.setOptions({ speed: v });
+    const display = Number.isInteger(v) ? v + '' : v.toFixed(2).replace(/0+$/, '');
+    speedLbl.textContent = display + '×';
   });
 
   staticEl.addEventListener('change', () => {

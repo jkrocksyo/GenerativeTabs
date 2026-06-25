@@ -11,6 +11,7 @@ class StarfieldTheme {
     this.w = 0;
     this.h = 0;
     this.intensity = 1.0;
+    this.speed = 1.0;
   }
 
   init(canvas, ctx, opts) {
@@ -19,6 +20,7 @@ class StarfieldTheme {
     this.w = canvas.width;
     this.h = canvas.height;
     this.intensity = opts.intensity || 1.0;
+    this.speed = opts.speed || 1.0;
     this._build();
     this.nextShootAt = performance.now() + 15000 + Math.random() * 15000;
   }
@@ -61,10 +63,10 @@ class StarfieldTheme {
     ctx.fillRect(0, 0, w, h);
 
     for (const s of this.stars) {
-      s.x += s.speed;
+      s.x += s.speed * this.speed;
       if (s.x > w + 4) s.x = -4;
 
-      const twinkle = 1 - s.twAmt + s.twAmt * Math.sin(t * s.twSpeed + s.twPhase);
+      const twinkle = 1 - s.twAmt + s.twAmt * Math.sin(t * this.speed * s.twSpeed + s.twPhase);
       const alpha = Math.max(0, Math.min(1, s.baseAlpha * twinkle));
 
       if (s.bright) {
@@ -113,9 +115,9 @@ class StarfieldTheme {
   _drawShooters() {
     const { ctx } = this;
     this.shooters = this.shooters.filter(s => {
-      s.x += s.vx;
-      s.y += s.vy;
-      s.life -= 0.014;
+      s.x += s.vx * this.speed;
+      s.y += s.vy * this.speed;
+      s.life -= 0.014 * this.speed;
       if (s.life <= 0 || s.x > this.w + 50 || s.y > this.h + 50) return false;
 
       const spd = Math.sqrt(s.vx * s.vx + s.vy * s.vy);

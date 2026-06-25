@@ -11,6 +11,7 @@ class GalaxyTheme {
     this.w = 0;
     this.h = 0;
     this.intensity = 1.0;
+    this.speed = 1.0;
     this._offscreen = null; // cached bg star layer
   }
 
@@ -20,6 +21,7 @@ class GalaxyTheme {
     this.w = canvas.width;
     this.h = canvas.height;
     this.intensity = opts.intensity || 1.0;
+    this.speed = opts.speed || 1.0;
     this._build();
   }
 
@@ -119,7 +121,7 @@ class GalaxyTheme {
     ctx.drawImage(this._offscreen, 0, 0);
 
     // Rotate galaxy
-    this.angle += 0.00018;
+    this.angle += 0.00018 * this.speed;
 
     ctx.save();
     ctx.translate(cx, cy);

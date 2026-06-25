@@ -14,6 +14,7 @@ const Storage = (() => {
     hideSearch:     false,
     quickLinks:     [],
     intensity:      'medium',
+    animSpeed:      1.0,
     staticMode:     false,
   };
 

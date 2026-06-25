@@ -8,6 +8,7 @@ class ParticlesTheme {
     this.w = 0;
     this.h = 0;
     this.intensity = 1.0;
+    this.speed = 1.0;
     this.orbs = [];
   }
 
@@ -17,6 +18,7 @@ class ParticlesTheme {
     this.w = canvas.width;
     this.h = canvas.height;
     this.intensity = opts.intensity || 1.0;
+    this.speed = opts.speed || 1.0;
     this._build();
   }
 
@@ -73,8 +75,8 @@ class ParticlesTheme {
 
     // Update positions
     for (const o of this.orbs) {
-      o.x += o.vx;
-      o.y += o.vy;
+      o.x += o.vx * this.speed;
+      o.y += o.vy * this.speed;
       // Wrap around
       if (o.x < -10) o.x = w + 10;
       if (o.x > w + 10) o.x = -10;
@@ -111,7 +113,7 @@ class ParticlesTheme {
 
     // Draw orbs with glow
     for (const o of this.orbs) {
-      const pulse = 1 - o.pulseAmt + o.pulseAmt * Math.sin(t * o.pulseSpeed + o.pulsePhase);
+      const pulse = 1 - o.pulseAmt + o.pulseAmt * Math.sin(t * this.speed * o.pulseSpeed + o.pulsePhase);
       const alpha = o.baseAlpha * pulse;
       const [r, g, b] = o.r;
       const rad = o.radius * pulse;

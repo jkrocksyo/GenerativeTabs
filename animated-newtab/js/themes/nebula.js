@@ -94,6 +94,7 @@ class NebulaTheme {
     this.clouds = [];
     this.fallbackStars = [];
     this.intensity = 1.0;
+    this.speed = 1.0;
   }
 
   init(canvas, ctx, opts) {
@@ -101,6 +102,7 @@ class NebulaTheme {
     this.w = canvas.width;
     this.h = canvas.height;
     this.intensity = opts.intensity || 1.0;
+    this.speed = opts.speed || 1.0;
 
     if (!this.webglFailed) {
       this._initGL(ctx);
@@ -212,12 +214,12 @@ class NebulaTheme {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     for (const c of this.clouds) {
-      c.x += c.vx; c.y += c.vy;
+      c.x += c.vx * this.speed; c.y += c.vy * this.speed;
       if (c.x < -0.4) c.x = 1.2;
       if (c.x > 1.2) c.x = -0.4;
       if (c.y < -0.3) c.y = 1.2;
       if (c.y > 1.2) c.y = -0.3;
-      c.scaleT += c.scaleSpd;
+      c.scaleT += c.scaleSpd * this.speed;
       const scale = 1 + 0.12 * Math.sin(c.scaleT);
       const cx = c.x * w, cy = c.y * h;
       const rx = c.rx * w * scale, ry = c.ry * h * scale;
@@ -249,7 +251,7 @@ class NebulaTheme {
     if (this._glReady && this.gl) {
       const gl = this.gl;
       gl.useProgram(this.program);
-      gl.uniform1f(this.uTime, ts * 0.001);
+      gl.uniform1f(this.uTime, ts * 0.001 * this.speed);
       gl.uniform2f(this.uRes, this.w, this.h);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     } else {
