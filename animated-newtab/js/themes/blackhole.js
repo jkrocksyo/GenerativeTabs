@@ -29,10 +29,10 @@ void main(){
   float sd1=u_time*0.0009; float sd2=u_time*0.003; float sd3=u_time*0.007;
   // Layer 1: dense faint distant stars
   vec2 mp1=p-vec2(sd1,0.0);
-  vec2 sg1=floor(mp1*480.+vec2(17.3,41.7));
+  vec2 sg1=floor(mp1*280.+vec2(17.3,41.7));
   float sb1=smoothstep(0.988,1.0,hash(sg1));
-  vec2 sf1=fract(mp1*480.+vec2(17.3,41.7))-.5;
-  col+=vec3(0.85,0.92,1.0)*sb1*exp(-length(sf1)*55.)*0.65;
+  vec2 sf1=fract(mp1*280.+vec2(17.3,41.7))-.5;
+  col+=vec3(0.85,0.92,1.0)*sb1*exp(-length(sf1)*35.)*0.65;
   // Layer 2: mid-field stars with colour tint variation
   vec2 mp2=p-vec2(sd2,0.0);
   vec2 sg2=floor(mp2*260.+vec2(53.1,87.4));

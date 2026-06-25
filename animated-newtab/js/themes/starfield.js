@@ -30,9 +30,9 @@ class StarfieldTheme {
     this.stars = [];
     const layers = [
       // [count, speed, minSz, maxSz, minA, maxA, isFar]
-      [Math.round(220 * f), 0.011, 0.25, 0.75, 0.12, 0.38, true],
-      [Math.round(140 * f), 0.036, 0.5,  1.3,  0.28, 0.62, false],
-      [Math.round(90  * f), 0.085, 0.9,  2.1,  0.55, 1.0,  false],
+      [Math.round(220 * f), 0.022, 0.25, 0.75, 0.12, 0.38, true],
+      [Math.round(140 * f), 0.072, 0.5,  1.3,  0.28, 0.62, false],
+      [Math.round(90  * f), 0.170, 0.9,  2.1,  0.55, 1.0,  false],
     ];
 
     for (const [count, speed, minSz, maxSz, minA, maxA, isFar] of layers) {
