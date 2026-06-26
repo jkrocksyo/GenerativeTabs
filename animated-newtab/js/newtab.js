@@ -10,6 +10,7 @@ const THEME_MAP = {
   blackhole:  BlackHoleTheme,
   sakura:     SakuraPetalsTheme,
   fireflies:  ForestFirefliesTheme,
+  bokeh:      BokehLightsTheme,
 };
 
 const THEME_LABELS = {
@@ -22,11 +23,12 @@ const THEME_LABELS = {
   blackhole:  'Black Hole',
   sakura:     'Sakura Petals',
   fireflies:  'Forest Fireflies',
+  bokeh:      'Bokeh Lights',
 };
 
 const THEME_GROUPS = [
   { key: 'space',  label: 'Space',  themes: ['starfield','nebula','galaxy','particles','hyperspace','meteor','blackhole'] },
-  { key: 'nature', label: 'Nature', themes: ['sakura', 'fireflies'] },
+  { key: 'nature', label: 'Nature', themes: ['sakura', 'fireflies', 'bokeh'] },
 ];
 
 const FONTS = {

@@ -372,6 +372,7 @@ html, body {
 .theme-dot-blackhole  { background: radial-gradient(circle, #ffd58a 30%, #7a3800 70%, #0a0604 100%); }
 .theme-dot-sakura     { background: radial-gradient(circle, #fde0e8 0%, #f4a0b5 60%, #e8a0b4 100%); }
 .theme-dot-fireflies  { background: radial-gradient(circle, #c8ff60 0%, #2a4a1a 60%, #0a0a1a 100%); }
+.theme-dot-bokeh      { background: radial-gradient(circle, #fff8f0 0%, #ffd980 40%, #100c18 100%); }
 
 /* ── Theme group (Space collapsible sub-group) ────────────────────────────── */
 .theme-group { }
