@@ -25,8 +25,11 @@
       </div>
       <div id="header-date" hidden>
         <div id="date-weekday"></div>
-        <div id="date-full"></div>
-        <div id="date-time-small"></div>
+        <div id="date-line">
+          <span id="date-time-small" hidden></span>
+          <span id="date-separator" hidden>·</span>
+          <span id="date-full"></span>
+        </div>
       </div>
     </div>
 
@@ -104,14 +107,6 @@
                 <button class="layout-btn" data-value="date" type="button">Date</button>
               </div>
             </div>
-            <label class="setting-row">
-              <span>Hide text</span>
-              <input type="checkbox" id="setting-hide-text">
-            </label>
-            <label class="setting-row">
-              <span>Hide search bar</span>
-              <input type="checkbox" id="setting-hide-search">
-            </label>
             <div id="time-sub-settings">
               <label class="setting-row">
                 <span>12-hour</span>
@@ -132,6 +127,14 @@
                 <input type="checkbox" id="setting-time-in-date">
               </label>
             </div>
+            <label class="setting-row">
+              <span>Hide text</span>
+              <input type="checkbox" id="setting-hide-text">
+            </label>
+            <label class="setting-row">
+              <span>Hide search bar</span>
+              <input type="checkbox" id="setting-hide-search">
+            </label>
           </div></div>
         </section>
 

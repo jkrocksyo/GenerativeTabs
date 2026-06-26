@@ -121,21 +121,21 @@ html, body {
   line-height: 1;
 }
 
-#date-full {
+#date-line {
   margin-top: 0.3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45em;
+}
+
+#date-full,
+#date-time-small,
+#date-separator {
   font-size: clamp(0.8rem, 1.6vw, 1rem);
   font-weight: 300;
   letter-spacing: 0.1em;
   opacity: 0.55;
   text-transform: uppercase;
-}
-
-#date-time-small {
-  margin-top: 0.4rem;
-  font-size: clamp(0.75rem, 1.4vw, 0.9rem);
-  font-weight: 300;
-  opacity: 0.38;
-  letter-spacing: 0.08em;
 }
 
 /* ── Search ───────────────────────────────────────────────────────────────── */

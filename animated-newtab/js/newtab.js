@@ -137,11 +137,14 @@ function tickClock() {
   document.getElementById('date-full').textContent    = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   const timeSmall = document.getElementById('date-time-small');
+  const dateSep   = document.getElementById('date-separator');
   if (settings.showTimeInDate) {
     timeSmall.textContent = `${h}:${pad(m)}${is12 ? ' ' + ampm : ''}`;
     timeSmall.hidden = false;
+    dateSep.hidden   = false;
   } else {
     timeSmall.hidden = true;
+    dateSep.hidden   = true;
   }
 }
 
