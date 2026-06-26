@@ -22,9 +22,11 @@ varying vec2 v_uv;varying vec3 v_col;varying float v_alpha;
 void main(){
   float d=length(v_uv);
   if(d>1.)discard;
-  // Bokeh falloff: bright center (~100%), ~30% at mid-radius, 0 at edge
-  float falloff=pow(1.-d,1.8);
-  gl_FragColor=vec4(v_col,v_alpha*falloff);
+  // Lens bokeh: flat disc fill with smooth circular edge + subtle center warmth
+  float fill   =1.-smoothstep(0.68,1.0,d); // uniform disc, soft circular edge
+  float bloom  =exp(-d*d*2.2);             // very soft center glow
+  float falloff=fill*0.82+bloom*0.28;
+  gl_FragColor=vec4(v_col,v_alpha*min(1.,falloff));
 }`;
 
   function compile(gl, type, src) {
