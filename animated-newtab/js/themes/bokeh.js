@@ -42,15 +42,15 @@ void main(){
     gl.linkProgram(p); return p;
   }
 
-  // Weighted color selection: 50% warm, 30% cool, 20% neutral
+  // Vivid palette — pops with additive blending on dark background
   function pickColor() {
     const r = Math.random() * 100;
-    if (r < 20) return [1.000, 0.973, 0.941]; // warm white   #fff8f0
-    if (r < 37) return [1.000, 0.851, 0.502]; // soft gold    #ffd980
-    if (r < 54) return [1.000, 0.702, 0.278]; // pale amber   #ffb347
-    if (r < 69) return [0.910, 0.941, 1.000]; // blue-white   #e8f0ff
-    if (r < 84) return [0.831, 0.784, 1.000]; // soft lavender #d4c8ff
-    return              [1.000, 0.796, 0.643]; // warm peach   #ffcba4
+    if (r < 16) return [1.000, 1.000, 1.000]; // pure white
+    if (r < 33) return [1.000, 0.851, 0.067]; // bright gold    #ffd911
+    if (r < 49) return [0.000, 0.855, 1.000]; // electric cyan  #00daff
+    if (r < 63) return [1.000, 0.278, 0.639]; // hot pink       #ff47a3
+    if (r < 80) return [0.267, 0.533, 1.000]; // electric blue  #4488ff
+    return              [1.000, 0.541, 0.082]; // bright amber   #ff8a15
   }
 
   const COUNT  = 65;
