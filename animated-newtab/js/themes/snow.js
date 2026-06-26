@@ -127,6 +127,15 @@ void main(){
                    : layer === 1 ? 3 + Math.random() * 3
                                  : 2 + Math.random() * 4;
       f.swayPhase  = Math.random() * Math.PI * 2;
+      // Secondary sway — incommensurate period creates a non-repeating organic path
+      f.swayAmp2    = f.swayAmp * (0.25 + Math.random() * 0.30);
+      f.swayPeriod2 = f.swayPeriod * (1.31 + Math.random() * 0.82);
+      f.swayPhase2  = Math.random() * Math.PI * 2;
+      // Vertical turbulence — flake speeds up/slows as it passes through air pockets
+      f.turbAmp   = f.vy * (0.06 + Math.random() * 0.10);
+      f.turbFreq  = 2 * Math.PI / (1.5 + Math.random() * 3.0);
+      f.turbPhase = Math.random() * Math.PI * 2;
+      f.sx = 0;
 
       f.alpha = layer === 0 ? 0.20 + Math.random() * 0.15  // 0.20–0.35
               : layer === 1 ? 0.45 + Math.random() * 0.20  // 0.45–0.65
@@ -166,7 +175,9 @@ void main(){
 
       const W = this.W, H = this.H;
       const maxWind = 15 * this.dpr;
-      const windVx  = maxWind * Math.sin(t * 2 * Math.PI / this._windPeriod);
+      // Two-harmonic wind — breaks the perfect sine into something more irregular
+      const windVx  = maxWind * (0.72 * Math.sin(t * 2*Math.PI / this._windPeriod)
+                               + 0.28 * Math.sin(t * 2*Math.PI / (this._windPeriod * 0.41)));
 
       // ── Background ────────────────────────────────────────────────────────
       gl.disable(gl.BLEND);
@@ -182,7 +193,12 @@ void main(){
       for (const f of this.flakes) {
         const wm = f.layer === 0 ? 0.3 : f.layer === 1 ? 0.6 : 1.0;
         f.bx += windVx * wm * dt;
-        f.by += f.vy   * dt;
+        const turb = f.turbAmp * Math.sin(t * f.turbFreq + f.turbPhase);
+        f.by += (f.vy + turb) * dt;
+
+        // Pre-compute two-frequency sway for this frame (reused in all VBO passes)
+        f.sx = f.swayAmp  * Math.sin(t * 2*Math.PI/f.swayPeriod  + f.swayPhase)
+             + f.swayAmp2 * Math.sin(t * 2*Math.PI/f.swayPeriod2 + f.swayPhase2);
 
         // Horizontal wrap
         const margin = f.baseR + 5;
@@ -217,26 +233,26 @@ void main(){
       // Back layer — tiny tight dots
       for (let i = 0; i < BACK_COUNT; i++) {
         const f = this.flakes[i];
-        const sx = f.swayAmp * Math.sin(t * 2*Math.PI/f.swayPeriod + f.swayPhase);
+        const sx = f.sx;
         pushQuad(f.bx+sx, f.by, f.baseR, f.r, f.g, f.b, f.alpha, 4.5);
       }
       // Mid layer — medium soft dots
       const midEnd = BACK_COUNT + MID_COUNT;
       for (let i = BACK_COUNT; i < midEnd; i++) {
         const f = this.flakes[i];
-        const sx = f.swayAmp * Math.sin(t * 2*Math.PI/f.swayPeriod + f.swayPhase);
+        const sx = f.sx;
         pushQuad(f.bx+sx, f.by, f.baseR, f.r, f.g, f.b, f.alpha, 3.5);
       }
       // Front halos (wide, faint — rendered before dots so dots appear on top)
       for (let i = midEnd; i < midEnd+FRONT_COUNT; i++) {
         const f = this.flakes[i];
-        const sx = f.swayAmp * Math.sin(t * 2*Math.PI/f.swayPeriod + f.swayPhase);
+        const sx = f.sx;
         pushQuad(f.bx+sx, f.by, f.baseR*2.8, f.r, f.g, f.b, f.haloAlpha, 1.0);
       }
       // Front dots (on top of halos)
       for (let i = midEnd; i < midEnd+FRONT_COUNT; i++) {
         const f = this.flakes[i];
-        const sx = f.swayAmp * Math.sin(t * 2*Math.PI/f.swayPeriod + f.swayPhase);
+        const sx = f.sx;
         pushQuad(f.bx+sx, f.by, f.baseR, f.r, f.g, f.b, f.alpha, 3.0);
       }
 
