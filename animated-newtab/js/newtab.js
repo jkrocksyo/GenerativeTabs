@@ -430,7 +430,7 @@ function buildQuickLinksEditor() {
       row.className = 'ql-row';
       row.innerHTML = `
         <input class="ql-label" type="text" placeholder="Label" value="${escHtml(link.label || '')}" maxlength="20">
-        <input class="ql-url"   type="url"  placeholder="https://…"  value="${escHtml(link.url   || '')}">
+        <input class="ql-url"   type="url"  placeholder="Paste entire link"  value="${escHtml(link.url   || '')}">
         <button class="ql-remove" type="button" aria-label="Remove">✕</button>
       `;
       row.querySelector('.ql-label').addEventListener('input', e => { settings.quickLinks[i].label = e.target.value; persist(); });
