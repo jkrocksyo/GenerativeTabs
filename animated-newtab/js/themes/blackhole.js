@@ -66,8 +66,9 @@ void main(){
   float disk=band*streak*hot*solidify;
   float frontMask=smoothstep(0.04,-0.04,pr.y);
   float backMask=1.0-frontMask;
+  vec3 diskCol=grade(clamp(disk*0.55,0.,1.));
   float emBack=disk*backMask;
-  col+=grade(clamp(emBack*0.55,0.,1.))*emBack;
+  col+=diskCol*emBack;
   col*=smoothstep(Rs-0.004,Rs+0.004,r);
   float envB=smoothstep(Rs-0.002,Rs+0.007,r)*(1.0-smoothstep(Rs*1.10,Rs*1.32,r));
   float ringB=envB*streak*1.8;
@@ -77,10 +78,10 @@ void main(){
   float pring=exp(-prd*prd)*pflow;
   col+=grade(0.95)*pring*2.0;
   float emFront=disk*frontMask;
-  col+=grade(clamp(emFront*0.55,0.,1.))*emFront;
+  col+=diskCol*emFront;
   float bloom=exp(-r*3.0)*0.45+exp(-abs(pr.y)*9.0)*exp(-max(0.0,r-Rs)*4.0)*0.3;
   col+=grade(0.8)*bloom*0.55;
-  vec2 q=(frag/u_res-0.5); q.x*=u_res.x/u_res.y;
+  vec2 q=(frag/u_res-0.5); q.x*=(u_res.x/u_res.y)*0.5;
   col*=smoothstep(1.0,0.25,length(q));
   col*=1.3; col=col/(col+vec3(1.0)); col=pow(col,vec3(0.82));
   col+=(hash(frag+u_time)-0.5)/255.0;
