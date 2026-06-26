@@ -9,10 +9,16 @@ void main(){
   vec3 gnd=vec3(0.102,0.118,0.141); // #1a1e24 snow-covered ground
   vec3 hor=vec3(0.078,0.118,0.180); // #141e2e horizon blue-grey
   vec3 sky=vec3(0.027,0.035,0.059); // #07090f zenith navy-black
-  float skyT=clamp((uv.y-0.08)/0.92,0.,1.);
-  vec3 col=mix(gnd,mix(hor,sky,skyT),step(0.08,uv.y));
-  // Ground accumulation glow — faint snow luminance at base
-  col+=vec3(0.88,0.93,1.0)*(1.-smoothstep(0.,0.09,uv.y))*0.09;
+  // Organic snow surface — slow undulation across x
+  float wave=0.006*sin(uv.x*7.3+u_time*0.08)
+            +0.003*sin(uv.x*14.1+u_time*0.13+1.7)
+            +0.004*sin(uv.x*3.2+u_time*0.05+3.1);
+  float horizon=0.05+wave;
+  float blend=smoothstep(horizon,horizon+0.028,uv.y);
+  float skyT=clamp((uv.y-horizon)/max(1.0-horizon,0.001),0.,1.);
+  vec3 col=mix(gnd,mix(hor,sky,skyT*skyT),blend);
+  // Ground glow — snow luminance fades up from surface
+  col+=vec3(0.88,0.93,1.0)*(1.-smoothstep(0.,0.10,uv.y))*0.09;
   // Stars in upper sky (y > 35%)
   float sMask=step(0.35,uv.y);
   vec2 sg=floor(uv*80.+vec2(17.3,41.7));
@@ -174,6 +180,8 @@ void main(){
       this._lastTs = ts;
 
       const W = this.W, H = this.H;
+      const gndY    = H * 0.95;   // canvas-pixel y matching UV horizon 0.05
+      const fadeLen = H * 0.15;   // flakes fade over 15% of canvas height above ground
       const maxWind = 15 * this.dpr;
       // Two-harmonic wind — breaks the perfect sine into something more irregular
       const windVx  = maxWind * (0.72 * Math.sin(t * 2*Math.PI / this._windPeriod)
@@ -205,8 +213,8 @@ void main(){
         if (f.bx < -margin)     f.bx += W + margin * 2;
         if (f.bx > W + margin)  f.bx -= W + margin * 2;
 
-        // Vertical respawn above top when exiting bottom
-        if (f.by > H + f.baseR) {
+        // Respawn above top once flake dissolves into ground
+        if (f.by > gndY + f.baseR) {
           f.by = -f.baseR;
           f.bx = Math.random() * W;
         }
@@ -233,27 +241,27 @@ void main(){
       // Back layer — tiny tight dots
       for (let i = 0; i < BACK_COUNT; i++) {
         const f = this.flakes[i];
-        const sx = f.sx;
-        pushQuad(f.bx+sx, f.by, f.baseR, f.r, f.g, f.b, f.alpha, 4.5);
+        const fa = Math.max(0, 1 - Math.max(0, f.by - (gndY - fadeLen)) / fadeLen);
+        pushQuad(f.bx+f.sx, f.by, f.baseR, f.r, f.g, f.b, f.alpha * fa, 4.5);
       }
       // Mid layer — medium soft dots
       const midEnd = BACK_COUNT + MID_COUNT;
       for (let i = BACK_COUNT; i < midEnd; i++) {
         const f = this.flakes[i];
-        const sx = f.sx;
-        pushQuad(f.bx+sx, f.by, f.baseR, f.r, f.g, f.b, f.alpha, 3.5);
+        const fa = Math.max(0, 1 - Math.max(0, f.by - (gndY - fadeLen)) / fadeLen);
+        pushQuad(f.bx+f.sx, f.by, f.baseR, f.r, f.g, f.b, f.alpha * fa, 3.5);
       }
       // Front halos (wide, faint — rendered before dots so dots appear on top)
       for (let i = midEnd; i < midEnd+FRONT_COUNT; i++) {
         const f = this.flakes[i];
-        const sx = f.sx;
-        pushQuad(f.bx+sx, f.by, f.baseR*2.8, f.r, f.g, f.b, f.haloAlpha, 1.0);
+        const fa = Math.max(0, 1 - Math.max(0, f.by - (gndY - fadeLen)) / fadeLen);
+        pushQuad(f.bx+f.sx, f.by, f.baseR*2.8, f.r, f.g, f.b, f.haloAlpha * fa, 1.0);
       }
       // Front dots (on top of halos)
       for (let i = midEnd; i < midEnd+FRONT_COUNT; i++) {
         const f = this.flakes[i];
-        const sx = f.sx;
-        pushQuad(f.bx+sx, f.by, f.baseR, f.r, f.g, f.b, f.alpha, 3.0);
+        const fa = Math.max(0, 1 - Math.max(0, f.by - (gndY - fadeLen)) / fadeLen);
+        pushQuad(f.bx+f.sx, f.by, f.baseR, f.r, f.g, f.b, f.alpha * fa, 3.0);
       }
 
       // ── Draw snowflakes ───────────────────────────────────────────────────
