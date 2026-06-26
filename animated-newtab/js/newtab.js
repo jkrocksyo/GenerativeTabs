@@ -11,6 +11,7 @@ const THEME_MAP = {
   sakura:     SakuraPetalsTheme,
   fireflies:  ForestFirefliesTheme,
   bokeh:      BokehLightsTheme,
+  snow:       FallingSnowTheme,
 };
 
 const THEME_LABELS = {
@@ -24,11 +25,12 @@ const THEME_LABELS = {
   sakura:     'Sakura Petals',
   fireflies:  'Forest Fireflies',
   bokeh:      'Bokeh Lights',
+  snow:       'Falling Snow',
 };
 
 const THEME_GROUPS = [
   { key: 'space',  label: 'Space',  themes: ['starfield','nebula','galaxy','particles','hyperspace','meteor','blackhole'] },
-  { key: 'nature', label: 'Nature', themes: ['sakura', 'fireflies', 'bokeh'] },
+  { key: 'nature', label: 'Nature', themes: ['sakura', 'fireflies', 'bokeh', 'snow'] },
 ];
 
 const FONTS = {
