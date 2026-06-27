@@ -1,40 +1,36 @@
 'use strict';
 
 const THEME_MAP = {
-  starfield:       StarfieldTheme,
-  nebula:          NebulaTheme,
-  galaxy:          GalaxyTheme,
-  particles:       ParticlesTheme,
-  hyperspace:      HyperspaceTheme,
-  meteor:          MeteorShowerTheme,
-  blackhole:       BlackHoleTheme,
-  sakura:          SakuraPetalsTheme,
-  fireflies:       ForestFirefliesTheme,
-  bokeh:           BokehLightsTheme,
-  snow:            FallingSnowTheme,
-  rainycitynight:  RainyCityNightTheme,
-  aerialcitynight: AerialCityNightTheme,
+  starfield:  StarfieldTheme,
+  nebula:     NebulaTheme,
+  galaxy:     GalaxyTheme,
+  particles:  ParticlesTheme,
+  hyperspace: HyperspaceTheme,
+  meteor:     MeteorShowerTheme,
+  blackhole:  BlackHoleTheme,
+  sakura:     SakuraPetalsTheme,
+  fireflies:  ForestFirefliesTheme,
+  bokeh:      BokehLightsTheme,
+  snow:       FallingSnowTheme,
 };
 
 const THEME_LABELS = {
-  starfield:       'Deep Space',
-  nebula:          'Nebula Drift',
-  galaxy:          'Galaxy Spiral',
-  particles:       'Constellations',
-  hyperspace:      'Hyperspace',
-  meteor:          'Meteor Shower',
-  blackhole:       'Black Hole',
-  sakura:          'Sakura Petals',
-  fireflies:       'Forest Fireflies',
-  bokeh:           'Bokeh Lights',
-  snow:            'Falling Snow',
-  rainycitynight:  'Rainy City Night',
-  aerialcitynight: 'Aerial City Night',
+  starfield:  'Deep Space',
+  nebula:     'Nebula Drift',
+  galaxy:     'Galaxy Spiral',
+  particles:  'Constellations',
+  hyperspace: 'Hyperspace',
+  meteor:     'Meteor Shower',
+  blackhole:  'Black Hole',
+  sakura:     'Sakura Petals',
+  fireflies:  'Forest Fireflies',
+  bokeh:      'Bokeh Lights',
+  snow:       'Falling Snow',
 };
 
 const THEME_GROUPS = [
   { key: 'space',  label: 'Space',  themes: ['starfield','nebula','galaxy','particles','hyperspace','meteor','blackhole'] },
-  { key: 'nature', label: 'Nature', themes: ['sakura', 'fireflies', 'bokeh', 'snow', 'rainycitynight', 'aerialcitynight'] },
+  { key: 'nature', label: 'Nature', themes: ['sakura', 'fireflies', 'bokeh', 'snow'] },
 ];
 
 const FONTS = {
