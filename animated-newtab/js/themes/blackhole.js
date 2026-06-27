@@ -101,7 +101,10 @@ void main(){
     init(canvas, _ctx, options) {
       this.canvas = canvas;
       this.opts = options || {};
+      this.speed = (options && options.speed) || 1.0;
       this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+      this._lastTs = null;
+      this._scaledTime = 0;
       const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
       this.gl = gl; if (!gl) return;
       const prog = gl.createProgram();
@@ -117,7 +120,6 @@ void main(){
       gl.vertexAttribPointer(al, 2, gl.FLOAT, false, 0, 0);
       this.uRes  = gl.getUniformLocation(prog, 'u_res');
       this.uTime = gl.getUniformLocation(prog, 'u_time');
-      this.t = 0;
       this.resize(canvas.clientWidth, canvas.clientHeight);
     }
 
@@ -130,11 +132,12 @@ void main(){
 
     draw(ts) {
       const gl = this.gl; if (!gl) return;
-      if (!this._t0) this._t0 = ts;
-      this.t = (ts - this._t0) / 1000;
+      const rawDt = this._lastTs ? Math.min((ts - this._lastTs) / 1000, 0.05) : 0;
+      this._lastTs = ts;
+      this._scaledTime += rawDt * (this.speed || 1);
       gl.useProgram(this.prog);
       gl.uniform2f(this.uRes, this.canvas.width, this.canvas.height);
-      gl.uniform1f(this.uTime, this.t);
+      gl.uniform1f(this.uTime, this._scaledTime);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
 

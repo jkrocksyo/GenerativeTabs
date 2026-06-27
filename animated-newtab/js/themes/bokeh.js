@@ -59,11 +59,12 @@ void main(){
   class BokehLightsTheme {
     constructor() { this.contextType = 'webgl'; }
 
-    init(canvas, _ctx) {
+    init(canvas, _ctx, opts) {
       this.canvas  = canvas;
       this.dpr     = Math.min(window.devicePixelRatio || 1, 2);
-      this._t0     = null;
+      this.speed   = (opts && opts.speed) || 1.0;
       this._lastTs = null;
+      this._scaledTime = 0;
       this.W = 1; this.H = 1;
       this._pulsePeriod = 6 + Math.random() * 4; // 6–10s master breathe
 
@@ -169,10 +170,11 @@ void main(){
 
     draw(ts) {
       const gl = this.gl; if (!gl) return;
-      if (!this._t0) this._t0 = ts;
-      const t  = (ts - this._t0) / 1000;
-      const dt = this._lastTs ? Math.min((ts - this._lastTs) / 1000, 0.05) : 0.016;
+      const rawDt = this._lastTs ? Math.min((ts - this._lastTs) / 1000, 0.05) : 0;
       this._lastTs = ts;
+      const dt = rawDt * (this.speed || 1);
+      this._scaledTime += dt;
+      const t = this._scaledTime;
 
       // Master breathing pulse ±4%
       const masterPulse = 1 + 0.04 * Math.sin(t * (2 * Math.PI / this._pulsePeriod));
