@@ -148,8 +148,8 @@ html, body {
   width: 100%;
   padding: 0.7rem 1.3rem;
   border-radius: 9999px;
-  border: 1px solid rgba(255,255,255,0.50);
-  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.07);
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   color: #fff;
@@ -159,17 +159,12 @@ html, body {
   outline: none;
   transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
   caret-color: rgba(255,255,255,0.8);
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.18), 0 2px 12px rgba(0,0,0,0.18);
-  text-shadow: 0 1px 4px rgba(0,0,0,0.35);
 }
-#search-input::placeholder {
-  color: rgba(255,255,255,0.70);
-  text-shadow: 0 1px 4px rgba(0,0,0,0.45);
-}
+#search-input::placeholder { color: rgba(255,255,255,0.35); }
 #search-input:focus {
-  border-color: rgba(255,255,255,0.72);
-  background: rgba(255,255,255,0.14);
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.18), 0 0 0 3px rgba(255,255,255,0.10), 0 4px 20px rgba(0,0,0,0.3);
+  border-color: rgba(255,255,255,0.38);
+  background: rgba(255,255,255,0.11);
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.07), 0 4px 20px rgba(0,0,0,0.3);
 }
 
 /* ── Quick links ──────────────────────────────────────────────────────────── */
