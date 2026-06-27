@@ -60,14 +60,14 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 1.6rem;
+  margin-bottom: 0.8rem;
   user-select: none;
 }
 
 /* Liv wordmark */
 .wordmark {
   font-family: var(--ui-font);
-  font-size: clamp(3rem, 10vw, 6rem);
+  font-size: clamp(4rem, 13vw, 8rem);
   font-weight: 300;
   letter-spacing: 0.05em;
   color: rgba(255,255,255,0.92);
