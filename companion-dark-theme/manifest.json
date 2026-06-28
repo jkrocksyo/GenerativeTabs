@@ -1,20 +1,18 @@
 {
   "manifest_version": 3,
-  "name": "Living New Tab — Dark Chrome",
+  "name": "LIV Dark Theme",
   "version": "1.0.0",
-  "description": "Companion dark theme for the Liv new tab extension. Darkens the browser chrome (tab strip, toolbar, frame) to match the extension's dark animated backgrounds.",
+  "description": "A dark browser theme that complements all LIV animated backgrounds.",
   "theme": {
     "colors": {
-      "frame":                [8,  8,  14],
-      "frame_inactive":       [8,  8,  14],
-      "toolbar":              [14, 14, 22],
-      "ntp_background":       [6,  6,  12],
-      "ntp_text":             [230,232,240],
-      "tab_background_text":  [200,205,220],
-      "tab_text":             [240,240,250],
-      "bookmark_text":        [210,215,228],
-      "button_background":    [20, 20, 30]
+      "frame":               [10, 10, 20],
+      "frame_inactive":      [7,  7,  15],
+      "toolbar":             [16, 16, 30],
+      "tab_text":            [215, 220, 245],
+      "tab_background_text": [130, 145, 185],
+      "bookmark_text":       [120, 135, 175],
+      "ntp_background":      [7,  7,  14],
+      "ntp_text":            [215, 220, 245]
     }
-  },
-  "icons": { "128": "icons/icon128.png" }
+  }
 }
