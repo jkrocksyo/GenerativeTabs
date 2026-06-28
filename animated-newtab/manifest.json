@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Liv",
   "version": "1.2.0",
-  "description": "Beautiful animated new tab — deep space, nebula, galaxy, aurora, and particles. Zero network requests. Only storage permission required.",
+  "description": "Animated new tab with 11 live backgrounds — deep space, nebula, galaxy, meteor shower, sakura, and more. Zero network requests.",
   "chrome_url_overrides": { "newtab": "newtab.html" },
   "action": {},
   "icons": {
