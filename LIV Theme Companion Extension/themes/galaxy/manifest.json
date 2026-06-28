@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "LIV Theme — Galaxy Spiral",
+  "version": "1.0.0",
+  "description": "Auto-managed by LIV Theme Companion. Do not load manually.",
+  "theme": {
+    "colors": {
+      "frame":               [18,11,4],
+      "frame_inactive":      [14,8,3],
+      "toolbar":             [28,18,7],
+      "tab_text":            [240,210,158],
+      "tab_background_text": [190,158,108],
+      "bookmark_text":       [180,148,98],
+      "ntp_background":      [12,7,2],
+      "ntp_text":            [240,210,158]
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "LIV Theme — Falling Snow",
+  "version": "1.0.0",
+  "description": "Auto-managed by LIV Theme Companion. Do not load manually.",
+  "theme": {
+    "colors": {
+      "frame":               [12,18,30],
+      "frame_inactive":      [9,14,24],
+      "toolbar":             [18,26,44],
+      "tab_text":            [210,225,248],
+      "tab_background_text": [162,182,215],
+      "bookmark_text":       [152,172,205],
+      "ntp_background":      [7,10,18],
+      "ntp_text":            [210,225,248]
+    }
+  }
+}

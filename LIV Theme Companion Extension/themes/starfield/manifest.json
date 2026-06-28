@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "LIV Theme — Deep Space",
+  "version": "1.0.0",
+  "description": "Auto-managed by LIV Theme Companion. Do not load manually.",
+  "theme": {
+    "colors": {
+      "frame":               [5,7,18],
+      "frame_inactive":      [4,5,14],
+      "toolbar":             [10,13,28],
+      "tab_text":            [220,228,255],
+      "tab_background_text": [140,158,210],
+      "bookmark_text":       [130,150,200],
+      "ntp_background":      [4,5,14],
+      "ntp_text":            [220,228,255]
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "LIV Theme — Bokeh Lights",
+  "version": "1.0.0",
+  "description": "Auto-managed by LIV Theme Companion. Do not load manually.",
+  "theme": {
+    "colors": {
+      "frame":               [14,8,20],
+      "frame_inactive":      [10,6,15],
+      "toolbar":             [22,12,32],
+      "tab_text":            [218,190,245],
+      "tab_background_text": [182,150,210],
+      "bookmark_text":       [172,140,200],
+      "ntp_background":      [8,4,12],
+      "ntp_text":            [218,190,245]
+    }
+  }
+}

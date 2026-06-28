@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "LIV Theme — Black Hole",
+  "version": "1.0.0",
+  "description": "Auto-managed by LIV Theme Companion. Do not load manually.",
+  "theme": {
+    "colors": {
+      "frame":               [4,4,8],
+      "frame_inactive":      [3,3,6],
+      "toolbar":             [8,8,14],
+      "tab_text":            [195,198,218],
+      "tab_background_text": [125,128,145],
+      "bookmark_text":       [115,118,135],
+      "ntp_background":      [2,2,4],
+      "ntp_text":            [195,198,218]
+    }
+  }
+}

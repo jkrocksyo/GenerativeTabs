@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "LIV Theme — Forest Fireflies",
+  "version": "1.0.0",
+  "description": "Auto-managed by LIV Theme Companion. Do not load manually.",
+  "theme": {
+    "colors": {
+      "frame":               [8,18,6],
+      "frame_inactive":      [6,14,4],
+      "toolbar":             [12,26,10],
+      "tab_text":            [195,250,165],
+      "tab_background_text": [145,210,120],
+      "bookmark_text":       [135,200,110],
+      "ntp_background":      [4,10,2],
+      "ntp_text":            [195,250,165]
+    }
+  }
+}

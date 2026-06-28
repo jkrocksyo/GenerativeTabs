@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "LIV Theme — Nebula Drift",
+  "version": "1.0.0",
+  "description": "Auto-managed by LIV Theme Companion. Do not load manually.",
+  "theme": {
+    "colors": {
+      "frame":               [18,6,36],
+      "frame_inactive":      [14,4,28],
+      "toolbar":             [28,10,54],
+      "tab_text":            [215,185,255],
+      "tab_background_text": [165,125,210],
+      "bookmark_text":       [155,115,200],
+      "ntp_background":      [10,5,20],
+      "ntp_text":            [215,185,255]
+    }
+  }
+}

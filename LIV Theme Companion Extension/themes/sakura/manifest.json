@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "LIV Theme — Sakura Petals",
+  "version": "1.0.0",
+  "description": "Auto-managed by LIV Theme Companion. Do not load manually.",
+  "theme": {
+    "colors": {
+      "frame":               [196,148,168],
+      "frame_inactive":      [182,136,155],
+      "toolbar":             [212,168,185],
+      "tab_text":            [55,20,35],
+      "tab_background_text": [90,45,60],
+      "bookmark_text":       [80,38,52],
+      "ntp_background":      [252,240,245],
+      "ntp_text":            [55,20,35]
+    }
+  }
+}
