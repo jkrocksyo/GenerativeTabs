@@ -86,10 +86,13 @@ function renderHeader() {
   document.getElementById('header-logo').hidden = settings.layout !== 'logo' || hide;
   document.getElementById('header-time').hidden = settings.layout !== 'time' || hide;
   document.getElementById('header-date').hidden = settings.layout !== 'date' || hide;
-  // Remove active highlight from layout buttons when text is hidden
   document.querySelectorAll('.layout-btn').forEach(b =>
     b.classList.toggle('active', !hide && b.dataset.value === settings.layout)
   );
+  const hasSubline =
+    (settings.layout === 'time' && settings.showDate) ||
+    (settings.layout === 'date' && settings.showTimeInDate);
+  document.getElementById('header').classList.toggle('has-subline', !hide && hasSubline);
 }
 
 function renderSearch() {
@@ -397,11 +400,13 @@ function buildDisplaySettings() {
   dateEl.addEventListener('change', () => {
     settings.showDate = dateEl.checked;
     Storage.save({ showDate: dateEl.checked });
+    renderHeader();
     tickClock();
   });
   timeDateEl.addEventListener('change', () => {
     settings.showTimeInDate = timeDateEl.checked;
     Storage.save({ showTimeInDate: timeDateEl.checked });
+    renderHeader();
     tickClock();
   });
 

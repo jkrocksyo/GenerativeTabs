@@ -60,9 +60,10 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 1.2rem;
+  margin-bottom: -0.2rem;
   user-select: none;
 }
+#header.has-subline { margin-bottom: 1.2rem; }
 
 /* Liv wordmark */
 .wordmark {
