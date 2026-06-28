@@ -91,7 +91,7 @@ function renderHeader() {
   );
   const hasSubline =
     (settings.layout === 'time' && settings.showDate) ||
-    (settings.layout === 'date' && settings.showTimeInDate);
+    settings.layout === 'date';
   document.getElementById('header').classList.toggle('has-subline', !hide && hasSubline);
 }
 
