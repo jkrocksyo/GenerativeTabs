@@ -34,7 +34,7 @@ html, body {
 #fade-overlay {
   position: fixed;
   inset: 0;
-  z-index: 5;
+  z-index: 99;
   background: #000;
   pointer-events: none;
   transition: opacity 0.55s ease;
