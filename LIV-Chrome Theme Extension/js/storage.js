@@ -2,20 +2,23 @@
 
 const Storage = (() => {
   const DEFAULTS = {
-    theme:          'starfield',
-    layout:         'logo',     // 'logo' | 'time' | 'date'
-    font:           'system',
-    clockFormat:    '12h',
-    showSeconds:    true,
-    showDate:       true,       // show date below when layout=time
-    showTimeInDate: false,      // show time below when layout=date
-    collapsedSections: {},
-    hideText:       false,
-    hideSearch:     false,
-    quickLinks:     [],
-    intensity:      'medium',
-    animSpeed:      1.0,
-    staticMode:     false,
+    theme:              'starfield',
+    layout:             'logo',     // 'logo' | 'time' | 'date'
+    font:               'system',
+    clockFormat:        '12h',
+    showSeconds:        true,
+    showDate:           true,       // show date below when layout=time
+    showTimeInDate:     false,      // show time below when layout=date
+    collapsedSections:  {},
+    hideText:           false,
+    hideSearch:         false,
+    quickLinks:         [],
+    intensity:          'medium',
+    animSpeed:          1.0,
+    staticMode:         false,
+    favorites:          [],
+    randomizeDaily:     null,
+    randomizeDailyDate: '',
   };
 
   const INTENSITY_MAP = { low: 0.5, medium: 1.0, high: 1.6 };

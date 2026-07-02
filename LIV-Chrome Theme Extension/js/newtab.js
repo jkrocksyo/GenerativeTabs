@@ -48,6 +48,7 @@ let settings;
 
 (async () => {
   settings = await Storage.load();
+  checkDailyRandomize();
 
   engine = new ThemeEngine(document.getElementById('canvas-container'));
   engine.setOptions({
@@ -116,7 +117,6 @@ function tickClock() {
   const ampm = is12 ? (h >= 12 ? 'PM' : 'AM') : '';
   if (is12) h = h % 12 || 12;
 
-  // Time header
   document.getElementById('clock-hm').textContent = `${h}:${pad(m)}`;
 
   const secEl = document.getElementById('clock-s');
@@ -135,7 +135,6 @@ function tickClock() {
     dateLine.hidden = true;
   }
 
-  // Date header
   document.getElementById('date-weekday').textContent = now.toLocaleDateString('en-US', { weekday: 'long' });
   document.getElementById('date-full').textContent    = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
@@ -181,13 +180,163 @@ function renderQuickLinks() {
   });
 }
 
+// ── Daily Randomize ───────────────────────────────────────────────────────────
+
+function getRandomThemeFromPool(pool) {
+  let keys;
+  if (pool === 'all') {
+    keys = Object.keys(THEME_MAP);
+  } else if (pool === 'favorites') {
+    keys = (settings.favorites || []).filter(k => THEME_MAP[k]);
+    if (!keys.length) keys = Object.keys(THEME_MAP);
+  } else {
+    const group = THEME_GROUPS.find(g => g.key === pool);
+    keys = group ? group.themes : Object.keys(THEME_MAP);
+  }
+  return keys[Math.floor(Math.random() * keys.length)];
+}
+
+function checkDailyRandomize() {
+  if (!settings.randomizeDaily) return;
+  const today = new Date().toISOString().slice(0, 10);
+  if (settings.randomizeDailyDate === today) return;
+  const theme = getRandomThemeFromPool(settings.randomizeDaily);
+  settings.theme = theme;
+  settings.randomizeDailyDate = today;
+  Storage.save({ theme, randomizeDailyDate: today });
+}
+
+function handleRandomizeClick(pool) {
+  const wasActive = settings.randomizeDaily === pool;
+  if (wasActive) {
+    settings.randomizeDaily = null;
+    Storage.save({ randomizeDaily: null });
+  } else {
+    const theme = getRandomThemeFromPool(pool);
+    const today = new Date().toISOString().slice(0, 10);
+    settings.randomizeDaily = pool;
+    settings.theme = theme;
+    settings.randomizeDailyDate = today;
+    Storage.save({ randomizeDaily: pool, theme, randomizeDailyDate: today });
+    engine.switchTheme(THEME_MAP[theme]);
+    document.querySelectorAll('.theme-option').forEach(b =>
+      b.classList.toggle('active', b.dataset.theme === theme)
+    );
+  }
+  document.querySelectorAll('.randomize-daily-btn').forEach(b =>
+    b.classList.toggle('active', !wasActive && b.dataset.pool === pool)
+  );
+}
+
+function makeRandomizeDailyBtn(pool, label) {
+  const btn = document.createElement('button');
+  btn.className = 'theme-option randomize-daily-btn' + (settings.randomizeDaily === pool ? ' active' : '');
+  btn.dataset.pool = pool;
+  btn.type = 'button';
+
+  const icon = document.createElement('span');
+  icon.className = 'rdaily-icon';
+  icon.textContent = '↻';
+
+  const lbl = document.createElement('span');
+  lbl.textContent = label;
+
+  btn.appendChild(icon);
+  btn.appendChild(lbl);
+  btn.addEventListener('click', () => handleRandomizeClick(pool));
+  return btn;
+}
+
+
+// ── Favorites ─────────────────────────────────────────────────────────────────
+
+function toggleFavorite(themeKey) {
+  const favs = settings.favorites || [];
+  const idx = favs.indexOf(themeKey);
+  if (idx === -1) favs.push(themeKey);
+  else favs.splice(idx, 1);
+  settings.favorites = favs;
+  Storage.save({ favorites: favs });
+
+  document.querySelectorAll(`.theme-star[data-theme="${themeKey}"]`).forEach(star => {
+    const isFav = favs.includes(themeKey);
+    star.classList.toggle('favorited', isFav);
+    star.innerHTML = isFav ? '★' : '☆';
+    star.setAttribute('aria-label', (isFav ? 'Unfavorite ' : 'Favorite ') + THEME_LABELS[themeKey]);
+  });
+
+  buildFavoritesGroup();
+}
+
+function makeThemeOption(themeKey) {
+  const isFav = (settings.favorites || []).includes(themeKey);
+
+  const btn = document.createElement('button');
+  btn.className = 'theme-option' + (settings.theme === themeKey ? ' active' : '');
+  btn.dataset.theme = themeKey;
+  btn.type = 'button';
+
+  const dot = document.createElement('span');
+  dot.className = `theme-dot theme-dot-${themeKey}`;
+
+  const labelEl = document.createElement('span');
+  labelEl.textContent = THEME_LABELS[themeKey];
+
+  const star = document.createElement('span');
+  star.className = 'theme-star' + (isFav ? ' favorited' : '');
+  star.dataset.theme = themeKey;
+  star.setAttribute('role', 'button');
+  star.setAttribute('aria-label', (isFav ? 'Unfavorite ' : 'Favorite ') + THEME_LABELS[themeKey]);
+  star.textContent = isFav ? '★' : '☆';
+  star.addEventListener('click', e => {
+    e.stopPropagation();
+    toggleFavorite(themeKey);
+  });
+
+  btn.appendChild(dot);
+  btn.appendChild(labelEl);
+  btn.appendChild(star);
+
+  btn.addEventListener('click', () => {
+    settings.theme = themeKey;
+    Storage.save({ theme: themeKey });
+    document.querySelectorAll('.theme-option').forEach(b => b.classList.toggle('active', b.dataset.theme === themeKey));
+    engine.switchTheme(THEME_MAP[themeKey]);
+  });
+
+  return btn;
+}
+
+function buildFavoritesGroup() {
+  const container = document.getElementById('favorites-group-body');
+  if (!container) return;
+
+  const toggle = container.closest('.theme-group')?.querySelector('.theme-group-toggle');
+  const isOpen = toggle?.getAttribute('aria-expanded') === 'true';
+
+  container.innerHTML = '';
+  const favs = (settings.favorites || []).filter(k => THEME_MAP[k]);
+
+  if (favs.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'favorites-empty';
+    empty.textContent = 'No Favorites Added';
+    container.appendChild(empty);
+  } else {
+    container.appendChild(makeRandomizeDailyBtn('favorites', 'Randomize Favorites Daily'));
+    favs.forEach(themeKey => container.appendChild(makeThemeOption(themeKey)));
+  }
+
+  if (isOpen) container.style.height = '';
+}
+
 // ── Settings panel ────────────────────────────────────────────────────────────
 
 function initSettings() {
-  const btn     = document.getElementById('settings-btn');
-  const overlay = document.getElementById('settings-overlay');
-  const panel   = document.getElementById('settings-panel');
-  const closeBtn= document.getElementById('settings-close');
+  const btn      = document.getElementById('settings-btn');
+  const overlay  = document.getElementById('settings-overlay');
+  const panel    = document.getElementById('settings-panel');
+  const closeBtn = document.getElementById('settings-close');
 
   const open = () => {
     overlay.classList.remove('hidden', 'closing');
@@ -208,6 +357,10 @@ function initSettings() {
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.classList.contains('open')) close(); });
 
+  const randAll = document.getElementById('randomize-all-daily');
+  randAll.classList.toggle('active', settings.randomizeDaily === 'all');
+  randAll.addEventListener('click', () => handleRandomizeClick('all'));
+
   buildThemePicker();
   buildFontSettings();
   buildDisplaySettings();
@@ -224,15 +377,12 @@ function initSectionToggles() {
     const btn  = section.querySelector('.section-toggle');
     const body = section.querySelector('.section-body');
 
-    // Apply initial state instantly — no transition on load
     if (collapsed[key]) {
       body.style.height = '0px';
       section.classList.add('collapsed');
       btn.setAttribute('aria-expanded', 'false');
     } else {
-      // Pin open height so transitions have an explicit value to start from
       body.style.height = body.scrollHeight + 'px';
-      // Release to auto after one frame so the panel can resize freely
       requestAnimationFrame(() => { body.style.height = ''; });
     }
 
@@ -240,20 +390,15 @@ function initSectionToggles() {
       const isCollapsed = section.classList.contains('collapsed');
 
       if (isCollapsed) {
-        // Expand: 0 → natural height, then release to auto
         section.classList.remove('collapsed');
         btn.setAttribute('aria-expanded', 'true');
         body.style.height = '0px';
-        // Force layout so transition starts from 0
         body.getBoundingClientRect();
         body.style.height = body.scrollHeight + 'px';
-        body.addEventListener('transitionend', () => {
-          body.style.height = '';
-        }, { once: true });
+        body.addEventListener('transitionend', () => { body.style.height = ''; }, { once: true });
       } else {
-        // Collapse: natural height → exact 0
         body.style.height = body.scrollHeight + 'px';
-        body.getBoundingClientRect(); // commit explicit height
+        body.getBoundingClientRect();
         body.style.height = '0px';
         section.classList.add('collapsed');
         btn.setAttribute('aria-expanded', 'false');
@@ -271,6 +416,49 @@ function buildThemePicker() {
   const container = document.getElementById('theme-picker');
   container.innerHTML = '';
 
+  // Favorites group
+  const favStateKey = 'theme-favorites';
+  const favCollapsed = (settings.collapsedSections || {})[favStateKey] || false;
+
+  const favGroup = document.createElement('div');
+  favGroup.className = 'theme-group';
+
+  const favToggle = document.createElement('button');
+  favToggle.className = 'theme-group-toggle';
+  favToggle.type = 'button';
+  favToggle.setAttribute('aria-expanded', favCollapsed ? 'false' : 'true');
+  favToggle.innerHTML = `<span>Favorites</span><svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+  const favBody = document.createElement('div');
+  favBody.className = 'theme-group-body';
+  favBody.id = 'favorites-group-body';
+  if (favCollapsed) favBody.style.height = '0px';
+
+  favToggle.addEventListener('click', () => {
+    const isCollapsed = favToggle.getAttribute('aria-expanded') === 'false';
+    if (isCollapsed) {
+      favToggle.setAttribute('aria-expanded', 'true');
+      favBody.style.height = '0px';
+      favBody.getBoundingClientRect();
+      favBody.style.height = favBody.scrollHeight + 'px';
+      favBody.addEventListener('transitionend', () => { favBody.style.height = ''; }, { once: true });
+    } else {
+      favToggle.setAttribute('aria-expanded', 'false');
+      favBody.style.height = favBody.scrollHeight + 'px';
+      favBody.getBoundingClientRect();
+      favBody.style.height = '0px';
+    }
+    settings.collapsedSections = settings.collapsedSections || {};
+    settings.collapsedSections[favStateKey] = !isCollapsed;
+    Storage.save({ collapsedSections: settings.collapsedSections });
+  });
+
+  favGroup.appendChild(favToggle);
+  favGroup.appendChild(favBody);
+  container.appendChild(favGroup);
+  buildFavoritesGroup();
+
+  // Space / Nature groups
   THEME_GROUPS.forEach(({ key, label, themes }) => {
     const stateKey = 'theme-' + key;
     const collapsed = (settings.collapsedSections || {})[stateKey] || false;
@@ -288,20 +476,8 @@ function buildThemePicker() {
     body.className = 'theme-group-body';
     if (collapsed) body.style.height = '0px';
 
-    themes.forEach(themeKey => {
-      const btn = document.createElement('button');
-      btn.className = 'theme-option' + (settings.theme === themeKey ? ' active' : '');
-      btn.dataset.theme = themeKey;
-      btn.type = 'button';
-      btn.innerHTML = `<span class="theme-dot theme-dot-${themeKey}"></span><span>${THEME_LABELS[themeKey]}</span>`;
-      btn.addEventListener('click', () => {
-        settings.theme = themeKey;
-        Storage.save({ theme: themeKey });
-        document.querySelectorAll('.theme-option').forEach(b => b.classList.toggle('active', b.dataset.theme === themeKey));
-        engine.switchTheme(THEME_MAP[themeKey]);
-      });
-      body.appendChild(btn);
-    });
+    body.appendChild(makeRandomizeDailyBtn(key, `Randomize ${label} Daily`));
+    themes.forEach(themeKey => body.appendChild(makeThemeOption(themeKey)));
 
     toggle.addEventListener('click', () => {
       const isCollapsed = toggle.getAttribute('aria-expanded') === 'false';
@@ -366,7 +542,6 @@ function buildDisplaySettings() {
     dateSubEl.hidden = settings.layout !== 'date';
   };
 
-  // Init states
   layoutBtns.forEach(b => b.classList.toggle('active', !settings.hideText && b.dataset.value === settings.layout));
   h12El.checked       = settings.clockFormat === '12h';
   secsEl.checked      = settings.showSeconds;
@@ -409,13 +584,11 @@ function buildDisplaySettings() {
     renderHeader();
     tickClock();
   });
-
   hideTextEl.addEventListener('change', () => {
     settings.hideText = hideTextEl.checked;
     Storage.save({ hideText: hideTextEl.checked });
     renderHeader();
   });
-
   hideSearchEl.addEventListener('change', () => {
     settings.hideSearch = hideSearchEl.checked;
     Storage.save({ hideSearch: hideSearchEl.checked });
