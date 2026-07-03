@@ -612,6 +612,10 @@ input[type="range"]#setting-speed::-moz-range-thumb {
   padding: 0.7rem 1.3rem 0.5rem;
   border-bottom: 1px solid rgba(255,255,255,0.055);
 }
+.settings-top-row .randomize-daily-btn {
+  width: 100%;
+  justify-content: center;
+}
 
 /* ── Randomize Daily buttons (share .theme-option look) ──────────────────── */
 .randomize-daily-btn.active {
