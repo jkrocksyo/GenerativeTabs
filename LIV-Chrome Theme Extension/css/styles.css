@@ -607,17 +607,12 @@ input[type="range"]#setting-speed::-moz-range-thumb {
 .add-btn:disabled { opacity: 0.28; cursor: not-allowed; }
 
 
-/* ── Top row (Randomize All Daily) ───────────────────────────────────────── */
-.settings-top-row {
-  padding: 0.7rem 1.3rem 0.5rem;
-  border-bottom: 1px solid rgba(255,255,255,0.055);
-}
-.settings-top-row .randomize-daily-btn {
+/* ── Randomize Daily buttons (share .theme-option look) ──────────────────── */
+#randomize-all-daily {
   width: 100%;
   justify-content: center;
+  margin-top: 0.4rem;
 }
-
-/* ── Randomize Daily buttons (share .theme-option look) ──────────────────── */
 .randomize-daily-btn.active {
   border-color: rgba(100,160,255,0.5);
   background: rgba(100,160,255,0.11);
