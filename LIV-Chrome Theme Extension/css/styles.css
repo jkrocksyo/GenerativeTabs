@@ -611,7 +611,7 @@ input[type="range"]#setting-speed::-moz-range-thumb {
 #randomize-all-daily {
   width: 100%;
   justify-content: center;
-  margin-top: 0.4rem;
+  margin-bottom: 0.4rem;
 }
 .randomize-daily-btn.active {
   border-color: rgba(100,160,255,0.5);
