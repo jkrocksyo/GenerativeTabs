@@ -327,11 +327,14 @@ html, body {
 /* Chevron */
 .chevron {
   flex-shrink: 0;
+  width: 16px;
+  height: 16px;
   color: rgba(255,255,255,0.5);
   transition: transform 0.22s ease, color 0.15s;
 }
 .section-toggle:hover .chevron { color: rgba(255,255,255,0.8); }
 .settings-section.collapsed .chevron { transform: rotate(-90deg); }
+.theme-group-toggle .chevron { width: 13px; height: 13px; }
 
 /* Collapsible body — height managed by JS so height:0 is exact */
 .section-body {
