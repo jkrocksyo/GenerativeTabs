@@ -311,26 +311,26 @@ html, body {
   border: none;
   padding: 0;
   margin-bottom: 0.7rem;
-  color: rgba(255,255,255,0.38);
+  color: rgba(255,255,255,0.88);
   font-family: var(--ui-font);
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
   text-align: left;
   transition: color 0.15s;
 }
-.section-toggle:hover { color: rgba(255,255,255,0.58); }
+.section-toggle:hover { color: #fff; }
 .settings-section.collapsed .section-toggle { margin-bottom: 0; }
 
 /* Chevron */
 .chevron {
   flex-shrink: 0;
-  color: rgba(255,255,255,0.28);
+  color: rgba(255,255,255,0.5);
   transition: transform 0.22s ease, color 0.15s;
 }
-.section-toggle:hover .chevron { color: rgba(255,255,255,0.48); }
+.section-toggle:hover .chevron { color: rgba(255,255,255,0.8); }
 .settings-section.collapsed .chevron { transform: rotate(-90deg); }
 
 /* Collapsible body — height managed by JS so height:0 is exact */
@@ -393,17 +393,17 @@ html, body {
   border: none;
   padding: 0.3rem 0;
   margin-bottom: 0.3rem;
-  color: rgba(255,255,255,0.32);
+  color: rgba(255,255,255,0.55);
   font-family: var(--ui-font);
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   cursor: pointer;
   text-align: left;
   transition: color 0.15s;
 }
-.theme-group-toggle:hover { color: rgba(255,255,255,0.56); }
+.theme-group-toggle:hover { color: rgba(255,255,255,0.82); }
 .theme-group-toggle[aria-expanded="false"] .chevron { transform: rotate(-90deg); }
 .theme-group-body {
   display: flex;
