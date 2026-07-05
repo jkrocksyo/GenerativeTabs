@@ -1,341 +1,281 @@
+'use strict';
+
 (function () {
-  'use strict';
 
-  function makeGlow(r, inner, outer) {
-    const oc = document.createElement('canvas');
-    oc.width = oc.height = r * 2;
-    const g = oc.getContext('2d');
-    const gr = g.createRadialGradient(r, r, 0, r, r, r);
-    gr.addColorStop(0, inner); gr.addColorStop(1, outer);
-    g.fillStyle = gr; g.fillRect(0, 0, r * 2, r * 2);
-    return oc;
-  }
-
-  function hillY(lx, tileW, peaks) {
-    let y = 1;
-    for (const p of peaks) {
-      let dx = Math.abs(lx - p.cx);
-      if (dx > tileW / 2) dx = tileW - dx;
-      const bump = p.amp * Math.exp(-(dx * dx) / p.s2);
-      if (bump > 0) y = Math.min(y, 1 - bump);
-    }
-    return y;
-  }
-
-  function drawHillFill(ctx, W, H, peaks, tileW, ox, color) {
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    const step = Math.max(2, W / 400);
-    const endX = ox + tileW * 2 + step;
-    ctx.moveTo(ox - step, H + 2);
-    for (let x = ox - step; x <= endX; x += step) {
-      const lx = ((x - ox) % tileW + tileW) % tileW;
-      ctx.lineTo(x, hillY(lx, tileW, peaks) * H);
-    }
-    ctx.lineTo(endX, H + 2);
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  const STRIPE_COLORS = ['#c82020','#f0e8d8','#1a8870','#e8a820'];
+  const W = 720, H = 380, TAU = Math.PI * 2;
 
   class HotAirBalloonTheme {
     init(canvas, ctx, opts) {
-      this.canvas = canvas; this.ctx = ctx;
-      this.speed = (opts && opts.speed) || 1;
-      this._t = 0; this._lastTs = null; this._scroll = 0;
-      this.W = canvas.width; this.H = canvas.height;
-      this._rebuild();
+      this.canvas  = canvas;
+      this.ctx     = ctx || canvas.getContext('2d');
+      this.speed   = (opts && opts.speed) || 1;
+      this._t      = 0;
+      this._lastTs = null;
+      this._cW     = canvas.width;
+      this._cH     = canvas.height;
     }
 
     resize(w, h) {
-      if (this.W) this._scroll *= w / this.W;
-      this.W = w; this.H = h;
-      this._rebuild();
-    }
-
-    _rebuild() {
-      const W = this.W, H = this.H;
-      this._tileW = W * 2;
-      const tW = this._tileW;
-      const rng = (a, b) => a + Math.random() * (b - a);
-
-      // Sun glow (small, pale, lower left)
-      const sr = H * 0.09;
-      this._sunGlow = makeGlow(sr, 'rgba(255,230,170,0.80)', 'rgba(255,160,60,0)');
-      this._sunR = sr;
-
-      // Three hill layers (back to front, increasingly darker)
-      this._hill1Peaks = Array.from({ length: 4 }, (_, i) => ({
-        cx: ((i + 0.5) / 4) * tW + rng(-0.06, 0.06) * tW,
-        amp: rng(0.07, 0.14), s2: (tW * rng(0.08, 0.13)) ** 2,
-      }));
-      this._hill2Peaks = Array.from({ length: 5 }, (_, i) => ({
-        cx: ((i + 0.5) / 5) * tW + rng(-0.05, 0.05) * tW,
-        amp: rng(0.06, 0.11), s2: (tW * rng(0.06, 0.10)) ** 2,
-      }));
-      this._hill3Peaks = Array.from({ length: 6 }, (_, i) => ({
-        cx: ((i + 0.5) / 6) * tW + rng(-0.04, 0.04) * tW,
-        amp: rng(0.05, 0.09), s2: (tW * rng(0.04, 0.08)) ** 2,
-      }));
-
-      // Ground plane trees + house
-      this._groundTrees = Array.from({ length: 10 }, () => ({
-        x: Math.random() * tW,
-        h: H * rng(0.028, 0.048),
-        tw: H * 0.009,
-        cr: H * rng(0.015, 0.025),
-        gy: H * 0.87,
-      }));
-      this._groundHouses = Array.from({ length: 2 }, () => ({
-        x: Math.random() * tW,
-        w: H * rng(0.025, 0.035), h: H * rng(0.018, 0.026),
-        gy: H * 0.87,
-      }));
-
-      // Birds (V formation, two flocks)
-      this._flocks = Array.from({ length: 2 }, () => ({
-        x: Math.random() * W,
-        y: H * (0.12 + Math.random() * 0.20),
-        spread: H * (0.018 + Math.random() * 0.012),
-        count: 5 + Math.floor(Math.random() * 4),
-        speed: W * (0.006 + Math.random() * 0.006),
-        flapPhase: Math.random() * Math.PI * 2,
-      }));
-
-      // Burner flame state
-      this._flameTimer = 4 + Math.random() * 4;
-      this._flameDuration = 0;
-      this._flameMaxDur = 0;
-
-      // Balloon bob
-      this._bobPhase = 0;
-      this._rotPhase = 0;
+      this._cW = w;
+      this._cH = h;
     }
 
     draw(ts) {
-      const ctx = this.ctx;
-      const W = this.W, H = this.H;
-      const rawDt = this._lastTs ? Math.min((ts - this._lastTs) / 1000, 0.05) : 0;
+      if (ts === 0) { this._frame(this._t); return; }
+      const dt = (this._lastTs != null) ? Math.min((ts - this._lastTs) / 1000, 0.05) : 0;
       this._lastTs = ts;
-      const dt = rawDt * Math.max(0.1, this.speed);
-      this._t += dt;
-      this._scroll += W * 0.035 * dt; // very slow
-      this._bobPhase += dt * 0.45;
-      this._rotPhase += dt * 0.18;
-      const tW = this._tileW;
-      const t = this._t;
+      this._t += dt * this.speed;
+      this._frame(this._t);
+    }
 
-      // Flame timer
-      this._flameTimer -= dt;
-      if (this._flameTimer <= 0) {
-        this._flameDuration = this._flameMaxDur = 0.4 + Math.random() * 0.5;
-        this._flameTimer = 6 + Math.random() * 6;
-      }
-      if (this._flameDuration > 0) this._flameDuration -= dt;
+    _frame(t) {
+      const ctx = this.ctx;
+      const sc  = Math.max(this._cW / W, this._cH / H);
+      const oX  = (this._cW - W * sc) / 2;
+      const oY  = (this._cH - H * sc) / 2;
 
-      // Sky gradient
-      const sky = ctx.createLinearGradient(0, 0, 0, H);
-      sky.addColorStop(0,    '#1a0838');
-      sky.addColorStop(0.30, '#781848');
-      sky.addColorStop(0.62, '#c84828');
-      sky.addColorStop(0.85, '#e89030');
-      sky.addColorStop(1,    '#f0b840');
-      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+      ctx.save();
+      ctx.translate(oX, oY);
+      ctx.scale(sc, sc);
 
-      // Sun (lower left, pale)
-      ctx.drawImage(this._sunGlow, W * 0.15 - this._sunR, H * 0.75 - this._sunR, this._sunR * 2, this._sunR * 2);
+      // Sky
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0,    '#AFC3E3');
+      g.addColorStop(0.5,  '#F2CFAF');
+      g.addColorStop(0.78, '#F5AE84');
+      g.addColorStop(1,    '#F1A177');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      // Sun glow
+      const sg = ctx.createRadialGradient(170, 238, 6, 170, 238, 85);
+      sg.addColorStop(0, 'rgba(255,231,194,0.65)');
+      sg.addColorStop(1, 'rgba(255,231,194,0)');
+      ctx.fillStyle = sg;
+      ctx.fillRect(80, 150, 180, 180);
+
+      // Sun disk
+      ctx.fillStyle = '#FFE7C2';
+      ctx.beginPath();
+      ctx.arc(170, 238, 26, 0, TAU);
+      ctx.fill();
+
+      // Clouds
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      const w1 = W + 90 - ((t * 4) % (W + 180));
+      ctx.beginPath(); ctx.ellipse(w1,  70, 52, 8, 0, 0, TAU); ctx.fill();
+      const w2 = W + 90 - ((t * 3 + 380) % (W + 180));
+      ctx.beginPath(); ctx.ellipse(w2, 112, 40, 6, 0, 0, TAU); ctx.fill();
 
       // Birds
-      for (const flock of this._flocks) {
-        flock.x += flock.speed * dt;
-        if (flock.x > W + flock.spread * flock.count) {
-          flock.x = -flock.spread * flock.count;
-          flock.y = H * (0.10 + Math.random() * 0.22);
-        }
-        const flapOff = Math.sin(t * 4 + flock.flapPhase) * H * 0.008;
-        ctx.strokeStyle = 'rgba(40,20,60,0.45)'; ctx.lineWidth = H * 0.003;
-        for (let i = 0; i < flock.count; i++) {
-          const bx = flock.x - i * flock.spread * 0.9;
-          const by = flock.y + Math.abs(i) * flock.spread * 0.35;
-          const ff = flapOff * (1 - i / flock.count * 0.4);
-          ctx.beginPath();
-          ctx.moveTo(bx - flock.spread * 0.3, by + ff);
-          ctx.lineTo(bx, by);
-          ctx.lineTo(bx + flock.spread * 0.3, by + ff);
-          ctx.stroke();
-        }
-      }
-
-      // Hill layer 1 (farthest, haziest/palest)
-      const h1Ox = -((this._scroll * 0.012) % tW);
-      drawHillFill(ctx, W, H, this._hill1Peaks, tW, h1Ox, 'rgba(160,90,130,0.55)');
-
-      // Hill layer 2 (mid)
-      const h2Ox = -((this._scroll * 0.025) % tW);
-      drawHillFill(ctx, W, H, this._hill2Peaks, tW, h2Ox, 'rgba(130,60,90,0.72)');
-
-      // Hill layer 3 (nearest, darkest)
-      const h3Ox = -((this._scroll * 0.05) % tW);
-      drawHillFill(ctx, W, H, this._hill3Peaks, tW, h3Ox, '#8a3858');
-
-      // Ground plane
-      const gY = H * 0.87;
-      const gg = ctx.createLinearGradient(0, gY, 0, H);
-      gg.addColorStop(0, '#6a2840'); gg.addColorStop(1, '#4a1828');
-      ctx.fillStyle = gg; ctx.fillRect(0, gY, W, H - gY);
-
-      // River ribbon (winding across mid-ground)
-      this._drawRiver(ctx, W, H, h3Ox, tW);
-
-      // Ground trees + houses
-      const gtOx = -((this._scroll * 0.05) % tW);
-      ctx.fillStyle = '#4a1828';
-      for (let tile = 0; tile <= 1; tile++) {
-        const dx = gtOx + tile * tW;
-        for (const tr of this._groundTrees) {
-          const x = dx + tr.x;
-          if (x < -tr.h || x > W + tr.h) continue;
-          ctx.fillRect(x - tr.tw * 0.5, tr.gy - tr.h, tr.tw, tr.h * 0.5);
-          ctx.beginPath(); ctx.arc(x, tr.gy - tr.h * 0.72, tr.cr, 0, Math.PI * 2); ctx.fill();
-        }
-        for (const ho of this._groundHouses) {
-          const x = dx + ho.x;
-          if (x < -ho.w || x > W + ho.w) continue;
-          ctx.fillRect(x - ho.w * 0.5, ho.gy - ho.h, ho.w, ho.h);
-          ctx.beginPath();
-          ctx.moveTo(x - ho.w * 0.6, ho.gy - ho.h);
-          ctx.lineTo(x, ho.gy - ho.h - ho.h * 0.55);
-          ctx.lineTo(x + ho.w * 0.6, ho.gy - ho.h);
-          ctx.closePath(); ctx.fill();
-        }
-      }
-
-      // Balloon (centered)
-      this._drawBalloon(ctx, W, H);
-    }
-
-    _drawRiver(ctx, W, H, ox, tW) {
-      const riverY = H * 0.84;
-      ctx.fillStyle = 'rgba(220,200,170,0.35)';
-      for (let tile = 0; tile <= 1; tile++) {
-        const dx = ox + tile * tW;
+      ctx.strokeStyle = '#7A5B54';
+      ctx.lineWidth   = 1.8;
+      ctx.lineCap     = 'round';
+      for (let i2 = 0; i2 < 3; i2++) {
+        const bx = W + 60 - ((t * 16 + i2 * 250) % (W + 120));
+        const by = 205 + i2 * 11 + Math.sin(t * 1.1 + i2) * 3;
+        const f  = Math.sin(t * 6 + i2 * 2) * 3;
         ctx.beginPath();
-        ctx.moveTo(dx, riverY);
-        ctx.bezierCurveTo(
-          dx + tW * 0.25, riverY - H * 0.012,
-          dx + tW * 0.5,  riverY + H * 0.008,
-          dx + tW * 0.75, riverY - H * 0.005
-        );
-        ctx.lineTo(dx + tW, riverY + H * 0.012);
-        ctx.lineTo(dx + tW, riverY + H * 0.018);
-        ctx.bezierCurveTo(
-          dx + tW * 0.75, riverY + H * 0.006,
-          dx + tW * 0.5,  riverY + H * 0.020,
-          dx + tW * 0.25, riverY + H * 0.004
-        );
-        ctx.lineTo(dx, riverY + H * 0.012);
-        ctx.closePath(); ctx.fill();
-      }
-    }
-
-    _drawBalloon(ctx, W, H) {
-      const s = H / 960;
-      const bob = Math.sin(this._bobPhase) * 5 * s;
-      const microRot = Math.sin(this._rotPhase) * 0.018;
-
-      const bcX = W * 0.50;
-      const bcY = H * 0.34 + bob;
-      const envR = H * 0.155; // envelope radius
-
-      ctx.save();
-      ctx.translate(bcX, bcY);
-      ctx.rotate(microRot);
-
-      // Envelope shadow
-      ctx.fillStyle = 'rgba(0,0,0,0.12)';
-      ctx.beginPath(); ctx.ellipse(4 * s, 6 * s, envR * 0.82, envR * 0.95, 0, 0, Math.PI * 2); ctx.fill();
-
-      // Envelope (clipped to circle then striped)
-      ctx.save();
-      ctx.beginPath(); ctx.arc(0, 0, envR, 0, Math.PI * 2); ctx.clip();
-
-      const stripeW = (envR * 2) / STRIPE_COLORS.length;
-      for (let i = 0; i < STRIPE_COLORS.length; i++) {
-        ctx.fillStyle = STRIPE_COLORS[i];
-        ctx.fillRect(-envR + i * stripeW, -envR * 1.05, stripeW, envR * 2.1);
-      }
-      // Slight shade at top/bottom for roundness
-      const shadT = ctx.createLinearGradient(0, -envR, 0, envR);
-      shadT.addColorStop(0, 'rgba(0,0,0,0.22)');
-      shadT.addColorStop(0.3, 'rgba(0,0,0,0)');
-      shadT.addColorStop(0.7, 'rgba(0,0,0,0)');
-      shadT.addColorStop(1, 'rgba(0,0,0,0.30)');
-      ctx.fillStyle = shadT; ctx.fillRect(-envR, -envR, envR * 2, envR * 2);
-      // Rim
-      ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 2.5 * s;
-      ctx.beginPath(); ctx.arc(0, 0, envR - 1, 0, Math.PI * 2); ctx.stroke();
-      ctx.restore();
-
-      // Bottom skirt (slightly below envelope)
-      ctx.fillStyle = '#1a0838';
-      ctx.beginPath();
-      ctx.arc(0, envR * 0.72, envR * 0.55, 0.1, Math.PI - 0.1);
-      ctx.closePath(); ctx.fill();
-
-      // Ropes from envelope bottom to basket
-      const ropeTopY = envR * 0.88;
-      const basketTopY = envR + 26 * s;
-      const basketW = 32 * s;
-      ctx.strokeStyle = 'rgba(80,50,20,0.8)'; ctx.lineWidth = 1.5 * s;
-      const ropeXs = [-basketW * 0.7, -basketW * 0.2, basketW * 0.2, basketW * 0.7];
-      for (const rx of ropeXs) {
-        ctx.beginPath();
-        ctx.moveTo(rx * 0.35, ropeTopY);
-        ctx.lineTo(rx, basketTopY);
+        ctx.moveTo(bx - 6, by);
+        ctx.quadraticCurveTo(bx - 2.5, by - 3.5 - f, bx,     by);
+        ctx.quadraticCurveTo(bx + 2.5, by - 3.5 - f, bx + 6, by);
         ctx.stroke();
       }
+
+      // Small background balloon
+      const mx = (W + 70) - ((t * 6 + 200) % (W + 140));
+      const my = 120 + Math.sin(t * 0.3) * 4;
+      ctx.fillStyle = '#7FB3C8';
+      ctx.beginPath(); ctx.ellipse(mx, my, 10, 12, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#6E4A33';
+      ctx.fillRect(mx - 2.5, my + 15, 5, 4);
+      ctx.strokeStyle = 'rgba(110,74,51,0.7)';
+      ctx.lineWidth   = 1;
+      ctx.beginPath();
+      ctx.moveTo(mx - 8, my + 7); ctx.lineTo(mx - 2.5, my + 15);
+      ctx.moveTo(mx + 8, my + 7); ctx.lineTo(mx + 2.5, my + 15);
+      ctx.stroke();
+
+      // Hills (3 parallax layers)
+      this._bump(ctx, t * 3,       250, 14, 130, '#E9B896');
+      this._bump(ctx, t * 5 + 180, 262, 20,  90, '#D89678');
+      this._bump(ctx, t * 8 + 340, 280, 26,  70, '#B97C66');
+
+      // Meadow
+      ctx.fillStyle = '#7E9161';
+      ctx.fillRect(0, 296, W, H - 296);
+
+      // Rolling field path (beige wave + white highlight)
+      const o8 = t * 8;
+      ctx.strokeStyle = '#EED2A4';
+      ctx.lineWidth   = 9;
+      ctx.lineCap     = 'round';
+      ctx.beginPath();
+      for (let rx = 0; rx <= W; rx += 10) ctx.lineTo(rx, 320 + Math.sin((rx + o8) / 85) * 13);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth   = 3;
+      ctx.beginPath();
+      for (let rx2 = 0; rx2 <= W; rx2 += 10) ctx.lineTo(rx2, 320 + Math.sin((rx2 + o8) / 85) * 13);
+      ctx.stroke();
+
+      // Ground details (tiling at 300 px)
+      const o9  = (t * 8) % 300;
+      const tps = [40, 120, 210, 260];
+      const tss = [4, 3, 5, 3];
+      for (let k = -1; k < 4; k++) {
+        const gx = k * 300 - o9;
+        for (let tr = 0; tr < 4; tr++) {
+          const tx = tps[tr] + gx;
+          ctx.strokeStyle = '#4E5C3A';
+          ctx.lineWidth   = 1.5;
+          ctx.beginPath(); ctx.moveTo(tx, 352); ctx.lineTo(tx, 346); ctx.stroke();
+          ctx.fillStyle = '#5C6E44';
+          ctx.beginPath(); ctx.arc(tx, 344, tss[tr], 0, TAU); ctx.fill();
+        }
+        ctx.fillStyle = '#B9927A';
+        ctx.fillRect(gx + 170, 300, 10, 8);
+        ctx.fillStyle = '#8A5F4C';
+        ctx.beginPath();
+        ctx.moveTo(gx + 168, 300);
+        ctx.lineTo(gx + 175, 294);
+        ctx.lineTo(gx + 182, 300);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Main balloon (bobs + rocks gently)
+      const bobY = Math.sin(t * 0.35) * 8;
+      const rot2 = Math.sin(t * 0.28) * 0.03;
+      ctx.save();
+      ctx.translate(430, 150 + bobY);
+      ctx.rotate(rot2);
+
+      // Envelope: striped ellipse (clip-masked)
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(0, -28, 46, 52, 0, 0, TAU);
+      ctx.clip();
+      const gc = ['#E2574C', '#F2C14E', '#7FB3C8', '#F4E3CE'];
+      for (let s2 = 0; s2 < 7; s2++) {
+        ctx.fillStyle = gc[s2 % 4];
+        ctx.fillRect(-49 + s2 * 14, -84, 14, 116);
+      }
+      ctx.restore();
+
+      // Skirt
+      ctx.fillStyle = '#E2574C';
+      ctx.beginPath();
+      ctx.moveTo(-14, 18); ctx.lineTo(14, 18);
+      ctx.lineTo(8, 34);   ctx.lineTo(-8, 34);
+      ctx.closePath();
+      ctx.fill();
+
+      // Burner flame (intermittent, driven by two incommensurate sines)
+      if (Math.sin(t * 9) + Math.sin(t * 23) > 1.2) {
+        const fg = ctx.createRadialGradient(0, 42, 1, 0, 42, 14);
+        fg.addColorStop(0, 'rgba(255,200,94,0.5)');
+        fg.addColorStop(1, 'rgba(255,200,94,0)');
+        ctx.fillStyle = fg;
+        ctx.fillRect(-14, 28, 28, 28);
+        ctx.fillStyle = '#FFC85E';
+        ctx.beginPath();
+        ctx.moveTo(-3, 50); ctx.lineTo(3, 50); ctx.lineTo(0, 40);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Ropes
+      ctx.strokeStyle = '#6E4A33';
+      ctx.lineWidth   = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(-8, 34); ctx.lineTo(-9, 52);
+      ctx.moveTo(-3, 35); ctx.lineTo(-3, 52);
+      ctx.moveTo( 3, 35); ctx.lineTo( 3, 52);
+      ctx.moveTo( 8, 34); ctx.lineTo( 9, 52);
+      ctx.stroke();
 
       // Basket
-      const bkH = 24 * s;
-      ctx.fillStyle = '#8a5820';
-      ctx.fillRect(-basketW, basketTopY, basketW * 2, bkH);
-      // Weave lines
-      ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1.2 * s;
-      for (let i = 1; i <= 3; i++) {
-        ctx.beginPath();
-        ctx.moveTo(-basketW, basketTopY + (i / 4) * bkH);
-        ctx.lineTo(basketW, basketTopY + (i / 4) * bkH);
-        ctx.stroke();
-      }
-      for (let i = -2; i <= 2; i++) {
-        ctx.beginPath();
-        ctx.moveTo(i * basketW * 0.38, basketTopY);
-        ctx.lineTo(i * basketW * 0.38, basketTopY + bkH);
-        ctx.stroke();
-      }
-      // Basket rim
-      ctx.fillStyle = '#a06828';
-      ctx.fillRect(-basketW - 2 * s, basketTopY - 2 * s, basketW * 2 + 4 * s, 4 * s);
+      ctx.fillStyle = '#8A5A38';
+      ctx.fillRect(-11, 52, 22, 16);
+      ctx.fillStyle = 'rgba(0,0,0,0.15)';
+      ctx.fillRect(-11, 57, 22, 2);
+      ctx.fillRect(-11, 62, 22, 2);
 
-      // Burner flame
-      if (this._flameDuration > 0) {
-        const flamePct = this._flameDuration / this._flameMaxDur;
-        const flameH = envR * 0.28 * Math.min(1, flamePct * 3);
-        const flameAlpha = Math.min(1, flamePct * 2) * 0.85;
-        const fg = ctx.createRadialGradient(0, ropeTopY + 8 * s, 0, 0, ropeTopY + 8 * s, flameH);
-        fg.addColorStop(0, `rgba(255,255,180,${flameAlpha})`);
-        fg.addColorStop(0.4, `rgba(255,160,20,${flameAlpha * 0.7})`);
-        fg.addColorStop(1, 'rgba(255,80,0,0)');
-        ctx.fillStyle = fg;
-        ctx.beginPath(); ctx.arc(0, ropeTopY + 8 * s, flameH, 0, Math.PI * 2); ctx.fill();
-      }
+      // Passengers
+      ctx.fillStyle = '#4A3428';
+      ctx.beginPath(); ctx.arc(-4, 50, 2.5, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#C0504D';
+      ctx.beginPath(); ctx.arc( 4, 50, 2.5, 0, TAU); ctx.fill();
 
-      ctx.restore();
+      ctx.restore();  // balloon translate/rotate
+      ctx.restore();  // scene scale/translate
+    }
+
+    _bump(ctx, off, base, amp, wl, col) {
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      for (let x = 0; x <= W; x += 8)
+        ctx.lineTo(x, base - amp * (0.5 + 0.5 * Math.sin((x + off) / wl)));
+      ctx.lineTo(W, H);
+      ctx.closePath();
+      ctx.fill();
     }
 
     destroy() {}
   }
 
+  // ── Standalone API (used by preview HTML) ─────────────────────────────────────
+  let _inst = null, _raf = null, _boundResize = null, _boundVis = null;
+
+  function _debounce(fn, ms) {
+    let timer;
+    return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
+  }
+
+  function init(canvas) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+
+    function resize() {
+      canvas.width  = Math.floor(window.innerWidth  * dpr);
+      canvas.height = Math.floor(window.innerHeight * dpr);
+      if (_inst) _inst.resize(canvas.width, canvas.height);
+    }
+    resize();
+    canvas.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;';
+
+    const ctx = canvas.getContext('2d');
+    _inst = new HotAirBalloonTheme();
+    _inst.init(canvas, ctx, { speed: 1 });
+
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function loop(ts) {
+      _raf = requestAnimationFrame(loop);
+      _inst.draw(ts);
+    }
+
+    _boundResize = _debounce(resize, 150);
+    _boundVis = () => {
+      if (document.hidden) { cancelAnimationFrame(_raf); _raf = null; }
+      else if (!_raf)      { _raf = requestAnimationFrame(loop); }
+    };
+
+    window.addEventListener('resize', _boundResize);
+    document.addEventListener('visibilitychange', _boundVis);
+
+    if (reduced) { _inst.draw(0); }
+    else         { _raf = requestAnimationFrame(loop); }
+  }
+
+  function destroy() {
+    if (_raf)         { cancelAnimationFrame(_raf); _raf = null; }
+    if (_inst)        { _inst.destroy(); _inst = null; }
+    if (_boundResize) { window.removeEventListener('resize', _boundResize); _boundResize = null; }
+    if (_boundVis)    { document.removeEventListener('visibilitychange', _boundVis); _boundVis = null; }
+  }
+
   window.HotAirBalloonTheme = HotAirBalloonTheme;
+  window.HotAirBalloon = { init, destroy };
 })();
