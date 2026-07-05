@@ -1,300 +1,306 @@
+'use strict';
+
 (function () {
-  'use strict';
 
-  function makeGlow(r, inner, outer) {
-    const oc = document.createElement('canvas');
-    oc.width = oc.height = r * 2;
-    const g = oc.getContext('2d');
-    const gr = g.createRadialGradient(r, r, 0, r, r, r);
-    gr.addColorStop(0, inner); gr.addColorStop(1, outer);
-    g.fillStyle = gr; g.fillRect(0, 0, r * 2, r * 2);
-    return oc;
-  }
-
-  function hillY(lx, tileW, peaks) {
-    let y = 1;
-    for (const p of peaks) {
-      let dx = Math.abs(lx - p.cx);
-      if (dx > tileW / 2) dx = tileW - dx;
-      const bump = p.amp * Math.exp(-(dx * dx) / p.s2);
-      if (bump > 0) y = Math.min(y, 1 - bump);
-    }
-    return y;
-  }
-
-  function drawHillFill(ctx, W, H, peaks, tileW, ox, color) {
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    const step = Math.max(2, W / 400);
-    const endX = ox + tileW * 2 + step;
-    ctx.moveTo(ox - step, H + 2);
-    for (let x = ox - step; x <= endX; x += step) {
-      const lx = ((x - ox) % tileW + tileW) % tileW;
-      ctx.lineTo(x, hillY(lx, tileW, peaks) * H);
-    }
-    ctx.lineTo(endX, H + 2);
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  function drawTrees(ctx, trees, tileW, ox, color) {
-    ctx.fillStyle = color;
-    for (let tile = 0; tile <= 1; tile++) {
-      const dx = ox + tile * tileW;
-      for (const tr of trees) {
-        const x = dx + tr.x;
-        ctx.fillRect(x - tr.tw * 0.5, tr.gy - tr.h, tr.tw, tr.h * 0.55);
-        ctx.beginPath();
-        ctx.arc(x, tr.gy - tr.h * 0.72, tr.cr, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-  }
-
-  function drawHouses(ctx, houses, tileW, ox, color) {
-    ctx.fillStyle = color;
-    for (let tile = 0; tile <= 1; tile++) {
-      const dx = ox + tile * tileW;
-      for (const h of houses) {
-        const x = dx + h.x;
-        ctx.fillRect(x - h.w * 0.5, h.gy - h.h, h.w, h.h);
-        ctx.beginPath();
-        ctx.moveTo(x - h.w * 0.58, h.gy - h.h);
-        ctx.lineTo(x, h.gy - h.h - h.h * 0.55);
-        ctx.lineTo(x + h.w * 0.58, h.gy - h.h);
-        ctx.closePath();
-        ctx.fill();
-      }
-    }
-  }
-
-  function solveKnee(hx, hy, tx, ty, len, side) {
-    const dx = tx - hx, dy = ty - hy;
-    const d = Math.hypot(dx, dy);
-    const seg = len / 2;
-    if (d >= len * 0.98) return { x: (hx + tx) / 2, y: (hy + ty) / 2 };
-    const base = Math.atan2(dy, dx);
-    const ang = Math.acos(Math.max(-1, Math.min(1, d / (2 * seg))));
-    const a = base + side * ang;
-    return { x: hx + Math.cos(a) * seg, y: hy + Math.sin(a) * seg };
-  }
+  const W = 720, H = 380, TAU = Math.PI * 2, RT = 306, patW = 480;
 
   class SunsetBikeRideTheme {
     init(canvas, ctx, opts) {
-      this.canvas = canvas; this.ctx = ctx;
-      this.speed = (opts && opts.speed) || 1;
-      this._t = 0; this._lastTs = null; this._scroll = 0;
-      this.W = canvas.width; this.H = canvas.height;
-      this._rebuild();
+      this.canvas = canvas;
+      this.ctx    = ctx || canvas.getContext('2d');
+      this.speed  = (opts && opts.speed) || 1;
+      this._t     = 0;
+      this._lastTs = null;
+      this._cW    = canvas.width;
+      this._cH    = canvas.height;
     }
 
     resize(w, h) {
-      if (this.W) this._scroll *= w / this.W;
-      this.W = w; this.H = h;
-      this._rebuild();
-    }
-
-    _rebuild() {
-      const W = this.W, H = this.H;
-      this._tileW = W * 2;
-      const tW = this._tileW;
-
-      const sr = H * 0.14;
-      this._sunGlow = makeGlow(sr, 'rgba(255,230,90,0.98)', 'rgba(210,50,0,0)');
-      this._sunR = sr;
-
-      const rng = (a, b) => a + Math.random() * (b - a);
-      this._farPeaks = Array.from({ length: 5 }, (_, i) => ({
-        cx: ((i + 0.4 + Math.random() * 0.2) / 5) * tW,
-        amp: rng(0.07, 0.13),
-        s2: (tW * rng(0.06, 0.11)) ** 2,
-      }));
-      this._midPeaks = Array.from({ length: 6 }, (_, i) => ({
-        cx: ((i + 0.4 + Math.random() * 0.2) / 6) * tW,
-        amp: rng(0.05, 0.10),
-        s2: (tW * rng(0.04, 0.08)) ** 2,
-      }));
-
-      this._farTrees = Array.from({ length: 14 }, () => ({
-        x: Math.random() * tW,
-        h: H * rng(0.045, 0.08),
-        tw: H * 0.013,
-        cr: H * rng(0.022, 0.038),
-        gy: H * 0.79,
-      }));
-      this._midTrees = Array.from({ length: 20 }, () => ({
-        x: Math.random() * tW,
-        h: H * rng(0.055, 0.1),
-        tw: H * 0.015,
-        cr: H * rng(0.025, 0.045),
-        gy: H * 0.735,
-      }));
-      this._houses = Array.from({ length: 4 }, () => ({
-        x: Math.random() * tW,
-        w: H * rng(0.038, 0.055),
-        h: H * rng(0.030, 0.045),
-        gy: H * 0.735,
-      }));
-
-      this._crankA = 0; this._wheelA = 0;
+      this._cW = w;
+      this._cH = h;
     }
 
     draw(ts) {
-      const ctx = this.ctx;
-      const W = this.W, H = this.H;
-      const rawDt = this._lastTs ? Math.min((ts - this._lastTs) / 1000, 0.05) : 0;
+      if (ts === 0) { this._frame(this._t); return; }
+      const dt = (this._lastTs != null) ? Math.min((ts - this._lastTs) / 1000, 0.05) : 0;
       this._lastTs = ts;
-      const dt = rawDt * Math.max(0.1, this.speed);
-      this._t += dt;
-      this._scroll += W * 0.11 * dt;
-      this._crankA -= dt * 3.0;
-      this._wheelA -= dt * 2.55;
-      const tW = this._tileW;
-
-      // Sky
-      const sky = ctx.createLinearGradient(0, 0, 0, H);
-      sky.addColorStop(0,    '#130626');
-      sky.addColorStop(0.38, '#671138');
-      sky.addColorStop(0.68, '#d63c1e');
-      sky.addColorStop(0.88, '#f5a020');
-      sky.addColorStop(1,    '#f5b030');
-      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
-
-      // Sun glow
-      ctx.drawImage(this._sunGlow, W * 0.73 - this._sunR, H * 0.48 - this._sunR, this._sunR * 2, this._sunR * 2);
-
-      // Far hills
-      const farOx = -((this._scroll * 0.04) % tW);
-      drawHillFill(ctx, W, H, this._farPeaks.map(p => ({ ...p, amp: p.amp })), tW, farOx, '#1f0c3c');
-      drawTrees(ctx, this._farTrees, tW, farOx, '#180830');
-
-      // Mid hills
-      const midOx = -((this._scroll * 0.09) % tW);
-      drawHillFill(ctx, W, H, this._midPeaks, tW, midOx, '#140520');
-      drawTrees(ctx, this._midTrees, tW, midOx, '#0e0418');
-      drawHouses(ctx, this._houses, tW, midOx, '#0e0418');
-
-      // Road fill
-      const roadY = H * 0.735;
-      const rg = ctx.createLinearGradient(0, roadY, 0, H);
-      rg.addColorStop(0, '#0f0b1c'); rg.addColorStop(1, '#080614');
-      ctx.fillStyle = rg; ctx.fillRect(0, roadY, W, H - roadY);
-
-      // Road dashes
-      const dLen = W * 0.055, dGap = W * 0.04, period = dLen + dGap;
-      const dashOx = -((this._scroll * 0.20) % period);
-      ctx.fillStyle = 'rgba(255,200,80,0.48)';
-      for (let x = dashOx; x < W + dLen; x += period) {
-        ctx.fillRect(x, H * 0.808 - H * 0.003, dLen, H * 0.005);
-      }
-
-      this._drawCyclist(ctx, W, H);
+      this._t += dt * this.speed;
+      this._frame(this._t);
     }
 
-    _drawCyclist(ctx, W, H) {
-      const s = H / 960;
-      const cx = W * 0.37;
-      const gY = H * 0.745;
-      const bob = Math.sin(this._crankA * 2) * 2 * s;
+    _frame(t) {
+      const ctx  = this.ctx;
+      const sc   = Math.max(this._cW / W, this._cH / H);
+      const offX = (this._cW - W * sc) / 2;
+      const offY = (this._cH - H * sc) / 2;
 
-      const wr = 33 * s;
-      const rwX = cx - 31 * s, rwY = gY - wr;
-      const fwX = cx + 50 * s, fwY = gY - wr;
-      const bbX = cx + 6 * s,  bbY = gY - wr;
-      const stX = bbX - 10 * s, stTopY = bbY - 37 * s + bob;
-      const hdX = fwX - 18 * s, hdTopY = stTopY - 3 * s, hdBotY = fwY - wr * 0.35;
-
-      const col = '#0c0618';
       ctx.save();
-      ctx.fillStyle = col; ctx.strokeStyle = col;
-      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.translate(offX, offY);
+      ctx.scale(sc, sc);
 
-      // Wheels
-      this._wheel(ctx, rwX, rwY, wr, s, col);
-      this._wheel(ctx, fwX, fwY, wr, s, col);
+      // Sky
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0,    '#4E3466');
+      g.addColorStop(0.42, '#B75C7F');
+      g.addColorStop(0.72, '#EE8A5F');
+      g.addColorStop(1,    '#F8BE79');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
 
-      // Frame
-      ctx.lineWidth = 3.5 * s;
+      // Sun glow
+      const sg = ctx.createRadialGradient(515, 172, 10, 515, 172, 95);
+      sg.addColorStop(0, 'rgba(255,226,170,0.55)');
+      sg.addColorStop(1, 'rgba(255,226,170,0)');
+      ctx.fillStyle = sg;
+      ctx.fillRect(410, 70, 210, 205);
+
+      // Sun disk
+      ctx.fillStyle = '#FFE7BC';
       ctx.beginPath();
-      ctx.moveTo(stX, stTopY);   ctx.lineTo(bbX, bbY);
-      ctx.moveTo(stX, stTopY);   ctx.lineTo(hdX, hdTopY);
-      ctx.moveTo(bbX, bbY);      ctx.lineTo(hdX, hdBotY);
-      ctx.moveTo(bbX, bbY);      ctx.lineTo(rwX, rwY);
-      ctx.moveTo(stX, stTopY + 5 * s); ctx.lineTo(rwX, rwY);
-      ctx.moveTo(hdX, hdTopY);   ctx.lineTo(fwX, fwY);
-      ctx.moveTo(hdX, hdBotY);   ctx.lineTo(fwX, fwY);
-      ctx.stroke();
+      ctx.arc(515, 172, 32, 0, TAU);
+      ctx.fill();
 
-      // Seat
-      ctx.lineWidth = 6 * s;
-      ctx.beginPath();
-      ctx.moveTo(stX - 13 * s, stTopY); ctx.lineTo(stX + 7 * s, stTopY);
-      ctx.stroke();
+      // Clouds
+      ctx.fillStyle = 'rgba(255,214,190,0.4)';
+      const cl = [[4, 84, 68, 11, 0], [6, 126, 48, 8, 320], [5, 58, 40, 7, 640]];
+      for (let c = 0; c < 3; c++) {
+        const cd = cl[c];
+        const cx = W + 150 - ((t * cd[0] + cd[4]) % (W + 300));
+        ctx.beginPath();
+        ctx.ellipse(cx, cd[1], cd[2], cd[3], 0, 0, TAU);
+        ctx.fill();
+      }
 
-      // Handlebars
-      const hbX = hdX + 7 * s, hbY = hdTopY + 2 * s;
-      ctx.lineWidth = 3 * s;
-      ctx.beginPath();
-      ctx.moveTo(hbX, hbY - 8 * s);
-      ctx.bezierCurveTo(hbX + 9 * s, hbY - 3 * s, hbX + 12 * s, hbY + 1 * s, hbX + 14 * s, hbY + 5 * s);
-      ctx.stroke();
+      // Birds
+      ctx.strokeStyle = '#2E2143';
+      ctx.lineWidth   = 2;
+      ctx.lineCap     = 'round';
+      for (let i = 0; i < 3; i++) {
+        const bx = W + 70 - ((t * 22 + i * 270) % (W + 140));
+        const by = 96 + i * 22 + Math.sin(t * 1.3 + i) * 5;
+        const f  = Math.sin(t * 7 + i * 2) * 3.5;
+        ctx.beginPath();
+        ctx.moveTo(bx - 7, by);
+        ctx.quadraticCurveTo(bx - 3, by - 4 - f, bx,     by);
+        ctx.quadraticCurveTo(bx + 3, by - 4 - f, bx + 7, by);
+        ctx.stroke();
+      }
 
-      // Crank + pedals
-      const cl = 18 * s;
-      const p1x = bbX + Math.sin(this._crankA) * cl, p1y = bbY - Math.cos(this._crankA) * cl;
-      const p2x = bbX - Math.sin(this._crankA) * cl, p2y = bbY + Math.cos(this._crankA) * cl;
-      ctx.lineWidth = 2 * s;
-      ctx.beginPath(); ctx.moveTo(p1x, p1y); ctx.lineTo(p2x, p2y); ctx.stroke();
-      ctx.fillRect(p1x - 4 * s, p1y - 1.5 * s, 8 * s, 3 * s);
-      ctx.fillRect(p2x - 4 * s, p2y - 1.5 * s, 8 * s, 3 * s);
+      // Far hills, mid hills
+      this._hills(ctx, t * 9,        262, 42, 112, '#7A527E');
+      this._hills(ctx, t * 22 + 300, 288, 46,  76, '#4E3760');
 
-      // Rider body
-      const hipX = stX - 3 * s, hipY = stTopY + 4 * s;
-      const trX = hdX - 4 * s, trY = hdTopY - 7 * s + bob;
+      // Trees + bushes (tiled, scrolling)
+      const o = (t * 70) % patW;
+      for (let k = -1; k < 3; k++) {
+        const px = k * patW - o;
+        this._tree(ctx, 70  + px);
+        this._tree(ctx, 292 + px);
+        this._bush(ctx, 180 + px, 11);
+        this._bush(ctx, 424 + px,  9);
+      }
 
-      ctx.lineWidth = 12 * s;
-      ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(trX, trY); ctx.stroke();
+      // Road
+      ctx.fillStyle = '#3A2A52';
+      ctx.fillRect(0, RT - 8, W, 8);
+      ctx.fillStyle = '#2B2144';
+      ctx.fillRect(0, RT, W, H - RT);
+      ctx.fillStyle = 'rgba(248,190,121,0.22)';
+      ctx.fillRect(0, RT, W, 2);
 
-      // Arms
-      ctx.lineWidth = 7 * s;
-      ctx.beginPath(); ctx.moveTo(trX, trY + 4 * s); ctx.lineTo(hbX, hbY - 3 * s); ctx.stroke();
+      // Road dashes
+      ctx.fillStyle = 'rgba(255,220,180,0.4)';
+      const dO = (t * 230) % 64;
+      for (let dx = -dO; dx < W; dx += 64) ctx.fillRect(dx, 342, 30, 4);
 
-      // Legs (IK from hip to pedal)
-      const ll = 47 * s;
-      const k1 = solveKnee(hipX, hipY, p1x, p1y, ll, -1);
-      const k2 = solveKnee(hipX, hipY, p2x, p2y, ll, -1);
-      ctx.lineWidth = 9 * s;
-      // Back leg
-      ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(k2.x, k2.y); ctx.lineTo(p2x, p2y); ctx.stroke();
-      // Front leg (slightly lighter shade)
-      ctx.strokeStyle = '#160a26';
-      ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(k1.x, k1.y); ctx.lineTo(p1x, p1y); ctx.stroke();
-      ctx.strokeStyle = col;
-
-      // Head + helmet
-      const hcX = trX - 2 * s, hcY = trY - 11 * s + bob;
-      ctx.fillStyle = col;
-      ctx.beginPath(); ctx.arc(hcX, hcY, 9 * s, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(hcX, hcY - 3 * s, 10.5 * s, Math.PI, 0); ctx.fill();
+      // Bicycle + rider
+      this._bike(ctx, t);
 
       ctx.restore();
     }
 
-    _wheel(ctx, cx, cy, r, s, col) {
-      ctx.strokeStyle = col;
-      ctx.lineWidth = 2.5 * s;
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-      ctx.lineWidth = 1.5 * s;
-      for (let i = 0; i < 8; i++) {
-        const a = this._wheelA + i * Math.PI / 4;
-        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); ctx.stroke();
-      }
+    _hills(ctx, off, base, amp, wl, col) {
       ctx.fillStyle = col;
-      ctx.beginPath(); ctx.arc(cx, cy, 3 * s, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(0, RT + 1);
+      for (let x = 0; x <= W; x += 8)
+        ctx.lineTo(x, base - amp * (0.5 + 0.5 * Math.sin((x + off) / wl)));
+      ctx.lineTo(W, RT + 1);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    _tree(ctx, x) {
+      ctx.fillStyle = '#2A1C42';
+      ctx.fillRect(x - 3, RT - 58, 6, 58);
+      ctx.beginPath();
+      ctx.arc(x,      RT - 62, 20, 0, TAU);
+      ctx.arc(x - 13, RT - 50, 13, 0, TAU);
+      ctx.arc(x + 13, RT - 50, 13, 0, TAU);
+      ctx.fill();
+    }
+
+    _bush(ctx, x, r) {
+      ctx.fillStyle = '#2A1C42';
+      ctx.beginPath();
+      ctx.arc(x, RT - r + 2, r, 0, TAU);
+      ctx.fill();
+    }
+
+    _wheel(ctx, x, aY, wr, an, col) {
+      ctx.strokeStyle = col;
+      ctx.lineWidth   = 4.5;
+      ctx.beginPath();
+      ctx.arc(x, aY, wr, 0, TAU);
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(248,190,121,0.45)';
+      ctx.lineWidth   = 1.5;
+      for (let s = 0; s < 3; s++) {
+        const a = an + s * Math.PI / 3;
+        ctx.beginPath();
+        ctx.moveTo(x + Math.cos(a) * (wr - 3), aY + Math.sin(a) * (wr - 3));
+        ctx.lineTo(x - Math.cos(a) * (wr - 3), aY - Math.sin(a) * (wr - 3));
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.arc(x, aY, 3, 0, TAU);
+      ctx.fill();
+    }
+
+    _bike(ctx, t) {
+      const col = '#191026';
+      const raX = 232, frX = 296, aY = 322, wr = 19, CKx = 258, CKy = 318;
+      const an = t * 7;
+
+      this._wheel(ctx, raX, aY, wr, an, col);
+      this._wheel(ctx, frX, aY, wr, an, col);
+
+      // Frame
+      ctx.strokeStyle = col;
+      ctx.lineWidth   = 4;
+      ctx.lineCap     = 'round';
+      ctx.beginPath();
+      ctx.moveTo(raX, aY);  ctx.lineTo(CKx, CKy);
+      ctx.moveTo(CKx, CKy); ctx.lineTo(246, 290);
+      ctx.moveTo(raX, aY);  ctx.lineTo(246, 290);
+      ctx.moveTo(CKx, CKy); ctx.lineTo(288, 296);
+      ctx.moveTo(288, 296); ctx.lineTo(frX, aY);
+      ctx.moveTo(288, 296); ctx.lineTo(282, 286);
+      ctx.moveTo(282, 286); ctx.lineTo(292, 284);
+      ctx.stroke();
+
+      // Seat
+      ctx.fillStyle = col;
+      ctx.fillRect(238, 286, 17, 5);
+
+      // Pedal arms
+      const pa = t * 7;
+      const p1 = [CKx + Math.cos(pa) * 11, CKy + Math.sin(pa) * 11];
+      const p2 = [CKx - Math.cos(pa) * 11, CKy - Math.sin(pa) * 11];
+      const hip = [247, 288];
+      const sh  = [272, 268];
+
+      // Back leg (darker)
+      ctx.strokeStyle = '#241736';
+      ctx.lineWidth   = 6;
+      ctx.beginPath();
+      ctx.moveTo(hip[0], hip[1]);
+      ctx.quadraticCurveTo(hip[0] + 15, (hip[1] + p2[1]) / 2, p2[0], p2[1]);
+      ctx.stroke();
+
+      // Torso
+      ctx.strokeStyle = col;
+      ctx.lineWidth   = 7;
+      ctx.beginPath();
+      ctx.moveTo(hip[0], hip[1]);
+      ctx.lineTo(sh[0], sh[1]);
+      ctx.stroke();
+
+      // Front leg
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(hip[0], hip[1]);
+      ctx.quadraticCurveTo(hip[0] + 15, (hip[1] + p1[1]) / 2, p1[0], p1[1]);
+      ctx.stroke();
+
+      // Arm
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(sh[0], sh[1]);
+      ctx.lineTo(290, 285);
+      ctx.stroke();
+
+      // Head
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.arc(279, 261, 8, 0, TAU);
+      ctx.fill();
+
+      // Pedals
+      ctx.strokeStyle = col;
+      ctx.lineWidth   = 3;
+      ctx.beginPath();
+      ctx.moveTo(p1[0] - 5, p1[1]); ctx.lineTo(p1[0] + 5, p1[1]);
+      ctx.moveTo(p2[0] - 5, p2[1]); ctx.lineTo(p2[0] + 5, p2[1]);
+      ctx.stroke();
     }
 
     destroy() {}
   }
 
+  // ── Standalone API (used by preview index.html) ───────────────────────────────
+  let _inst = null, _raf = null, _boundResize = null, _boundVis = null;
+
+  function _debounce(fn, ms) {
+    let timer;
+    return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
+  }
+
+  function init(canvas) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+
+    function resize() {
+      canvas.width  = Math.floor(window.innerWidth  * dpr);
+      canvas.height = Math.floor(window.innerHeight * dpr);
+      if (_inst) _inst.resize(canvas.width, canvas.height);
+    }
+    resize();
+    canvas.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;';
+
+    const ctx = canvas.getContext('2d');
+    _inst = new SunsetBikeRideTheme();
+    _inst.init(canvas, ctx, { speed: 1 });
+
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function loop(ts) {
+      _raf = requestAnimationFrame(loop);
+      _inst.draw(ts);
+    }
+
+    _boundResize = _debounce(resize, 150);
+    _boundVis = () => {
+      if (document.hidden) { cancelAnimationFrame(_raf); _raf = null; }
+      else if (!_raf)      { _raf = requestAnimationFrame(loop); }
+    };
+
+    window.addEventListener('resize', _boundResize);
+    document.addEventListener('visibilitychange', _boundVis);
+
+    if (reduced) { _inst.draw(0); }
+    else         { _raf = requestAnimationFrame(loop); }
+  }
+
+  function destroy() {
+    if (_raf)         { cancelAnimationFrame(_raf); _raf = null; }
+    if (_inst)        { _inst.destroy(); _inst = null; }
+    if (_boundResize) { window.removeEventListener('resize', _boundResize); _boundResize = null; }
+    if (_boundVis)    { document.removeEventListener('visibilitychange', _boundVis); _boundVis = null; }
+  }
+
   window.SunsetBikeRideTheme = SunsetBikeRideTheme;
+  window.BikeRide = { init, destroy };
 })();
