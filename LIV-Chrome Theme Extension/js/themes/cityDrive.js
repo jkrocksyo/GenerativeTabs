@@ -1,338 +1,322 @@
+'use strict';
+
 (function () {
-  'use strict';
 
-  function makeGlow(r, inner, outer) {
-    const oc = document.createElement('canvas');
-    oc.width = oc.height = r * 2;
-    const g = oc.getContext('2d');
-    const gr = g.createRadialGradient(r, r, 0, r, r, r);
-    gr.addColorStop(0, inner); gr.addColorStop(1, outer);
-    g.fillStyle = gr; g.fillRect(0, 0, r * 2, r * 2);
-    return oc;
-  }
-
-  // Pre-render a cone-of-light sprite for streetlamps
-  function makeLampCone(W, H) {
-    const cw = W * 0.12, ch = H * 0.35;
-    const oc = document.createElement('canvas');
-    oc.width = Math.ceil(cw); oc.height = Math.ceil(ch);
-    const g = oc.getContext('2d');
-    const gr = g.createRadialGradient(cw / 2, 0, 0, cw / 2, 0, Math.hypot(cw / 2, ch));
-    gr.addColorStop(0, 'rgba(255,220,120,0.22)');
-    gr.addColorStop(0.6, 'rgba(255,180,60,0.07)');
-    gr.addColorStop(1, 'rgba(255,160,40,0)');
-    g.fillStyle = gr;
-    g.beginPath();
-    g.moveTo(cw / 2, 0);
-    g.lineTo(cw, ch);
-    g.lineTo(0, ch);
-    g.closePath();
-    g.fill();
-    return { img: oc, w: cw, h: ch };
-  }
+  const W = 720, H = 380, TAU = Math.PI * 2, HZ = 250, RT = 284;
+  const BLDS = [
+    [10,70,40],[60,100,34],[104,55,50],[170,120,38],[218,80,30],
+    [300,95,44],[354,60,36],[420,130,40],[470,75,32],[520,50,30],
+  ];
 
   class NightCityDriveTheme {
     init(canvas, ctx, opts) {
-      this.canvas = canvas; this.ctx = ctx;
-      this.speed = (opts && opts.speed) || 1;
-      this._t = 0; this._lastTs = null; this._scroll = 0;
-      this.W = canvas.width; this.H = canvas.height;
-      this._rebuild();
+      this.canvas   = canvas;
+      this.ctx      = ctx || canvas.getContext('2d');
+      this.speed    = (opts && opts.speed) || 1;
+      this._t       = 0;
+      this._lastTs  = null;
+      this._cW      = canvas.width;
+      this._cH      = canvas.height;
+      this._puffs   = [];
+      this._puffAcc = 0;
+      this._stars   = [];
+      for (let i = 0; i < 34; i++)
+        this._stars.push([Math.random() * W, Math.random() * 200, Math.random() * TAU]);
     }
 
     resize(w, h) {
-      if (this.W) this._scroll *= w / this.W;
-      this.W = w; this.H = h;
-      this._rebuild();
-    }
-
-    _rebuild() {
-      const W = this.W, H = this.H;
-      this._tileW = W * 2;
-      const tW = this._tileW;
-      const rng = (a, b) => a + Math.random() * (b - a);
-
-      // Stars (fixed, no parallax)
-      this._stars = Array.from({ length: 120 }, () => ({
-        x: Math.random() * W,
-        y: Math.random() * H * 0.6,
-        r: H * rng(0.001, 0.003),
-        twinklePhase: Math.random() * Math.PI * 2,
-        twinkleSpeed: rng(0.5, 2.0),
-      }));
-
-      // City skyline buildings
-      this._skylineA = this._genBuildings(tW, H, 0.58, 0.12, 18, 0.022, 0.05); // far
-      this._skylineB = this._genBuildings(tW, H, 0.65, 0.10, 14, 0.030, 0.07); // near
-
-      // Streetlamps
-      this._lamps = Array.from({ length: 8 }, (_, i) => ({
-        x: ((i + 0.5) / 8) * tW + rng(-0.04, 0.04) * tW,
-        postH: H * rng(0.16, 0.22),
-        postW: H * 0.008,
-      }));
-
-      // Lamp cone sprite
-      this._lampCone = makeLampCone(W, H);
-
-      // Headlight cone (pre-render)
-      const lcR = H * 0.18;
-      this._hlGlow = makeGlow(lcR, 'rgba(255,240,180,0.55)', 'rgba(255,200,80,0)');
-      this._hlR = lcR;
-
-      // Exhaust particles
-      this._exhaust = [];
-
-      this._wheelA = 0;
-    }
-
-    _genBuildings(tW, H, baseY, winDensity, count, minW, maxW) {
-      const buildings = [];
-      const groundY = H * baseY;
-      let x = 0;
-      for (let i = 0; i < count; i++) {
-        const w = H * (minW + Math.random() * (maxW - minW));
-        const h = groundY * (0.18 + Math.random() * 0.55);
-        const winCols = Math.max(1, Math.floor(w / (H * 0.018)));
-        const winRows = Math.max(1, Math.floor(h / (H * 0.025)));
-        const windows = [];
-        for (let r = 0; r < winRows; r++) {
-          for (let c = 0; c < winCols; c++) {
-            const lit = Math.random() < 0.55;
-            const flicker = lit && Math.random() < 0.06;
-            windows.push({ r, c, lit, flicker, phase: Math.random() * Math.PI * 2 });
-          }
-        }
-        buildings.push({ x: x + Math.random() * H * 0.02, w, h, groundY, windows, winCols, winRows });
-        x += w + H * (0.008 + Math.random() * 0.018);
-        if (x > tW) break;
-      }
-      return buildings;
-    }
-
-    _spawnExhaust(carX, carY) {
-      this._exhaust.push({
-        x: carX, y: carY,
-        vx: -this.W * 0.06 - Math.random() * this.W * 0.03,
-        vy: (Math.random() - 0.5) * this.H * 0.015,
-        alpha: 0.35 + Math.random() * 0.15,
-        r: this.H * (0.008 + Math.random() * 0.008),
-        life: 1.0,
-      });
+      this._cW = w;
+      this._cH = h;
     }
 
     draw(ts) {
-      const ctx = this.ctx;
-      const W = this.W, H = this.H;
-      const rawDt = this._lastTs ? Math.min((ts - this._lastTs) / 1000, 0.05) : 0;
+      if (ts === 0) { this._frame(this._t); return; }
+      const dt   = (this._lastTs != null) ? Math.min((ts - this._lastTs) / 1000, 0.05) : 0;
       this._lastTs = ts;
-      const dt = rawDt * Math.max(0.1, this.speed);
-      this._t += dt;
-      this._scroll += W * 0.12 * dt;
-      this._wheelA -= dt * 3.2;
-      const tW = this._tileW;
+      const step = dt * this.speed;
+      this._t   += step;
 
-      // Sky
-      const sky = ctx.createLinearGradient(0, 0, 0, H);
-      sky.addColorStop(0, '#030610');
-      sky.addColorStop(0.55, '#060f28');
-      sky.addColorStop(1, '#0c1a3a');
-      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
-
-      // Stars
-      const t = this._t;
-      for (const s of this._stars) {
-        const tw = 0.6 + 0.4 * Math.sin(t * s.twinkleSpeed + s.twinklePhase);
-        ctx.fillStyle = `rgba(255,255,255,${0.5 * tw})`;
-        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+      // Spawn exhaust puff every 56 frames at 60fps (≈0.933 s)
+      this._puffAcc += step;
+      if (this._puffAcc >= 56 / 60) {
+        this._puffAcc -= 56 / 60;
+        this._puffs.push({ x: 252, y: 305, r: 2.5, a: 0.3 }); // cx-58 = 310-58
       }
 
-      // Far skyline
-      const farOx = -((this._scroll * 0.035) % tW);
-      this._drawBuildings(ctx, W, H, this._skylineA, tW, farOx, t);
-
-      // Near skyline
-      const nearOx = -((this._scroll * 0.08) % tW);
-      this._drawBuildings(ctx, W, H, this._skylineB, tW, nearOx, t);
-
-      // Road
-      const roadY = H * 0.68;
-      const rg = ctx.createLinearGradient(0, roadY, 0, H);
-      rg.addColorStop(0, '#0e1020'); rg.addColorStop(1, '#070810');
-      ctx.fillStyle = rg; ctx.fillRect(0, roadY, W, H - roadY);
-
-      // Streetlamps + cones
-      const lampOx = -((this._scroll * 0.14) % tW);
-      const cone = this._lampCone;
-      for (let tile = 0; tile <= 1; tile++) {
-        const dx = lampOx + tile * tW;
-        for (const lp of this._lamps) {
-          const x = dx + lp.x;
-          if (x < -cone.w && x > W + lp.postW) continue;
-          const baseY = roadY;
-          const lampTopY = baseY - lp.postH;
-          // Light cone
-          ctx.drawImage(cone.img, x - cone.w / 2, lampTopY, cone.w, cone.h);
-          // Ground puddle glow
-          const pg = ctx.createRadialGradient(x, baseY, 0, x, baseY, cone.w * 0.7);
-          pg.addColorStop(0, 'rgba(255,200,80,0.08)');
-          pg.addColorStop(1, 'rgba(255,160,40,0)');
-          ctx.fillStyle = pg;
-          ctx.beginPath(); ctx.ellipse(x, baseY, cone.w * 0.7, cone.w * 0.18, 0, 0, Math.PI * 2); ctx.fill();
-          // Post
-          ctx.fillStyle = '#1a1830';
-          ctx.fillRect(x - lp.postW * 0.5, lampTopY, lp.postW, lp.postH);
-          // Lamp head
-          ctx.fillStyle = '#2a2640';
-          ctx.fillRect(x - lp.postW * 1.8, lampTopY - lp.postW * 1.5, lp.postW * 3.6, lp.postW * 1.5);
-          // Lamp bulb glow
-          const lg = makeGlow(lp.postW * 3, 'rgba(255,230,140,0.9)', 'rgba(255,180,60,0)');
-          ctx.drawImage(lg, x - lp.postW * 3, lampTopY - lp.postW * 3, lp.postW * 6, lp.postW * 6);
-        }
+      // Update puffs — per-frame increments scaled to real time
+      const fs = step * 60;  // ≈1 at 60fps
+      for (let p = this._puffs.length - 1; p >= 0; p--) {
+        const pf = this._puffs[p];
+        pf.x -= 0.5  * fs;
+        pf.y -= 0.15 * fs;
+        pf.r += 0.06 * fs;
+        pf.a -= 0.004 * fs;
+        if (pf.a <= 0) this._puffs.splice(p, 1);
       }
 
-      // Road dashes
-      const dLen = W * 0.055, dGap = W * 0.04, period = dLen + dGap;
-      const dashOx = -((this._scroll * 0.22) % period);
-      ctx.fillStyle = 'rgba(255,255,180,0.35)';
-      for (let x = dashOx; x < W + dLen; x += period) {
-        ctx.fillRect(x, H * 0.815 - H * 0.003, dLen, H * 0.005);
-      }
-
-      // Exhaust + car
-      const carX = W * 0.36;
-      const carY = roadY - H * 0.001;
-      if (dt > 0 && Math.random() < 0.25) this._spawnExhaust(carX - H * 0.105, carY - H * 0.025);
-      this._updateExhaust(ctx, dt);
-      this._drawCar(ctx, W, H, carX, carY);
+      this._frame(this._t);
     }
 
-    _drawBuildings(ctx, W, H, buildings, tW, ox, t) {
-      for (let tile = 0; tile <= 1; tile++) {
-        const dx = ox + tile * tW;
-        for (const b of buildings) {
-          const bx = dx + b.x;
-          if (bx + b.w < 0 || bx > W) continue;
-          // Building body
-          ctx.fillStyle = '#0c1228';
-          ctx.fillRect(bx, b.groundY - b.h, b.w, b.h);
-          // Windows
-          if (b.winCols > 0 && b.winRows > 0) {
-            const ww = b.w / (b.winCols + 1) * 0.7;
-            const wh = b.h / (b.winRows + 1) * 0.55;
-            const xpad = (b.w - ww * b.winCols) / (b.winCols + 1);
-            const ypad = (b.h - wh * b.winRows) / (b.winRows + 1);
-            for (const win of b.windows) {
-              if (!win.lit) continue;
-              let a = 1.0;
-              if (win.flicker) a = 0.5 + 0.5 * Math.sin(t * 3 + win.phase);
-              const wx = bx + xpad + win.c * (ww + xpad);
-              const wy = b.groundY - b.h + ypad + win.r * (wh + ypad);
-              ctx.fillStyle = `rgba(255,210,120,${0.55 * a})`;
-              ctx.fillRect(wx, wy, ww, wh);
-            }
-          }
-        }
-      }
-    }
-
-    _updateExhaust(ctx, dt) {
-      for (let i = this._exhaust.length - 1; i >= 0; i--) {
-        const p = this._exhaust[i];
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-        p.r  *= 1 + dt * 1.2;
-        p.life -= dt * 1.8;
-        if (p.life <= 0) { this._exhaust.splice(i, 1); continue; }
-        ctx.fillStyle = `rgba(180,180,200,${p.alpha * p.life * 0.5})`;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
-      }
-    }
-
-    _drawCar(ctx, W, H, cx, groundY) {
-      const s = H / 960;
-
-      // Teal hatchback silhouette (side view, driving right)
-      const carW = 130 * s;
-      const carH = 46 * s;
-      const wr = 17 * s;
-      const carTop = groundY - carH - wr * 0.7;
-      const carLeft = cx - carW * 0.45;
+    _frame(t) {
+      const ctx = this.ctx;
+      const sc  = Math.max(this._cW / W, this._cH / H);
+      const oX  = (this._cW - W * sc) / 2;
+      const oY  = (this._cH - H * sc) / 2;
 
       ctx.save();
+      ctx.translate(oX, oY);
+      ctx.scale(sc, sc);
 
-      // Headlight cone (forward)
-      ctx.drawImage(this._hlGlow, cx + carW * 0.45 - this._hlR * 0.25, groundY - wr - carH * 0.45 - this._hlR * 0.5, this._hlR * 2, this._hlR * 2);
+      // Sky
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0,   '#0A1230');
+      g.addColorStop(0.7, '#16244A');
+      g.addColorStop(1,   '#25355C');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
 
-      // Car body
-      ctx.fillStyle = '#1a6860';
+      // Stars (twinkling)
+      for (const st of this._stars) {
+        const a = 0.2 + 0.4 * Math.abs(Math.sin(t * 1.2 + st[2]));
+        ctx.fillStyle = `rgba(228,238,255,${a.toFixed(3)})`;
+        ctx.fillRect(st[0], st[1], 1.5, 1.5);
+      }
+
+      // Horizon glow
+      const hg = ctx.createLinearGradient(0, 205, 0, HZ);
+      hg.addColorStop(0, 'rgba(255,190,120,0)');
+      hg.addColorStop(1, 'rgba(255,190,120,0.12)');
+      ctx.fillStyle = hg;
+      ctx.fillRect(0, 205, W, HZ - 205);
+
+      // City buildings (3 tiles, 560 px period)
+      const o1 = (t * 5) % 560;
+      this._city(ctx, -o1);
+      this._city(ctx, 560 - o1);
+      this._city(ctx, 1120 - o1);
+
+      // Far hills
+      this._bump(ctx, t * 14, 268, 22, 55, '#0B1228', RT);
+
+      // Road
+      ctx.fillStyle = '#0D1322';
+      ctx.fillRect(0, 278, W, 6);
+      ctx.fillStyle = '#141926';
+      ctx.fillRect(0, RT, W, H - RT);
+      ctx.fillStyle = 'rgba(255,220,170,0.08)';
+      ctx.fillRect(0, RT, W, 2);
+
+      // Road dashes
+      ctx.fillStyle = 'rgba(240,220,170,0.35)';
+      const dO = (t * 45) % 70;
+      for (let dx = -dO; dx < W; dx += 70) ctx.fillRect(dx, 338, 26, 4);
+
+      // Street lamps
+      const o2 = (t * 45) % 380;
+      this._lamp(ctx, 120 - o2);
+      this._lamp(ctx, 500 - o2);
+      this._lamp(ctx, 880 - o2);
+      this._lamp(ctx,  12 - o2);
+
+      // Car
+      const cx = 310, cy = Math.sin(t * 3) * 0.8;
+
+      // Exhaust puffs
+      for (const pf of this._puffs) {
+        ctx.fillStyle = `rgba(190,200,215,${pf.a.toFixed(3)})`;
+        ctx.beginPath();
+        ctx.arc(pf.x, pf.y + cy, pf.r, 0, TAU);
+        ctx.fill();
+      }
+
+      // Headlight beam
+      const bg = ctx.createLinearGradient(cx + 50, 0, cx + 165, 0);
+      bg.addColorStop(0, 'rgba(255,236,190,0.28)');
+      bg.addColorStop(1, 'rgba(255,236,190,0)');
+      ctx.fillStyle = bg;
       ctx.beginPath();
-      ctx.moveTo(carLeft, groundY - wr * 0.8);
-      ctx.lineTo(carLeft + carW * 0.08, carTop + carH * 0.4);
-      ctx.lineTo(carLeft + carW * 0.22, carTop);
-      ctx.lineTo(carLeft + carW * 0.70, carTop);
-      ctx.lineTo(carLeft + carW * 0.88, carTop + carH * 0.45);
-      ctx.lineTo(carLeft + carW, groundY - wr * 0.8);
+      ctx.moveTo(cx + 50,  296 + cy); ctx.lineTo(cx + 50,  306 + cy);
+      ctx.lineTo(cx + 165, 320 + cy); ctx.lineTo(cx + 165, 284 + cy);
       ctx.closePath();
       ctx.fill();
 
-      // Window
-      ctx.fillStyle = '#0e3830';
+      // Car body (teal)
+      ctx.fillStyle = '#5FA8A0';
       ctx.beginPath();
-      ctx.moveTo(carLeft + carW * 0.25, carTop + carH * 0.12);
-      ctx.lineTo(carLeft + carW * 0.25, carTop + carH * 0.38);
-      ctx.lineTo(carLeft + carW * 0.68, carTop + carH * 0.38);
-      ctx.lineTo(carLeft + carW * 0.84, carTop + carH * 0.14);
+      ctx.moveTo(cx - 40, 296 + cy);
+      ctx.lineTo(cx - 32, 279 + cy);
+      ctx.lineTo(cx + 20, 279 + cy);
+      ctx.lineTo(cx + 33, 296 + cy);
       ctx.closePath();
       ctx.fill();
-      // Window shine
-      ctx.strokeStyle = 'rgba(100,200,180,0.18)';
-      ctx.lineWidth = 1.5 * s;
+      ctx.fillRect(cx - 52, 294 + cy, 104, 16);
+      ctx.beginPath();
+      ctx.arc(cx - 52, 302 + cy, 8, 0, TAU);
+      ctx.arc(cx + 52, 302 + cy, 8, 0, TAU);
+      ctx.fill();
+
+      // Windshield interior (dark)
+      ctx.fillStyle = '#1B2740';
+      ctx.beginPath();
+      ctx.moveTo(cx - 29, 294 + cy);
+      ctx.lineTo(cx - 23, 282 + cy);
+      ctx.lineTo(cx + 17, 282 + cy);
+      ctx.lineTo(cx + 27, 294 + cy);
+      ctx.closePath();
+      ctx.fill();
+
+      // Window divider
+      ctx.strokeStyle = '#5FA8A0';
+      ctx.lineWidth   = 3;
+      ctx.beginPath();
+      ctx.moveTo(cx - 2, 281 + cy);
+      ctx.lineTo(cx - 2, 295 + cy);
       ctx.stroke();
 
-      // Wheels
-      const rw1x = carLeft + carW * 0.20, rw1y = groundY - wr * 0.55;
-      const rw2x = carLeft + carW * 0.78, rw2y = groundY - wr * 0.55;
-      this._wheel(ctx, rw1x, rw1y, wr, s);
-      this._wheel(ctx, rw2x, rw2y, wr, s);
+      // Headlight
+      ctx.fillStyle = '#FFF0C0';
+      ctx.fillRect(cx + 49, 297 + cy, 4, 6);
 
-      // Headlight (front)
-      ctx.fillStyle = 'rgba(255,240,160,0.85)';
-      ctx.beginPath();
-      ctx.ellipse(carLeft + carW * 0.97, carTop + carH * 0.68, 4 * s, 3 * s, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Brake light (rear, small red glow)
-      ctx.fillStyle = 'rgba(255,60,40,0.7)';
-      ctx.beginPath();
-      ctx.ellipse(carLeft + 5 * s, carTop + carH * 0.62, 3 * s, 2 * s, 0, 0, Math.PI * 2);
-      ctx.fill();
-      // Rear glow
-      const rg = ctx.createRadialGradient(carLeft + 5 * s, carTop + carH * 0.62, 0, carLeft + 5 * s, carTop + carH * 0.62, 14 * s);
-      rg.addColorStop(0, 'rgba(255,40,20,0.3)'); rg.addColorStop(1, 'rgba(255,40,20,0)');
+      // Taillight + glow
+      ctx.fillStyle = '#FF5A5A';
+      ctx.fillRect(cx - 54, 298 + cy, 3, 6);
+      const rg = ctx.createRadialGradient(cx - 54, 301 + cy, 1, cx - 54, 301 + cy, 10);
+      rg.addColorStop(0, 'rgba(255,90,90,0.4)');
+      rg.addColorStop(1, 'rgba(255,90,90,0)');
       ctx.fillStyle = rg;
-      ctx.beginPath(); ctx.arc(carLeft + 5 * s, carTop + carH * 0.62, 14 * s, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(cx - 64, 291 + cy, 20, 20);
+
+      // Wheels
+      const wa = t * 4.1;
+      for (let w = 0; w < 2; w++) {
+        const wx2 = cx + (w ? 34 : -30), wy = 316 + cy;
+        ctx.fillStyle = '#0B0F1C';
+        ctx.beginPath(); ctx.arc(wx2, wy, 11, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#3A4458';
+        ctx.beginPath(); ctx.arc(wx2, wy, 5, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(200,210,230,0.7)';
+        ctx.lineWidth   = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(wx2 + Math.cos(wa)        * 4.5, wy + Math.sin(wa)        * 4.5);
+        ctx.lineTo(wx2 - Math.cos(wa)        * 4.5, wy - Math.sin(wa)        * 4.5);
+        ctx.moveTo(wx2 + Math.cos(wa + 1.57) * 4.5, wy + Math.sin(wa + 1.57) * 4.5);
+        ctx.lineTo(wx2 - Math.cos(wa + 1.57) * 4.5, wy - Math.sin(wa + 1.57) * 4.5);
+        ctx.stroke();
+      }
 
       ctx.restore();
     }
 
-    _wheel(ctx, cx, cy, r, s) {
-      ctx.fillStyle = '#101020';
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#1a1838'; ctx.lineWidth = 2 * s;
-      ctx.beginPath(); ctx.arc(cx, cy, r * 0.72, 0, Math.PI * 2); ctx.stroke();
-      ctx.lineWidth = 1.5 * s;
-      for (let i = 0; i < 6; i++) {
-        const a = this._wheelA + i * Math.PI / 3;
-        ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * r * 0.15, cy + Math.sin(a) * r * 0.15);
-        ctx.lineTo(cx + Math.cos(a) * r * 0.68, cy + Math.sin(a) * r * 0.68); ctx.stroke();
+    _city(ctx, ox) {
+      for (let b = 0; b < BLDS.length; b++) {
+        const bd = BLDS[b], wx = bd[0] + ox;
+        ctx.fillStyle = '#111B38';
+        ctx.fillRect(wx, HZ - bd[1], bd[2], bd[1]);
+        const cols = Math.floor((bd[2] - 8) / 9);
+        const rows = Math.floor((bd[1] - 10) / 12);
+        ctx.fillStyle = 'rgba(244,200,122,0.85)';
+        for (let ci = 0; ci < cols; ci++)
+          for (let rj = 0; rj < rows; rj++)
+            if (((bd[0] + ci * 13 + rj * 7) % 7) < 3)
+              ctx.fillRect(wx + 5 + ci * 9, HZ - bd[1] + 6 + rj * 12, 3, 4);
       }
-      ctx.fillStyle = '#1a1838';
-      ctx.beginPath(); ctx.arc(cx, cy, 3 * s, 0, Math.PI * 2); ctx.fill();
+    }
+
+    _lamp(ctx, px) {
+      ctx.fillStyle = '#0A0F1E';
+      ctx.fillRect(px - 2, 180, 4, RT - 180);
+      ctx.fillRect(px, 180, 26, 4);
+      const lx = px + 26;
+
+      const cg = ctx.createLinearGradient(0, 188, 0, RT + 6);
+      cg.addColorStop(0, 'rgba(255,220,160,0.14)');
+      cg.addColorStop(1, 'rgba(255,220,160,0.02)');
+      ctx.fillStyle = cg;
+      ctx.beginPath();
+      ctx.moveTo(lx - 6,  188);    ctx.lineTo(lx + 6,  188);
+      ctx.lineTo(lx + 36, RT + 6); ctx.lineTo(lx - 36, RT + 6);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(255,215,150,0.16)';
+      ctx.beginPath();
+      ctx.ellipse(lx, RT + 16, 54, 10, 0, 0, TAU);
+      ctx.fill();
+
+      const lg = ctx.createRadialGradient(lx, 186, 2, lx, 186, 24);
+      lg.addColorStop(0, 'rgba(255,220,160,0.4)');
+      lg.addColorStop(1, 'rgba(255,220,160,0)');
+      ctx.fillStyle = lg;
+      ctx.fillRect(lx - 24, 162, 48, 48);
+
+      ctx.fillStyle = '#FFD9A0';
+      ctx.fillRect(lx - 5, 183, 10, 5);
+    }
+
+    _bump(ctx, off, base, amp, wl, col, toY) {
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.moveTo(0, toY);
+      for (let x = 0; x <= W; x += 8)
+        ctx.lineTo(x, base - amp * (0.5 + 0.5 * Math.sin((x + off) / wl)));
+      ctx.lineTo(W, toY);
+      ctx.closePath();
+      ctx.fill();
     }
 
     destroy() {}
   }
 
+  // ── Standalone API (used by preview HTML) ─────────────────────────────────────
+  let _inst = null, _raf = null, _boundResize = null, _boundVis = null;
+
+  function _debounce(fn, ms) {
+    let timer;
+    return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
+  }
+
+  function init(canvas) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+
+    function resize() {
+      canvas.width  = Math.floor(window.innerWidth  * dpr);
+      canvas.height = Math.floor(window.innerHeight * dpr);
+      if (_inst) _inst.resize(canvas.width, canvas.height);
+    }
+    resize();
+    canvas.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;';
+
+    const ctx = canvas.getContext('2d');
+    _inst = new NightCityDriveTheme();
+    _inst.init(canvas, ctx, { speed: 1 });
+
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function loop(ts) {
+      _raf = requestAnimationFrame(loop);
+      _inst.draw(ts);
+    }
+
+    _boundResize = _debounce(resize, 150);
+    _boundVis = () => {
+      if (document.hidden) { cancelAnimationFrame(_raf); _raf = null; }
+      else if (!_raf)      { _raf = requestAnimationFrame(loop); }
+    };
+
+    window.addEventListener('resize', _boundResize);
+    document.addEventListener('visibilitychange', _boundVis);
+
+    if (reduced) { _inst.draw(0); }
+    else         { _raf = requestAnimationFrame(loop); }
+  }
+
+  function destroy() {
+    if (_raf)         { cancelAnimationFrame(_raf); _raf = null; }
+    if (_inst)        { _inst.destroy(); _inst = null; }
+    if (_boundResize) { window.removeEventListener('resize', _boundResize); _boundResize = null; }
+    if (_boundVis)    { document.removeEventListener('visibilitychange', _boundVis); _boundVis = null; }
+  }
+
   window.NightCityDriveTheme = NightCityDriveTheme;
+  window.CityDrive = { init, destroy };
 })();
