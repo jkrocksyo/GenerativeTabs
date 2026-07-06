@@ -4,14 +4,14 @@
 
   const TAU = Math.PI * 2;
 
-  // Rainy Window — rain on glass at night, city bokeh beyond.
+  // Rainy Window — rain on glass against a quiet dusk.
   // Realism comes from layers that never cheat:
-  //   1. a defocused city rendered once (low-res + blur = true bokeh creaminess)
-  //   2. a soft drizzle falling outside, behind the glass
+  //   1. a soft defocused evening rendered once (low-res + blur)
+  //   2. a gentle drizzle falling outside, behind the glass
   //   3. droplets that actually refract: each lenses an inverted, magnified
   //      sample of the background, with rim shading and a specular glint.
-  // Running drops behave like water, not lines: they swell in place, tear
-  // free as a teardrop, glide while their mass lasts, and stop.
+  // Running drops behave like water: they swell in place, tear free as a
+  // teardrop, glide while their mass lasts, and stop.
   class RainyWindowTheme {
     init(canvas, ctx, opts) {
       this.canvas    = canvas;
@@ -47,186 +47,56 @@
     _buildBackground() {
       const w = this._cW, h = this._cH;
 
-      // Paint the city small, then scale up with a blur — cheap, true defocus.
-      const lw = Math.max(2, Math.ceil(w / 4)), lh = Math.max(2, Math.ceil(h / 4));
+      // A rainy dusk beyond the glass — soft enough that the drops do the
+      // talking. Painted small, upscaled with a blur for true defocus.
+      const lw = Math.max(2, Math.ceil(w / 6)), lh = Math.max(2, Math.ceil(h / 6));
       const low = document.createElement('canvas');
       low.width = lw; low.height = lh;
       const lc = low.getContext('2d');
-      const sx = w / lw, sy = h / lh;      // low-res → full-res, for live beacons
-      this._beacons = [];
 
-      // Vantage: mid-height in a tower, looking across the street canyon.
       const sky = lc.createLinearGradient(0, 0, 0, lh);
-      sky.addColorStop(0,    '#0a0f1e');
-      sky.addColorStop(0.4,  '#151d32');
-      sky.addColorStop(0.8,  '#232336');
-      sky.addColorStop(1,    '#2a2433');
+      sky.addColorStop(0,    '#1a2333');
+      sky.addColorStop(0.45, '#27334a');
+      sky.addColorStop(0.72, '#3d4258');
+      sky.addColorStop(0.88, '#5a4a4e');
+      sky.addColorStop(1,    '#2c2733');
       lc.fillStyle = sky;
       lc.fillRect(0, 0, lw, lh);
 
-      // Distant skyline in the gap; horizon sits near eye level.
-      const horizon = lh * 0.60;
-      for (let x = -4; x < lw;) {
-        const bw = 7 + Math.random() * 18;
-        const top = horizon - lh * (0.02 + Math.random() * 0.2);
-        lc.fillStyle = '#181e30';
-        lc.fillRect(x, top, bw, lh * 0.85 - top);
-        // Too far to resolve windows — just a sparse scatter of lit specks.
-        for (let wy = top + 3; wy < lh * 0.76; wy += 4) {
-          for (let wx = x + 1.5; wx < x + bw - 2; wx += 4) {
-            if (Math.random() < 0.10) {
-              lc.fillStyle = `rgba(255,200,130,${0.18 + Math.random() * 0.3})`;
-              lc.fillRect(wx, wy, 1.5, 1.5);
-            }
-          }
-        }
-        x += bw + 1 + (Math.random() < 0.25 ? 2 + Math.random() * 5 : 0);
+      // The day's last light, pooled low behind the weather.
+      const glow = lc.createRadialGradient(lw * 0.5, lh * 0.82, 0, lw * 0.5, lh * 0.82, lh * 0.75);
+      glow.addColorStop(0,   'rgba(255,170,110,0.30)');
+      glow.addColorStop(0.5, 'rgba(255,150,95,0.12)');
+      glow.addColorStop(1,   'rgba(255,150,95,0)');
+      lc.fillStyle = glow;
+      lc.fillRect(0, 0, lw, lh);
+
+      // Heavy, slow rain clouds — dark masses with a few brighter breaks.
+      for (let i = 0; i < 9; i++) {
+        const x = Math.random() * lw;
+        const y = lh * (0.05 + Math.random() * 0.5);
+        const rx = lw * (0.14 + Math.random() * 0.2);
+        const ry = rx * (0.22 + Math.random() * 0.15);
+        const col = Math.random() < 0.65 ? '15,21,33' : '62,72,96';
+        const g = lc.createRadialGradient(x, y, 0, x, y, rx);
+        g.addColorStop(0, `rgba(${col},${0.16 + Math.random() * 0.13})`);
+        g.addColorStop(1, `rgba(${col},0)`);
+        lc.save();
+        lc.translate(x, y);
+        lc.scale(1, ry / rx);
+        lc.translate(-x, -y);
+        lc.fillStyle = g;
+        lc.beginPath(); lc.arc(x, y, rx, 0, TAU); lc.fill();
+        lc.restore();
       }
-      // Haze swallowing the distance.
-      const haze = lc.createLinearGradient(0, horizon - lh * 0.1, 0, lh);
-      haze.addColorStop(0, 'rgba(28,30,48,0)');
-      haze.addColorStop(0.5, 'rgba(38,34,48,0.45)');
-      haze.addColorStop(1, 'rgba(42,36,48,0.7)');
-      lc.fillStyle = haze;
-      lc.fillRect(0, horizon - lh * 0.1, lw, lh);
-
-      // Facade painter shared by every tower in the middle distance and
-      // foreground. Real construction: floor slabs, vertical mullions, one
-      // window per bay. Lit rooms cluster (a Markov run per floor), whole
-      // floors go office-bright or asleep, unlit glass still catches sky.
-      const facade = (x, top, bw, bot, floorH, bayW, lit, panes) => {
-        const g2 = lc.createLinearGradient(0, top, 0, bot);
-        g2.addColorStop(0, '#0b0f1a');
-        g2.addColorStop(1, '#0e111c');
-        lc.fillStyle = g2;
-        lc.fillRect(x, top, bw, bot - top);
-
-        const spandrel = floorH * 0.26;
-        const mull = Math.max(0.8, bayW * 0.10);
-        for (let fy = top + spandrel; fy < bot; fy += floorH) {
-          const winH = Math.min(floorH - spandrel, bot - fy);
-          if (winH < floorH * 0.3) break;
-          const office = Math.random() < 0.10;   // whole floor working late
-          const asleep = !office && Math.random() < 0.12;
-          let on = Math.random() < lit;
-          for (let bx = x + mull; bx < x + bw - bayW * 0.4; bx += bayW) {
-            const winW = Math.min(bayW - mull, x + bw - bx - mull * 0.5);
-            if (winW < bayW * 0.3) break;
-            if (Math.random() < 0.3) on = Math.random() < lit;
-            const isLit = office || (!asleep && on);
-            if (isLit) {
-              const roll = Math.random();
-              const a = office ? 0.5 + Math.random() * 0.25 : 0.35 + Math.random() * 0.5;
-              lc.fillStyle = roll < 0.08 ? `rgba(190,222,255,${a})`      // TV flicker
-                          : roll < 0.20 ? `rgba(255,246,224,${a})`       // white
-                          :               `rgba(255,200,128,${a})`;      // lamplight
-              lc.fillRect(bx, fy, winW, winH);
-              // Ceiling light band across the top of the room.
-              lc.fillStyle = `rgba(255,240,210,${a * 0.5})`;
-              lc.fillRect(bx, fy, winW, winH * 0.22);
-              // Furniture and figures against the glass.
-              if (panes && Math.random() < 0.55) {
-                lc.fillStyle = `rgba(18,14,18,${0.3 + Math.random() * 0.25})`;
-                lc.fillRect(bx + Math.random() * winW * 0.55, fy + winH * (0.45 + Math.random() * 0.2),
-                            winW * (0.15 + Math.random() * 0.3), winH);
-              }
-            } else if (panes) {
-              // Dark glass reflecting the night sky.
-              lc.fillStyle = `rgba(46,60,86,${0.16 + Math.random() * 0.14})`;
-              lc.fillRect(bx, fy, winW, winH);
-            }
-          }
-        }
-        // Slabs and mullions drawn last so the grid stays crisp.
-        lc.fillStyle = '#080b12';
-        for (let fy = top; fy < bot; fy += floorH) lc.fillRect(x, fy, bw, spandrel);
-        lc.fillStyle = 'rgba(8,11,18,0.9)';
-        for (let bx = x; bx <= x + bw - mull * 0.5; bx += bayW) lc.fillRect(bx, top, mull, bot - top);
-      };
-
-      // Mid-distance towers rising through the gap.
-      const gapL = lw * (0.24 + Math.random() * 0.05);
-      const gapR = lw * (0.68 + Math.random() * 0.05);
-      const mids = 2 + (Math.random() * 2 | 0);
-      let midTallest = null;
-      for (let i = 0; i < mids; i++) {
-        const bw = lw * (0.09 + Math.random() * 0.08);
-        const x = gapL + Math.random() * (gapR - gapL - bw);
-        const top = lh * (0.16 + Math.random() * 0.22);
-        facade(x, top, bw, lh, 6.5, 5.2, 0.35, false);
-        if (!midTallest || top < midTallest.top) midTallest = { x: x + bw / 2, top };
-      }
-      if (midTallest) {
-        lc.strokeStyle = '#1c2230';
-        lc.lineWidth = 1;
-        lc.beginPath();
-        lc.moveTo(midTallest.x, midTallest.top);
-        lc.lineTo(midTallest.x, midTallest.top - 9);
-        lc.stroke();
-        this._beacons.push({ x: midTallest.x * sx, y: (midTallest.top - 9) * sy, ph: Math.random() * TAU });
-      }
-
-      // A neon sign burning on one mid tower.
-      const neon = ['255,80,96', '58,200,255', '255,176,64', '125,255,176'];
-      const col = neon[(Math.random() * neon.length) | 0];
-      const nx2 = gapL + (gapR - gapL) * (0.25 + Math.random() * 0.5);
-      const ny2 = lh * (0.34 + Math.random() * 0.2);
-      const nw2 = 6 + Math.random() * 6, nh2 = 2.5 + Math.random() * 2;
-      const ng = lc.createRadialGradient(nx2 + nw2 / 2, ny2 + nh2 / 2, 0, nx2 + nw2 / 2, ny2 + nh2 / 2, 11);
-      ng.addColorStop(0, `rgba(${col},0.5)`);
-      ng.addColorStop(1, `rgba(${col},0)`);
-      lc.fillStyle = ng;
-      lc.fillRect(nx2 - 11, ny2 - 11, nw2 + 22, nh2 + 22);
-      lc.fillStyle = `rgba(${col},0.9)`;
-      lc.fillRect(nx2, ny2, nw2, nh2);
-
-      // Street canyon: warm light flooding up from far below.
-      const canyon = lc.createLinearGradient(0, lh * 0.62, 0, lh);
-      canyon.addColorStop(0, 'rgba(255,158,84,0)');
-      canyon.addColorStop(0.7, 'rgba(255,158,84,0.18)');
-      canyon.addColorStop(1, 'rgba(255,170,95,0.42)');
-      lc.fillStyle = canyon;
-      lc.fillRect(0, lh * 0.62, lw, lh * 0.38);
-      // Tiny traffic far down in the canyon.
-      for (let i = 0; i < 7; i++) {
-        lc.fillStyle = Math.random() < 0.5 ? 'rgba(255,80,64,0.5)' : 'rgba(255,240,214,0.5)';
-        lc.fillRect(gapL + Math.random() * (gapR - gapL), lh * (0.93 + Math.random() * 0.05), 1.6, 1);
-      }
-
-      // Foreground facades: the neighbors a block away, framing the view.
-      // The right tower's crown drops into frame at this distance.
-      const leftW = lw * (0.15 + Math.random() * 0.05);
-      const rightX = lw * (0.80 + Math.random() * 0.04);
-      const rTop = lh * (0.06 + Math.random() * 0.08);
-      facade(-2, -2, leftW + 2, lh + 2, 11, 8.5, 0.42, true);
-      facade(rightX, rTop, lw - rightX + 2, lh + 2, 11, 8.5, 0.42, true);
-      lc.fillStyle = '#141926';                      // right tower parapet
-      lc.fillRect(rightX - 0.5, rTop - 1.4, lw - rightX + 2, 1.8);
-      lc.fillRect(rightX + (lw - rightX) * 0.3, rTop - 4, (lw - rightX) * 0.22, 3);
-      // Rim light where the canyon glow grazes their inner edges.
-      lc.fillStyle = 'rgba(150,170,210,0.13)';
-      lc.fillRect(leftW - 1, 0, 1.2, lh);
-      lc.fillRect(rightX, rTop, 1.2, lh - rTop);
-
-      // One shorter tower just across: its roof is below us, in view.
-      const rtW = lw * (0.11 + Math.random() * 0.05);
-      const rtX = gapR - rtW - lw * 0.03;
-      const rtTop = lh * (0.42 + Math.random() * 0.1);
-      facade(rtX, rtTop, rtW, lh, 8, 6.2, 0.38, true);
-      lc.fillStyle = '#141926';                      // parapet
-      lc.fillRect(rtX - 0.5, rtTop - 1.2, rtW + 1, 1.6);
-      lc.fillStyle = '#171c2a';                      // rooftop clutter
-      lc.fillRect(rtX + rtW * 0.15, rtTop - 4, rtW * 0.22, 3);
-      lc.fillRect(rtX + rtW * 0.6, rtTop - 2.8, rtW * 0.16, 2);
-      this._beacons.push({ x: (rtX + rtW * 0.85) * sx, y: (rtTop - 1.8) * sy, ph: Math.random() * TAU });
 
       const bg = document.createElement('canvas');
       bg.width = w; bg.height = h;
       const bc = bg.getContext('2d');
       bc.imageSmoothingEnabled = true;
       bc.imageSmoothingQuality = 'high';
-      bc.filter = 'blur(' + Math.max(2, 2.4 * this._u) + 'px)';
-      bc.drawImage(low, -6, -6, w + 12, h + 12);
+      bc.filter = 'blur(' + Math.max(2, 3 * this._u) + 'px)';
+      bc.drawImage(low, -8, -8, w + 16, h + 16);
       bc.filter = 'none';
 
       // Vignette baked in — the drops sample this, so they darken naturally too.
@@ -495,18 +365,8 @@
     }
 
     _frame() {
-      const ctx = this.ctx, u = this._u, t = this._t;
+      const ctx = this.ctx, u = this._u;
       ctx.drawImage(this._bg, 0, 0);
-
-      // Aviation beacons blinking on the tallest towers.
-      for (const b of this._beacons) {
-        const a = Math.pow(0.5 + 0.5 * Math.sin(t * 1.3 + b.ph), 3);
-        if (a < 0.04) continue;
-        ctx.fillStyle = `rgba(255,64,58,${a * 0.22})`;
-        ctx.beginPath(); ctx.arc(b.x, b.y, 7 * u, 0, TAU); ctx.fill();
-        ctx.fillStyle = `rgba(255,96,88,${a * 0.9})`;
-        ctx.beginPath(); ctx.arc(b.x, b.y, 2 * u, 0, TAU); ctx.fill();
-      }
 
       // Falling drizzle, outside — behind the mist so it stays soft.
       ctx.lineCap = 'round';
@@ -531,7 +391,7 @@
 
     destroy() {
       this._runners.length = 0;
-      this._bg = this._mist = this._drops = this._dropsCtx = this._rain = this._beacons = null;
+      this._bg = this._mist = this._drops = this._dropsCtx = this._rain = null;
     }
   }
 
