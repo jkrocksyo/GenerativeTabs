@@ -17,8 +17,9 @@ const THEME_MAP = {
   cityDrive:      NightCityDriveTheme,
   hotAirBalloon:  HotAirBalloonTheme,
   rainyWindow:    RainyWindowTheme,
-  koiPond:        KoiPondTheme,
   lanterns:       FloatingLanternsTheme,
+  fireside:       FiresideTheme,
+  aurora:         NorthernLightsTheme,
 };
 
 const THEME_LABELS = {
@@ -38,15 +39,16 @@ const THEME_LABELS = {
   cityDrive:      'Night City Drive',
   hotAirBalloon:  'Hot Air Balloon',
   rainyWindow:    'Rainy Window',
-  koiPond:        'Koi Pond',
   lanterns:       'Floating Lanterns',
+  fireside:       'Fireside',
+  aurora:         'Northern Lights',
 };
 
 const THEME_GROUPS = [
   { key: 'space',      label: 'Space',       themes: ['starfield','nebula','galaxy','particles','hyperspace','meteor','blackhole'] },
   { key: 'nature',     label: 'Nature',       themes: ['sakura', 'fireflies', 'bokeh', 'snow'] },
   { key: 'passingby',  label: 'Passing By',   themes: ['bikeRide', 'dogWalk', 'cityDrive', 'hotAirBalloon'] },
-  { key: 'quiet',      label: 'Quiet Moments', themes: ['rainyWindow', 'koiPond', 'lanterns'] },
+  { key: 'quiet',      label: 'Quiet Moments', themes: ['rainyWindow', 'lanterns', 'fireside', 'aurora'] },
 ];
 
 const FONTS = {
