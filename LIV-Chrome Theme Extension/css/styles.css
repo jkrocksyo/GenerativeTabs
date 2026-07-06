@@ -387,6 +387,9 @@ html, body {
 .theme-dot-dogWalk        { background: radial-gradient(circle, #f0e8d0 0%, #d46010 50%, #5c3010 100%); }
 .theme-dot-cityDrive      { background: radial-gradient(circle, #1a6860 0%, #060f28 60%, #030610 100%); }
 .theme-dot-hotAirBalloon  { background: radial-gradient(circle, #e8a820 0%, #c82020 40%, #1a0838 100%); }
+.theme-dot-rainyWindow    { background: radial-gradient(circle, #cfe0f0 0%, #4a6a8a 45%, #141b28 100%); }
+.theme-dot-koiPond        { background: radial-gradient(circle, #f08040 0%, #2a7060 55%, #0d3530 100%); }
+.theme-dot-lanterns       { background: radial-gradient(circle, #ffd890 0%, #e07830 45%, #10142a 100%); }
 
 /* ── Theme group (Space collapsible sub-group) ────────────────────────────── */
 .theme-group { }
