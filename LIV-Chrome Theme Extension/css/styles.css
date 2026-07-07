@@ -391,6 +391,7 @@ html, body {
 .theme-dot-lanterns       { background: radial-gradient(circle, #ffd890 0%, #e07830 45%, #10142a 100%); }
 .theme-dot-fireside       { background: radial-gradient(circle, #ffe0a0 0%, #e05820 45%, #0d1220 100%); }
 .theme-dot-aurora         { background: radial-gradient(circle, #8af5c0 0%, #2a9068 45%, #081020 100%); }
+.theme-dot-nightTrain     { background: radial-gradient(circle, #f0ead6 0%, #c9955a 45%, #0a101e 100%); }
 
 /* ── Theme group (Space collapsible sub-group) ────────────────────────────── */
 .theme-group { }
