@@ -22,10 +22,10 @@ const THEME_MAP = {
   aurora:         NorthernLightsTheme,
   nightTrain:     NightTrainTheme,
   oceanLight:     OceanLightTheme,
-  mistyValley:    MistyValleyTheme,
   goldenHour:     GoldenHourTheme,
-  distantStorm:   DistantStormTheme,
-  stillWater:     StillWaterTheme,
+  eruption:       EruptionTheme,
+  collision:      CollisionTheme,
+  supernova:      SupernovaTheme,
 };
 
 const THEME_LABELS = {
@@ -50,17 +50,17 @@ const THEME_LABELS = {
   aurora:         'Northern Lights',
   nightTrain:     'Night Train',
   oceanLight:     'Ocean Light',
-  mistyValley:    'Misty Valley',
   goldenHour:     'Golden Hour',
-  distantStorm:   'Distant Storm',
-  stillWater:     'Still Water',
+  eruption:       'Eruption',
+  collision:      'Colliding Worlds',
+  supernova:      'Supernova',
 };
 
 const THEME_GROUPS = [
-  { key: 'space',      label: 'Space',       themes: ['starfield','nebula','galaxy','particles','hyperspace','meteor','blackhole'] },
-  { key: 'nature',     label: 'Nature',       themes: ['sakura', 'fireflies', 'bokeh', 'snow', 'oceanLight', 'mistyValley', 'goldenHour'] },
-  { key: 'passingby',  label: 'Passing By',   themes: ['bikeRide', 'dogWalk', 'cityDrive', 'hotAirBalloon'] },
-  { key: 'quiet',      label: 'Quiet Moments', themes: ['rainyWindow', 'lanterns', 'fireside', 'aurora', 'nightTrain', 'distantStorm', 'stillWater'] },
+  { key: 'space',      label: 'Space',      themes: ['starfield','nebula','galaxy','particles','hyperspace','meteor','blackhole'] },
+  { key: 'nature',     label: 'Nature',     themes: ['sakura','fireflies','bokeh','snow','oceanLight','goldenHour','rainyWindow','lanterns','fireside','aurora'] },
+  { key: 'passingby',  label: 'Passing By', themes: ['bikeRide','dogWalk','cityDrive','hotAirBalloon','nightTrain'] },
+  { key: 'explosive',  label: 'Explosive',  themes: ['eruption','collision','supernova'] },
 ];
 
 // Pre-rendered thumbnail images (themeKey -> URL). None exist yet; when a
@@ -312,11 +312,10 @@ function toggleFavorite(themeKey) {
   settings.favorites = favs;
   Storage.save({ favorites: favs });
 
-  document.querySelectorAll(`.theme-star[data-theme="${themeKey}"]`).forEach(star => {
-    const isFav = favs.includes(themeKey);
-    star.classList.toggle('favorited', isFav);
-    star.textContent = isFav ? '★' : '☆';
-    star.setAttribute('aria-label', (isFav ? 'Unfavorite ' : 'Favorite ') + THEME_LABELS[themeKey]);
+  const isFav = favs.includes(themeKey);
+  document.querySelectorAll(`.theme-heart[data-theme="${themeKey}"]`).forEach(heart => {
+    heart.classList.toggle('favorited', isFav);
+    heart.setAttribute('aria-label', (isFav ? 'Unfavorite ' : 'Favorite ') + THEME_LABELS[themeKey]);
   });
 
   // Unfavoriting while browsing the Favorites pseudo-category removes tiles
@@ -399,11 +398,7 @@ function buildCategoryGrid() {
   grid.innerHTML = '';
 
   const activeCat = categoryOf(settings.theme);
-  const favs = (settings.favorites || []).filter(k => THEME_MAP[k]);
-
-  const entries = [];
-  if (favs.length) entries.push(getCategoryEntry('favorites'));
-  entries.push(...THEME_GROUPS);
+  const entries = [getCategoryEntry('favorites'), ...THEME_GROUPS];
 
   entries.forEach(cat => {
     const isActive = cat.key !== 'favorites' && activeCat && activeCat.key === cat.key;
@@ -415,9 +410,16 @@ function buildCategoryGrid() {
 
     const thumb = document.createElement('span');
     thumb.className = 'tile-thumb square' + (isActive ? ' selected' : '');
-    // representative image: the active scene if it lives here, else the first
-    const rep = cat.themes.includes(settings.theme) ? settings.theme : cat.themes[0];
-    thumb.appendChild(makeThumbImg(rep));
+
+    if (cat.themes.length > 0) {
+      const rep = cat.themes.includes(settings.theme) ? settings.theme : cat.themes[0];
+      thumb.appendChild(makeThumbImg(rep));
+    } else {
+      const ph = document.createElement('div');
+      ph.className = 'fav-placeholder';
+      ph.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 20.5S3 14.5 3 8.5a5.5 5.5 0 0 1 9-4.24A5.5 5.5 0 0 1 21 8.5c0 6-9 12-9 12z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+      thumb.appendChild(ph);
+    }
     if (isActive) thumb.appendChild(makeCheckBadge());
 
     const label = document.createElement('span');
@@ -469,6 +471,16 @@ function makeBackgroundTile(themeKey) {
   thumbBtn.setAttribute('aria-label', `Use ${THEME_LABELS[themeKey]} background`);
   thumbBtn.appendChild(makeThumbImg(themeKey));
   if (isActive) thumbBtn.appendChild(makeCheckBadge());
+
+  const heart = document.createElement('button');
+  heart.type = 'button';
+  heart.className = 'theme-heart' + (isFav ? ' favorited' : '');
+  heart.dataset.theme = themeKey;
+  heart.setAttribute('aria-label', (isFav ? 'Unfavorite ' : 'Favorite ') + THEME_LABELS[themeKey]);
+  heart.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path class="heart-path" d="M12 20.5S3 14.5 3 8.5a5.5 5.5 0 0 1 9-4.24A5.5 5.5 0 0 1 21 8.5c0 6-9 12-9 12z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+  heart.addEventListener('click', e => { e.stopPropagation(); toggleFavorite(themeKey); });
+  thumbBtn.appendChild(heart);
+
   thumbBtn.addEventListener('click', () => applyTheme(themeKey));
 
   const row = document.createElement('div');
@@ -478,19 +490,7 @@ function makeBackgroundTile(themeKey) {
   name.className = 'tile-label';
   name.textContent = THEME_LABELS[themeKey];
 
-  const star = document.createElement('span');
-  star.className = 'theme-star' + (isFav ? ' favorited' : '');
-  star.dataset.theme = themeKey;
-  star.setAttribute('role', 'button');
-  star.setAttribute('tabindex', '0');
-  star.setAttribute('aria-label', (isFav ? 'Unfavorite ' : 'Favorite ') + THEME_LABELS[themeKey]);
-  star.textContent = isFav ? '★' : '☆';
-  star.addEventListener('click', () => toggleFavorite(themeKey));
-  star.addEventListener('keydown', e => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleFavorite(themeKey); }
-  });
-
-  row.append(name, star);
+  row.append(name);
   tile.append(thumbBtn, row);
   return tile;
 }

@@ -403,14 +403,15 @@ html, body {
 .change-bg-btn {
   display: block;
   width: 100%;
-  padding: 0.5rem 1rem;
+  padding: 0.72rem 1rem;
   margin-bottom: 0.55rem;
-  border-radius: 9999px;
+  border-radius: 12px;
   border: 1px solid rgba(255,255,255,0.22);
   background: rgba(255,255,255,0.08);
-  color: rgba(255,255,255,0.88);
+  color: rgba(255,255,255,0.92);
   font-family: var(--ui-font);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
+  font-weight: 500;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
@@ -483,9 +484,10 @@ button.tile-thumb:hover { border-color: rgba(255,255,255,0.38); }
 }
 
 .tile-label {
-  font-size: 0.74rem;
+  font-size: 0.84rem;
+  font-weight: 500;
   line-height: 1.25;
-  color: rgba(255,255,255,0.75);
+  color: rgba(255,255,255,0.92);
   text-align: center;
 }
 .category-tile:hover .tile-label { color: #fff; }
@@ -510,10 +512,9 @@ button.tile-thumb:hover { border-color: rgba(255,255,255,0.38); }
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.15rem;
   min-height: 1.2em;
+  padding: 0.1rem 0;
 }
-.tile-name-row .theme-star { margin-left: 0; font-size: 0.85rem; }
 
 #backgrounds-randomize .randomize-daily-btn,
 #backgrounds-randomize .favorites-empty { width: 100%; justify-content: center; }
@@ -735,7 +736,7 @@ input[type="range"]#setting-speed::-moz-range-thumb {
 #randomize-all-daily {
   width: 100%;
   justify-content: center;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.75rem;
 }
 .randomize-daily-btn.active {
   border-color: rgba(100,160,255,0.5);
@@ -748,21 +749,46 @@ input[type="range"]#setting-speed::-moz-range-thumb {
 }
 .rdaily-icon { font-size: 0.9em; opacity: 0.8; margin-right: 0.1rem; }
 
-/* ── Star (favorite) — span inside .theme-option button ──────────────────── */
-.theme-star {
-  margin-left: auto;
-  flex-shrink: 0;
-  color: rgba(255,255,255,0.22);
-  font-size: 0.95rem;
-  line-height: 1;
+/* ── Heart (favorite) — absolute button overlapping tile thumbnail ─────────── */
+.theme-heart {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 0 10px 0 8px;
+  background: rgba(10,10,18,0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: rgba(255,255,255,0.5);
   cursor: pointer;
-  padding: 0.15rem 0.2rem;
-  border-radius: 3px;
-  transition: color 0.15s, transform 0.12s;
+  z-index: 2;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
 }
-.theme-star:hover { color: rgba(255,215,0,0.7); transform: scale(1.12); }
-.theme-star.favorited { color: #ffd700; }
-.theme-star.favorited:hover { color: #ffbe00; }
+.theme-heart:hover {
+  background: rgba(20,20,35,0.95);
+  color: rgba(255,100,130,0.85);
+}
+.theme-heart.favorited { color: #ff6b8a; }
+.theme-heart.favorited .heart-path { fill: currentColor; }
+.theme-heart svg { width: 14px; height: 14px; }
+
+/* ── Favorites empty thumbnail placeholder ───────────────────────────────── */
+.fav-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.18);
+}
+.fav-placeholder svg { width: 38px; height: 38px; }
 
 /* ── Favorites empty state ────────────────────────────────────────────────── */
 .favorites-empty {

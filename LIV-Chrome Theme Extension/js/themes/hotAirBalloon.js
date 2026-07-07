@@ -74,12 +74,8 @@
       for (let i2 = 0; i2 < 3; i2++) {
         const bx = W + 60 - ((t * 16 + i2 * 250) % (W + 120));
         const by = 205 + i2 * 11 + Math.sin(t * 1.1 + i2) * 3;
-        const f  = Math.sin(t * 6 + i2 * 2) * 3;
-        ctx.beginPath();
-        ctx.moveTo(bx - 6, by);
-        ctx.quadraticCurveTo(bx - 2.5, by - 3.5 - f, bx,     by);
-        ctx.quadraticCurveTo(bx + 2.5, by - 3.5 - f, bx + 6, by);
-        ctx.stroke();
+        const glide = Math.min(1, Math.max(0, (Math.sin(t * 0.31 + i2 * 2.2) - 0.55) * 4));
+        this._bird(ctx, bx, by, 7, t * 8 + i2 * 2.1, glide);
       }
 
       // Small background balloon
@@ -210,6 +206,31 @@
 
       ctx.restore();  // balloon translate/rotate
       ctx.restore();  // scene scale/translate
+    }
+
+    // Two-segment wings pivoting at the shoulder: each wing is one
+    // quadratic from shoulder to wingtip with the elbow as the control
+    // point, so tips swing above and below the body instead of hinging
+    // at it. The beat is phase-warped (slow downstroke, quick flick up)
+    // and the outer wing lags the inner, which makes the tip whip.
+    // glide (0..1) relaxes the flap into a shallow held V.
+    _bird(ctx, x, y, s, beat, glide) {
+      const warp  = p => Math.sin(p + 0.6 * Math.sin(p));
+      const inner = (1 - glide) * warp(beat) * 0.9        + glide * 0.35;
+      const outer = (1 - glide) * warp(beat - 0.9) * 1.15 + glide * 0.15;
+      const by = y + (1 - glide) * warp(beat) * s * 0.12;
+      ctx.beginPath();
+      ctx.moveTo(x - s * 0.16, by);
+      ctx.lineTo(x + s * 0.20, by);
+      for (const d of [-1, 1]) {
+        const ex = x  + d * Math.cos(inner) * s * 0.55;
+        const ey = by - Math.sin(inner) * s * 0.55;
+        ctx.moveTo(x, by);
+        ctx.quadraticCurveTo(ex, ey,
+          ex + d * Math.cos(outer) * s * 0.60,
+          ey - Math.sin(outer) * s * 0.60);
+      }
+      ctx.stroke();
     }
 
     _bump(ctx, off, base, amp, wl, col) {

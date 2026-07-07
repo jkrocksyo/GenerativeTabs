@@ -11,12 +11,14 @@
     return Math.random() + Math.random() + Math.random() + Math.random() - 2;
   }
 
-  // Golden Hour — the last minutes of sun over open water. The sky and sun
-  // are painted once; the life of the scene is in two things: banks of
-  // clouds lit from below (each one a cluster of soft puffs with a warm
-  // under-light pass baked in) drifting at parallax speeds, and the glitter
-  // path — hundreds of horizontal glints with a Gaussian spread around the
-  // sun line, fused near the horizon, long and sparse near the viewer.
+  // Golden Hour — the last minutes of sun over open water. The sky and a
+  // big sun half-sunk into the horizon are painted once; the life of the
+  // scene is in three things: banks of lobed cumulus lit from below
+  // (fire-lit billows underneath, shaded tops, frayed edges) drifting at
+  // parallax speeds, the glitter path — hundreds of horizontal glints with
+  // a Gaussian spread around the sun line, fused near the horizon, long
+  // and sparse near the viewer — and a loose line of birds that crosses
+  // the sky now and then.
   class GoldenHourTheme {
     init(canvas, ctx, opts) {
       this.canvas    = canvas;
@@ -36,10 +38,11 @@
       this._u  = Math.max(0.6, Math.min(2.4, Math.min(w, h) / 900));
       this._hor  = h * 0.72;
       this._sunX = w * 0.56;
-      this._sunY = h * 0.655;
+      this._sunY = h * 0.685;
       this._buildBackdrop();
       this._buildClouds();
       this._buildGlints();
+      this._buildBirds();
     }
 
     _buildBackdrop() {
@@ -65,11 +68,11 @@
       c.fillStyle = sea;
       c.fillRect(0, hz, w, h - hz);
 
-      // Sun bloom, then disc, flattened slightly the way a low sun is.
+      // Sun bloom, then a big low disc half-sunk into the horizon.
       const passes = [
-        [h * 0.55, 'rgba(255,158,84,0.18)'],
-        [h * 0.20, 'rgba(255,178,100,0.34)'],
-        [h * 0.06, 'rgba(255,208,140,0.60)'],
+        [h * 0.62, 'rgba(255,158,84,0.16)'],
+        [h * 0.26, 'rgba(255,178,100,0.30)'],
+        [h * 0.12, 'rgba(255,208,140,0.48)'],
       ];
       for (const [r, col] of passes) {
         const g = c.createRadialGradient(this._sunX, this._sunY, 0, this._sunX, this._sunY, r);
@@ -79,28 +82,34 @@
         c.beginPath(); c.arc(this._sunX, this._sunY, r, 0, TAU); c.fill();
       }
       c.save();
+      c.beginPath(); c.rect(0, 0, w, hz + 1); c.clip();
       c.translate(this._sunX, this._sunY);
-      c.scale(1, 0.92);
-      c.fillStyle = 'rgba(255,232,190,0.95)';
-      c.beginPath(); c.arc(0, 0, h * 0.030, 0, TAU); c.fill();
+      c.scale(1, 0.94);
+      const sd = c.createRadialGradient(0, 0, 0, 0, 0, h * 0.075);
+      sd.addColorStop(0,    'rgba(255,242,210,0.98)');
+      sd.addColorStop(0.72, 'rgba(255,226,172,0.96)');
+      sd.addColorStop(1,    'rgba(255,204,132,0.88)');
+      c.fillStyle = sd;
+      c.beginPath(); c.arc(0, 0, h * 0.075, 0, TAU); c.fill();
       c.restore();
 
-      // Broad reflected wash under the sun.
-      const rw = c.createLinearGradient(0, hz, 0, h);
-      rw.addColorStop(0, 'rgba(255,178,100,0.28)');
-      rw.addColorStop(0.5, 'rgba(255,158,84,0.10)');
-      rw.addColorStop(1, 'rgba(255,158,84,0)');
-      c.save();
-      c.beginPath();
-      c.moveTo(this._sunX - w * 0.06, hz);
-      c.lineTo(this._sunX + w * 0.06, hz);
-      c.lineTo(this._sunX + w * 0.24, h);
-      c.lineTo(this._sunX - w * 0.24, h);
-      c.closePath();
-      c.clip();
-      c.fillStyle = rw;
-      c.fillRect(0, hz, w, h - hz);
-      c.restore();
+      // Reflected column under the sun, widening with depth. Painted in
+      // thin slices, each a horizontal gradient centered on the sun line,
+      // so the edges fall off softly instead of forming a trapezoid.
+      const slices = 42;
+      for (let i = 0; i < slices; i++) {
+        const f  = i / (slices - 1);
+        const y0 = hz + f * (h - hz);
+        const sh = (h - hz) / (slices - 1) + 1;
+        const half = w * (0.045 + f * 0.20);
+        const a = 0.28 * Math.pow(1 - f, 1.4) + 0.02;
+        const g = c.createLinearGradient(this._sunX - half, 0, this._sunX + half, 0);
+        g.addColorStop(0,   'rgba(255,170,92,0)');
+        g.addColorStop(0.5, `rgba(255,170,92,${a})`);
+        g.addColorStop(1,   'rgba(255,170,92,0)');
+        c.fillStyle = g;
+        c.fillRect(this._sunX - half, y0, half * 2, sh);
+      }
 
       const vg = c.createRadialGradient(w / 2, h * 0.5, Math.min(w, h) * 0.42, w / 2, h * 0.5, Math.max(w, h) * 0.8);
       vg.addColorStop(0, 'rgba(10,6,14,0)');
@@ -111,31 +120,82 @@
       this._bg = bg;
     }
 
+    // Painted the Night Train way: lobed cumulus cells built from dozens
+    // of small faint puffs at low resolution, then upscaled so the grain
+    // fuses into soft vapor. The sun is below these clouds, so the lit
+    // billows go along the underside and the shading along the top.
     _makeCloudSprite(pw, ph, body, lit) {
+      // Paint at roughly a third of the final size (these banks are much
+      // bigger on screen than Night Train's), so the upscale stays gentle
+      // and never shows its grid.
+      const lh = Math.max(40, Math.min(140, Math.round(ph / 3)));
+      const lw = Math.max(80, Math.min(560, Math.round(lh * pw / ph)));
+      const low = document.createElement('canvas');
+      low.width = lw; low.height = lh;
+      const lc = low.getContext('2d');
+      const puff = (x, y, r, sx, col, a) => {
+        const g = lc.createRadialGradient(x, y, 0, x, y, r);
+        g.addColorStop(0,   `rgba(${col},${a.toFixed(3)})`);
+        g.addColorStop(0.6, `rgba(${col},${(a * 0.45).toFixed(3)})`);
+        g.addColorStop(1,   `rgba(${col},0)`);
+        lc.save();
+        lc.translate(x, y); lc.scale(sx, 1); lc.translate(-x, -y);
+        lc.fillStyle = g;
+        lc.beginPath(); lc.arc(x, y, r, 0, TAU); lc.fill();
+        lc.restore();
+      };
+
+      // A handful of lobe cells strung loosely left to right.
+      const nc = 3 + ((Math.random() * 3) | 0);
+      const cells = [];
+      for (let j = 0; j < nc; j++) {
+        cells.push({
+          x: lw * (0.20 + 0.60 * j / (nc - 1) + (Math.random() - 0.5) * 0.12),
+          y: lh * (0.45 + Math.random() * 0.16),
+          r: lh * (0.16 + Math.random() * 0.16),
+        });
+      }
+      const pick = () => cells[(Math.random() * nc) | 0];
+
+      // Body: dense cores thinning toward the edges.
+      for (let k = 0; k < 44; k++) {
+        const cl = pick();
+        puff(cl.x + gauss() * cl.r * 1.5, cl.y + gauss() * cl.r * 0.55,
+             cl.r * (0.45 + Math.random() * 0.5), 1.3 + Math.random() * 0.5,
+             body, 0.060 + Math.random() * 0.045);
+      }
+      // Fire-lit billows along the underside, facing the sun.
+      for (let k = 0; k < 26; k++) {
+        const cl = pick();
+        const ang = Math.PI * (0.15 + Math.random() * 0.70);
+        puff(cl.x + Math.cos(ang) * cl.r * (0.7 + Math.random() * 0.7),
+             cl.y + Math.sin(ang) * cl.r * (0.8 + Math.random() * 0.5),
+             cl.r * (0.20 + Math.random() * 0.30), 1.2 + Math.random() * 0.5,
+             lit, 0.075 + Math.random() * 0.055);
+      }
+      // Shaded tops where the light can't reach.
+      for (let k = 0; k < 10; k++) {
+        const cl = pick();
+        puff(cl.x + (Math.random() - 0.5) * cl.r * 2.2,
+             cl.y - cl.r * (0.45 + Math.random() * 0.35),
+             cl.r * (0.30 + Math.random() * 0.30), 2.0,
+             '20,12,26', 0.040 + Math.random() * 0.025);
+      }
+      // Stray tufts so the silhouette frays at the edges.
+      for (let k = 0; k < 7; k++) {
+        puff(lw * (0.06 + Math.random() * 0.88), lh * (0.28 + Math.random() * 0.44),
+             lh * (0.05 + Math.random() * 0.07), 1.6 + Math.random(),
+             body, 0.035 + Math.random() * 0.025);
+      }
+
       const s = document.createElement('canvas');
       s.width = pw; s.height = ph;
       const c = s.getContext('2d');
-      const n = 7 + Math.floor(rand(0, 5));
-      for (let i = 0; i < n; i++) {
-        const x = pw * (0.15 + 0.7 * (i / n)) + gauss() * pw * 0.06;
-        const y = ph * 0.55 + gauss() * ph * 0.13;
-        const r = ph * rand(0.22, 0.42);
-        const g = c.createRadialGradient(x, y, 0, x, y, r);
-        g.addColorStop(0,   `rgba(${body},0.55)`);
-        g.addColorStop(0.7, `rgba(${body},0.30)`);
-        g.addColorStop(1,   `rgba(${body},0)`);
-        c.fillStyle = g;
-        c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
-      }
-      // The sun is below these clouds, so the warm light comes up at them.
-      c.globalCompositeOperation = 'source-atop';
-      const gl = c.createLinearGradient(0, ph, 0, 0);
-      gl.addColorStop(0,   `rgba(${lit},0.55)`);
-      gl.addColorStop(0.5, `rgba(${lit},0.14)`);
-      gl.addColorStop(1,   'rgba(0,0,0,0)');
-      c.fillStyle = gl;
-      c.fillRect(0, 0, pw, ph);
-      c.globalCompositeOperation = 'source-over';
+      c.imageSmoothingEnabled = true;
+      c.imageSmoothingQuality = 'high';
+      c.filter = `blur(${Math.max(1, ph * 0.012).toFixed(1)}px)`;
+      c.drawImage(low, 0, 0, pw, ph);
+      c.filter = 'none';
       return s;
     }
 
@@ -143,16 +203,16 @@
       const w = this._cW, h = this._cH;
       // Far high cloud is dim violet; the nearer, lower banks catch more fire.
       const layers = [
-        { n: 5, y: [0.08, 0.30], sc: [0.10, 0.16], v: 2.0, a: 0.55, body: '86,62,88',  lit: '255,150,110' },
-        { n: 4, y: [0.30, 0.48], sc: [0.15, 0.24], v: 3.6, a: 0.75, body: '74,50,72',  lit: '255,160,100' },
-        { n: 3, y: [0.46, 0.60], sc: [0.22, 0.34], v: 5.6, a: 0.9,  body: '56,38,58',  lit: '255,170,96'  },
+        { n: 5, y: [0.08, 0.30], sc: [0.10, 0.16], v: 2.0, a: 0.70, body: '86,62,88',  lit: '255,150,110' },
+        { n: 4, y: [0.30, 0.48], sc: [0.15, 0.24], v: 3.6, a: 0.85, body: '74,50,72',  lit: '255,160,100' },
+        { n: 3, y: [0.46, 0.60], sc: [0.22, 0.34], v: 5.6, a: 0.95, body: '56,38,58',  lit: '255,170,96'  },
       ];
       this._clouds = [];
       for (const L of layers) {
         for (let i = 0; i < L.n; i++) {
           const sc = rand(L.sc[0], L.sc[1]);
-          const pw = Math.max(8, Math.round(w * sc * 2.2));
-          const ph = Math.max(6, Math.round(h * sc * 0.62));
+          const pw = Math.max(8, Math.round(w * sc * 1.9));
+          const ph = Math.max(6, Math.round(h * sc * 0.72));
           this._clouds.push({
             sprite: this._makeCloudSprite(pw, ph, L.body, L.lit),
             x: rand(-0.1, 1.1) * w,
@@ -188,6 +248,51 @@
       }
     }
 
+    _buildBirds() {
+      const w = this._cW, h = this._cH, u = this._u;
+      // A loose line of birds that crosses the sky, then a long gap
+      // offscreen before the next pass.
+      this._birds = [];
+      for (let i = 0; i < 5; i++) {
+        this._birds.push({
+          dx:   i * w * 0.045 + rand(-0.012, 0.012) * w,
+          dy:   (i - 2) * h * 0.018 + rand(-0.01, 0.01) * h,
+          s:    (5.5 + rand(0, 2.5)) * u,
+          ph:   rand(0, TAU),
+          rate: rand(7.5, 9.5),
+          gph:  rand(0, TAU),
+        });
+      }
+      this._birdSpan = w * 1.9;
+      this._birdV    = w * 0.028;
+      this._birdY    = h * rand(0.18, 0.34);
+    }
+
+    // Two-segment wings pivoting at the shoulder: each wing is one
+    // quadratic from shoulder to wingtip with the elbow as the control
+    // point, so tips swing above and below the body instead of hinging
+    // at it. The beat is phase-warped (slow downstroke, quick flick up)
+    // and the outer wing lags the inner, which makes the tip whip.
+    // glide (0..1) relaxes the flap into a shallow held V.
+    _bird(ctx, x, y, s, beat, glide) {
+      const warp  = p => Math.sin(p + 0.6 * Math.sin(p));
+      const inner = (1 - glide) * warp(beat) * 0.9        + glide * 0.35;
+      const outer = (1 - glide) * warp(beat - 0.9) * 1.15 + glide * 0.15;
+      const by = y + (1 - glide) * warp(beat) * s * 0.12;
+      ctx.beginPath();
+      ctx.moveTo(x - s * 0.16, by);
+      ctx.lineTo(x + s * 0.20, by);
+      for (const d of [-1, 1]) {
+        const ex = x  + d * Math.cos(inner) * s * 0.55;
+        const ey = by - Math.sin(inner) * s * 0.55;
+        ctx.moveTo(x, by);
+        ctx.quadraticCurveTo(ex, ey,
+          ex + d * Math.cos(outer) * s * 0.60,
+          ey - Math.sin(outer) * s * 0.60);
+      }
+      ctx.stroke();
+    }
+
     draw(ts) {
       if (ts === 0) { this._frame(); return; }
       const dt = (this._lastTs != null) ? Math.min((ts - this._lastTs) / 1000, 0.05) : 0;
@@ -218,6 +323,19 @@
       }
       ctx.globalAlpha = 1;
 
+      // Birds crossing right to left, silhouetted against the sky.
+      ctx.strokeStyle = 'rgba(44,26,34,0.85)';
+      ctx.lineWidth   = Math.max(1, 1.1 * this._u);
+      ctx.lineCap     = 'round';
+      const head = w + w * 0.1 - ((t * this._birdV) % this._birdSpan);
+      for (const b of this._birds) {
+        const bx = head + b.dx;
+        if (bx < -b.s * 2 || bx > w + b.s * 4) continue;
+        const by = this._birdY + b.dy + Math.sin(t * 0.9 + b.ph) * 4 * this._u;
+        const glide = Math.min(1, Math.max(0, (Math.sin(t * 0.33 + b.gph) - 0.55) * 4));
+        this._bird(ctx, bx, by, b.s, t * b.rate + b.ph, glide);
+      }
+
       // The glitter path: each glint is a wave facet catching the sun for a
       // moment — most of them dark, a fraction flashing at any instant.
       ctx.save();
@@ -233,7 +351,7 @@
     }
 
     destroy() {
-      this._bg = this._clouds = this._glints = null;
+      this._bg = this._clouds = this._glints = this._birds = null;
     }
   }
 

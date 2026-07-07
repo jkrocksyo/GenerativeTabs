@@ -78,12 +78,8 @@
       for (let i = 0; i < 3; i++) {
         const bx = W + 70 - ((t * 22 + i * 270) % (W + 140));
         const by = 96 + i * 22 + Math.sin(t * 1.3 + i) * 5;
-        const f  = Math.sin(t * 7 + i * 2) * 3.5;
-        ctx.beginPath();
-        ctx.moveTo(bx - 7, by);
-        ctx.quadraticCurveTo(bx - 3, by - 4 - f, bx,     by);
-        ctx.quadraticCurveTo(bx + 3, by - 4 - f, bx + 7, by);
-        ctx.stroke();
+        const glide = Math.min(1, Math.max(0, (Math.sin(t * 0.37 + i * 2.6) - 0.55) * 4));
+        this._bird(ctx, bx, by, 8, t * 9 + i * 2.1, glide);
       }
 
       // Far hills, mid hills
@@ -117,6 +113,31 @@
       this._bike(ctx, t);
 
       ctx.restore();
+    }
+
+    // Two-segment wings pivoting at the shoulder: each wing is one
+    // quadratic from shoulder to wingtip with the elbow as the control
+    // point, so tips swing above and below the body instead of hinging
+    // at it. The beat is phase-warped (slow downstroke, quick flick up)
+    // and the outer wing lags the inner, which makes the tip whip.
+    // glide (0..1) relaxes the flap into a shallow held V.
+    _bird(ctx, x, y, s, beat, glide) {
+      const warp  = p => Math.sin(p + 0.6 * Math.sin(p));
+      const inner = (1 - glide) * warp(beat) * 0.9        + glide * 0.35;
+      const outer = (1 - glide) * warp(beat - 0.9) * 1.15 + glide * 0.15;
+      const by = y + (1 - glide) * warp(beat) * s * 0.12;
+      ctx.beginPath();
+      ctx.moveTo(x - s * 0.16, by);
+      ctx.lineTo(x + s * 0.20, by);
+      for (const d of [-1, 1]) {
+        const ex = x  + d * Math.cos(inner) * s * 0.55;
+        const ey = by - Math.sin(inner) * s * 0.55;
+        ctx.moveTo(x, by);
+        ctx.quadraticCurveTo(ex, ey,
+          ex + d * Math.cos(outer) * s * 0.60,
+          ey - Math.sin(outer) * s * 0.60);
+      }
+      ctx.stroke();
     }
 
     _hills(ctx, off, base, amp, wl, col) {
