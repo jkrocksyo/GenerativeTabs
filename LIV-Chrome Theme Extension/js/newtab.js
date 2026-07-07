@@ -21,6 +21,11 @@ const THEME_MAP = {
   fireside:       FiresideTheme,
   aurora:         NorthernLightsTheme,
   nightTrain:     NightTrainTheme,
+  oceanLight:     OceanLightTheme,
+  mistyValley:    MistyValleyTheme,
+  goldenHour:     GoldenHourTheme,
+  distantStorm:   DistantStormTheme,
+  stillWater:     StillWaterTheme,
 };
 
 const THEME_LABELS = {
@@ -44,13 +49,18 @@ const THEME_LABELS = {
   fireside:       'Fireside',
   aurora:         'Northern Lights',
   nightTrain:     'Night Train',
+  oceanLight:     'Ocean Light',
+  mistyValley:    'Misty Valley',
+  goldenHour:     'Golden Hour',
+  distantStorm:   'Distant Storm',
+  stillWater:     'Still Water',
 };
 
 const THEME_GROUPS = [
   { key: 'space',      label: 'Space',       themes: ['starfield','nebula','galaxy','particles','hyperspace','meteor','blackhole'] },
-  { key: 'nature',     label: 'Nature',       themes: ['sakura', 'fireflies', 'bokeh', 'snow'] },
+  { key: 'nature',     label: 'Nature',       themes: ['sakura', 'fireflies', 'bokeh', 'snow', 'oceanLight', 'mistyValley', 'goldenHour'] },
   { key: 'passingby',  label: 'Passing By',   themes: ['bikeRide', 'dogWalk', 'cityDrive', 'hotAirBalloon'] },
-  { key: 'quiet',      label: 'Quiet Moments', themes: ['rainyWindow', 'lanterns', 'fireside', 'aurora', 'nightTrain'] },
+  { key: 'quiet',      label: 'Quiet Moments', themes: ['rainyWindow', 'lanterns', 'fireside', 'aurora', 'nightTrain', 'distantStorm', 'stillWater'] },
 ];
 
 // Pre-rendered thumbnail images (themeKey -> URL). None exist yet; when a

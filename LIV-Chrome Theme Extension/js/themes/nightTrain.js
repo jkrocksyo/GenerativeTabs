@@ -17,9 +17,9 @@
   // reflection at track speed, the near shore slower, far ridges slower
   // still, and the sky not at all.
   // Realism comes from restraint:
-  //   1. the sky is painted once — a deep low-res blurred gradient, a faint
-  //      band of galaxy light, and a moon with its real maria — and it never
-  //      moves; stars keep their positions and only scintillate
+  //   1. the sky is painted once — a deep low-res blurred gradient and a
+  //      moon with its real maria — and it never moves; stars keep their
+  //      positions and only scintillate
   //   2. the moonglade is physical: a soft column with a Gaussian lateral
   //      profile, built from hundreds of horizontal wave-facet glints that
   //      are dense and fused at the horizon, sparse and long near the
@@ -107,28 +107,12 @@
       lc.fillStyle = hg;
       lc.fillRect(0, lh * 0.62, lw, lh * 0.38);
 
-      // A soft band of galaxy light tilted across the upper sky.
-      lc.save();
-      lc.translate(lw * 0.35, lh * 0.30);
-      lc.rotate(-0.38);
-      for (let i = 0; i < 16; i++) {
-        const x = (Math.random() - 0.5) * lw * 1.2;
-        const y = (Math.random() - 0.5) * lh * 0.14;
-        const r = lh * (0.05 + Math.random() * 0.10);
-        const gg = lc.createRadialGradient(x, y, 0, x, y, r);
-        gg.addColorStop(0, `rgba(180,196,228,${0.03 + Math.random() * 0.035})`);
-        gg.addColorStop(1, 'rgba(180,196,228,0)');
-        lc.fillStyle = gg;
-        lc.beginPath(); lc.arc(x, y, r, 0, TAU); lc.fill();
-      }
-      lc.restore();
-
-      // Large-scale unevenness so the night never reads flat.
+      // Large-scale darkening only — light patches read as foggy splotches.
       for (let i = 0; i < 7; i++) {
         const x = Math.random() * lw, y = Math.random() * lh * 0.6;
         const r = lh * (0.15 + Math.random() * 0.2);
         const gg = lc.createRadialGradient(x, y, 0, x, y, r);
-        gg.addColorStop(0, Math.random() < 0.5 ? 'rgba(2,4,9,0.14)' : 'rgba(30,44,74,0.12)');
+        gg.addColorStop(0, 'rgba(2,4,9,0.12)');
         gg.addColorStop(1, 'rgba(0,0,0,0)');
         lc.fillStyle = gg;
         lc.beginPath(); lc.arc(x, y, r, 0, TAU); lc.fill();
