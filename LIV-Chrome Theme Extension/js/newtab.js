@@ -22,8 +22,9 @@ const THEME_MAP = {
   aurora:         NorthernLightsTheme,
   nightTrain:     NightTrainTheme,
   oceanLight:     OceanLightTheme,
-  goldenHour:     GoldenHourTheme,
-  eruption:       EruptionTheme,
+  goldenHour:           GoldenHourTheme,
+  windmillRainbowField: WindmillRainbowFieldTheme,
+  eruption:             EruptionTheme,
   collision:      CollisionTheme,
   supernova:      SupernovaTheme,
 };
@@ -50,15 +51,16 @@ const THEME_LABELS = {
   aurora:         'Northern Lights',
   nightTrain:     'Night Train',
   oceanLight:     'Ocean Light',
-  goldenHour:     'Golden Hour',
-  eruption:       'Eruption',
+  goldenHour:           'Golden Hour',
+  windmillRainbowField: 'Rainbow Fields',
+  eruption:             'Eruption',
   collision:      'Colliding Worlds',
   supernova:      'Supernova',
 };
 
 const THEME_GROUPS = [
   { key: 'space',      label: 'Space',      themes: ['starfield','nebula','galaxy','particles','hyperspace','meteor','blackhole'] },
-  { key: 'nature',     label: 'Nature',     themes: ['sakura','fireflies','bokeh','snow','oceanLight','goldenHour','rainyWindow','lanterns','fireside','aurora'] },
+  { key: 'nature',     label: 'Nature',     themes: ['sakura','fireflies','bokeh','snow','oceanLight','goldenHour','windmillRainbowField','rainyWindow','lanterns','fireside','aurora'] },
   { key: 'passingby',  label: 'Passing By', themes: ['bikeRide','dogWalk','cityDrive','hotAirBalloon','nightTrain'] },
   { key: 'explosive',  label: 'Explosive',  themes: ['eruption','collision','supernova'] },
 ];
