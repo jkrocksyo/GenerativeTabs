@@ -53,6 +53,31 @@ const THEME_GROUPS = [
   { key: 'quiet',      label: 'Quiet Moments', themes: ['rainyWindow', 'lanterns', 'fireside', 'aurora', 'nightTrain'] },
 ];
 
+// Pre-rendered thumbnail images (themeKey -> URL). None exist yet; when a
+// thumbnail library gets built they take precedence over the generated
+// ScenePreview snapshots.
+const THEME_THUMBS = {};
+
+function getThumb(themeKey) {
+  if (THEME_THUMBS[themeKey]) return Promise.resolve(THEME_THUMBS[themeKey]);
+  return ScenePreview.getThumbnail(themeKey, THEME_MAP[themeKey]);
+}
+
+// The category a scene lives in is derived from THEME_GROUPS, never stored.
+function categoryOf(themeKey) {
+  return THEME_GROUPS.find(g => g.themes.includes(themeKey)) || null;
+}
+
+// Favorites act as a pseudo-category on the picker screens; its member list
+// is computed on demand and it never claims the active-category checkmark
+// (that belongs to the scene's real group).
+function getCategoryEntry(key) {
+  if (key === 'favorites') {
+    return { key, label: 'Favorites', themes: (settings.favorites || []).filter(k => THEME_MAP[k]) };
+  }
+  return THEME_GROUPS.find(g => g.key === key) || null;
+}
+
 const FONTS = {
   system:    { label: 'System',   stack: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' },
   georgia:   { label: 'Serif',    stack: 'Georgia, "Times New Roman", serif' },
@@ -239,9 +264,8 @@ function handleRandomizeClick(pool) {
     settings.randomizeDailyDate = today;
     Storage.save({ randomizeDaily: pool, theme, randomizeDailyDate: today });
     engine.switchTheme(THEME_MAP[theme]);
-    document.querySelectorAll('.theme-option').forEach(b =>
-      b.classList.toggle('active', b.dataset.theme === theme)
-    );
+    refreshSelectionMarks();
+    startAppearancePreview();
   }
   document.querySelectorAll('.randomize-daily-btn').forEach(b =>
     b.classList.toggle('active', !wasActive && b.dataset.pool === pool)
@@ -281,107 +305,252 @@ function toggleFavorite(themeKey) {
   document.querySelectorAll(`.theme-star[data-theme="${themeKey}"]`).forEach(star => {
     const isFav = favs.includes(themeKey);
     star.classList.toggle('favorited', isFav);
-    star.innerHTML = isFav ? '★' : '☆';
+    star.textContent = isFav ? '★' : '☆';
     star.setAttribute('aria-label', (isFav ? 'Unfavorite ' : 'Favorite ') + THEME_LABELS[themeKey]);
   });
 
-  buildFavoritesGroup();
+  // Unfavoriting while browsing the Favorites pseudo-category removes tiles
+  if (nav.view === 'backgrounds' && nav.categoryKey === 'favorites') {
+    buildBackgroundGrid('favorites');
+  }
 }
 
-function makeThemeOption(themeKey) {
+// ── Background picker navigation (Main → Categories → Backgrounds) ──────────
+
+const VIEW_INDEX = { main: 0, categories: 1, backgrounds: 2 };
+const nav = { view: 'main', categoryKey: null };
+let livePreview;
+
+function applyNavTransforms(animate = true) {
+  const current = VIEW_INDEX[nav.view];
+  document.querySelectorAll('.settings-view').forEach(v => {
+    const i = VIEW_INDEX[v.dataset.view];
+    if (!animate) v.classList.add('no-anim');
+    v.style.transform = `translateX(${(i - current) * 100}%)`;
+    v.setAttribute('aria-hidden', i === current ? 'false' : 'true');
+    if (!animate) { v.getBoundingClientRect(); v.classList.remove('no-anim'); }
+  });
+}
+
+function navigateTo(view, categoryKey = null, animate = true) {
+  nav.view = view;
+  if (view === 'backgrounds') nav.categoryKey = categoryKey;
+
+  if (view === 'main') {
+    renderAppearance();
+  } else {
+    livePreview.stop();
+    if (view === 'categories') buildCategoryGrid();
+    else buildBackgroundGrid(nav.categoryKey);
+  }
+  applyNavTransforms(animate);
+}
+
+// ── Screen 1: Appearance ─────────────────────────────────────────────────────
+
+function renderAppearance() {
+  document.getElementById('appearance-name').textContent =
+    THEME_LABELS[settings.theme] || '';
+  startAppearancePreview();
+}
+
+function startAppearancePreview() {
+  const overlay = document.getElementById('settings-overlay');
+  if (!overlay.classList.contains('open') || nav.view !== 'main') return;
+  livePreview.show(THEME_MAP[settings.theme] || StarfieldTheme, {
+    intensity:  Storage.intensityValue(settings.intensity),
+    speed:      settings.animSpeed,
+    staticMode: settings.staticMode,
+  });
+}
+
+// ── Screen 2: Category grid ──────────────────────────────────────────────────
+
+function makeCheckBadge() {
+  const badge = document.createElement('span');
+  badge.className = 'tile-check';
+  badge.innerHTML =
+    '<svg viewBox="0 0 12 12" fill="none" aria-hidden="true">' +
+    '<path d="M2.5 6.3L5 8.8l4.5-5.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  return badge;
+}
+
+function makeThumbImg(themeKey) {
+  const img = document.createElement('img');
+  img.alt = '';
+  img.draggable = false;
+  img.addEventListener('load', () => img.classList.add('loaded'));
+  getThumb(themeKey).then(url => { if (url) img.src = url; });
+  return img;
+}
+
+function buildCategoryGrid() {
+  const grid = document.getElementById('category-grid');
+  grid.innerHTML = '';
+
+  const activeCat = categoryOf(settings.theme);
+  const favs = (settings.favorites || []).filter(k => THEME_MAP[k]);
+
+  const entries = [];
+  if (favs.length) entries.push(getCategoryEntry('favorites'));
+  entries.push(...THEME_GROUPS);
+
+  entries.forEach(cat => {
+    const isActive = cat.key !== 'favorites' && activeCat && activeCat.key === cat.key;
+
+    const btn = document.createElement('button');
+    btn.className = 'category-tile';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', `${cat.label} backgrounds`);
+
+    const thumb = document.createElement('span');
+    thumb.className = 'tile-thumb square' + (isActive ? ' selected' : '');
+    // representative image: the active scene if it lives here, else the first
+    const rep = cat.themes.includes(settings.theme) ? settings.theme : cat.themes[0];
+    thumb.appendChild(makeThumbImg(rep));
+    if (isActive) thumb.appendChild(makeCheckBadge());
+
+    const label = document.createElement('span');
+    label.className = 'tile-label';
+    label.textContent = cat.label;
+
+    btn.append(thumb, label);
+    btn.addEventListener('click', () => navigateTo('backgrounds', cat.key));
+    grid.appendChild(btn);
+  });
+}
+
+// ── Screen 3: Background grid ────────────────────────────────────────────────
+
+function buildBackgroundGrid(categoryKey) {
+  const cat = getCategoryEntry(categoryKey);
+  if (!cat) { navigateTo('categories'); return; }
+
+  document.getElementById('backgrounds-title').textContent = cat.label;
+
+  const randWrap = document.getElementById('backgrounds-randomize');
+  randWrap.innerHTML = '';
+  const grid = document.getElementById('background-grid');
+  grid.innerHTML = '';
+
+  if (!cat.themes.length) {
+    const empty = document.createElement('div');
+    empty.className = 'favorites-empty';
+    empty.textContent = 'No Favorites Added';
+    randWrap.appendChild(empty);
+    return;
+  }
+
+  randWrap.appendChild(makeRandomizeDailyBtn(cat.key, `Randomize ${cat.label} Daily`));
+  cat.themes.forEach(themeKey => grid.appendChild(makeBackgroundTile(themeKey)));
+}
+
+function makeBackgroundTile(themeKey) {
+  const isActive = settings.theme === themeKey;
   const isFav = (settings.favorites || []).includes(themeKey);
 
-  const btn = document.createElement('button');
-  btn.className = 'theme-option' + (settings.theme === themeKey ? ' active' : '');
-  btn.dataset.theme = themeKey;
-  btn.type = 'button';
+  const tile = document.createElement('div');
+  tile.className = 'background-tile';
+  tile.dataset.theme = themeKey;
 
-  const dot = document.createElement('span');
-  dot.className = `theme-dot theme-dot-${themeKey}`;
+  const thumbBtn = document.createElement('button');
+  thumbBtn.type = 'button';
+  thumbBtn.className = 'tile-thumb wide' + (isActive ? ' selected' : '');
+  thumbBtn.setAttribute('aria-label', `Use ${THEME_LABELS[themeKey]} background`);
+  thumbBtn.appendChild(makeThumbImg(themeKey));
+  if (isActive) thumbBtn.appendChild(makeCheckBadge());
+  thumbBtn.addEventListener('click', () => applyTheme(themeKey));
 
-  const labelEl = document.createElement('span');
-  labelEl.textContent = THEME_LABELS[themeKey];
+  const row = document.createElement('div');
+  row.className = 'tile-name-row';
+
+  const name = document.createElement('span');
+  name.className = 'tile-label';
+  name.textContent = THEME_LABELS[themeKey];
 
   const star = document.createElement('span');
   star.className = 'theme-star' + (isFav ? ' favorited' : '');
   star.dataset.theme = themeKey;
   star.setAttribute('role', 'button');
+  star.setAttribute('tabindex', '0');
   star.setAttribute('aria-label', (isFav ? 'Unfavorite ' : 'Favorite ') + THEME_LABELS[themeKey]);
   star.textContent = isFav ? '★' : '☆';
-  star.addEventListener('click', e => {
-    e.stopPropagation();
-    toggleFavorite(themeKey);
+  star.addEventListener('click', () => toggleFavorite(themeKey));
+  star.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleFavorite(themeKey); }
   });
 
-  btn.appendChild(dot);
-  btn.appendChild(labelEl);
-  btn.appendChild(star);
-
-  btn.addEventListener('click', () => {
-    settings.theme = themeKey;
-    Storage.save({ theme: themeKey });
-    document.querySelectorAll('.theme-option').forEach(b => b.classList.toggle('active', b.dataset.theme === themeKey));
-    engine.switchTheme(THEME_MAP[themeKey]);
-  });
-
-  return btn;
+  row.append(name, star);
+  tile.append(thumbBtn, row);
+  return tile;
 }
 
-function buildFavoritesGroup() {
-  const container = document.getElementById('favorites-group-body');
-  if (!container) return;
+// Applying stays on the grid (Chrome behavior): swap the live background and
+// move the checkmark, no navigation.
+function applyTheme(themeKey) {
+  settings.theme = themeKey;
+  Storage.save({ theme: themeKey });
+  engine.switchTheme(THEME_MAP[themeKey]);
+  refreshSelectionMarks();
+}
 
-  const toggle = container.closest('.theme-group')?.querySelector('.theme-group-toggle');
-  const isOpen = toggle?.getAttribute('aria-expanded') === 'true';
-
-  container.innerHTML = '';
-  const favs = (settings.favorites || []).filter(k => THEME_MAP[k]);
-
-  if (favs.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'favorites-empty';
-    empty.textContent = 'No Favorites Added';
-    container.appendChild(empty);
-  } else {
-    container.appendChild(makeRandomizeDailyBtn('favorites', 'Randomize Favorites Daily'));
-    favs.forEach(themeKey => container.appendChild(makeThemeOption(themeKey)));
-  }
-
-  if (isOpen) container.style.height = '';
+function refreshSelectionMarks() {
+  document.querySelectorAll('.background-tile').forEach(tile => {
+    const thumb = tile.querySelector('.tile-thumb');
+    const isActive = tile.dataset.theme === settings.theme;
+    thumb.classList.toggle('selected', isActive);
+    const badge = thumb.querySelector('.tile-check');
+    if (isActive && !badge) thumb.appendChild(makeCheckBadge());
+    else if (!isActive && badge) badge.remove();
+  });
+  // Screen 1 always reflects the true active scene when the user gets back
+  document.getElementById('appearance-name').textContent =
+    THEME_LABELS[settings.theme] || '';
 }
 
 // ── Settings panel ────────────────────────────────────────────────────────────
 
 function initSettings() {
-  const btn      = document.getElementById('settings-btn');
-  const overlay  = document.getElementById('settings-overlay');
-  const panel    = document.getElementById('settings-panel');
-  const closeBtn = document.getElementById('settings-close');
+  const btn     = document.getElementById('settings-btn');
+  const overlay = document.getElementById('settings-overlay');
+  const panel   = document.getElementById('settings-panel');
+
+  livePreview = new ScenePreview.LivePreview(document.getElementById('appearance-preview'));
+  applyNavTransforms(false);
 
   const open = () => {
     overlay.classList.remove('hidden', 'closing');
     overlay.classList.add('open');
     panel.setAttribute('aria-hidden', 'false');
-    closeBtn.focus();
+    renderAppearance();
+    document.querySelector('#view-main .settings-close').focus();
   };
   const close = () => {
     overlay.classList.remove('open');
     overlay.classList.add('closing');
-    setTimeout(() => { overlay.classList.add('hidden'); overlay.classList.remove('closing'); }, 280);
+    livePreview.stop();
+    setTimeout(() => {
+      overlay.classList.add('hidden');
+      overlay.classList.remove('closing');
+      navigateTo('main', null, false);   // reopen on the main screen
+    }, 280);
     panel.setAttribute('aria-hidden', 'true');
     btn.focus();
   };
 
   btn.addEventListener('click', open);
-  closeBtn.addEventListener('click', close);
+  document.querySelectorAll('.settings-close').forEach(b => b.addEventListener('click', close));
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.classList.contains('open')) close(); });
+
+  document.getElementById('change-background').addEventListener('click', () => navigateTo('categories'));
+  document.getElementById('back-to-main').addEventListener('click', () => navigateTo('main'));
+  document.getElementById('back-to-categories').addEventListener('click', () => navigateTo('categories'));
 
   const randAll = document.getElementById('randomize-all-daily');
   randAll.classList.toggle('active', settings.randomizeDaily === 'all');
   randAll.addEventListener('click', () => handleRandomizeClick('all'));
 
-  buildThemePicker();
   buildFontSettings();
   buildDisplaySettings();
   buildQuickLinksEditor();
@@ -428,99 +597,6 @@ function initSectionToggles() {
       settings.collapsedSections[key] = !isCollapsed;
       Storage.save({ collapsedSections: settings.collapsedSections });
     });
-  });
-}
-
-// Theme picker
-function buildThemePicker() {
-  const container = document.getElementById('theme-picker');
-  container.innerHTML = '';
-
-  // Favorites group
-  const favStateKey = 'theme-favorites';
-  const favCollapsed = (settings.collapsedSections || {})[favStateKey] || false;
-
-  const favGroup = document.createElement('div');
-  favGroup.className = 'theme-group';
-
-  const favToggle = document.createElement('button');
-  favToggle.className = 'theme-group-toggle';
-  favToggle.type = 'button';
-  favToggle.setAttribute('aria-expanded', favCollapsed ? 'false' : 'true');
-  favToggle.innerHTML = `<span>Favorites</span><svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-
-  const favBody = document.createElement('div');
-  favBody.className = 'theme-group-body';
-  favBody.id = 'favorites-group-body';
-  if (favCollapsed) favBody.style.height = '0px';
-
-  favToggle.addEventListener('click', () => {
-    const isCollapsed = favToggle.getAttribute('aria-expanded') === 'false';
-    if (isCollapsed) {
-      favToggle.setAttribute('aria-expanded', 'true');
-      favBody.style.height = '0px';
-      favBody.getBoundingClientRect();
-      favBody.style.height = favBody.scrollHeight + 'px';
-      favBody.addEventListener('transitionend', () => { favBody.style.height = ''; }, { once: true });
-    } else {
-      favToggle.setAttribute('aria-expanded', 'false');
-      favBody.style.height = favBody.scrollHeight + 'px';
-      favBody.getBoundingClientRect();
-      favBody.style.height = '0px';
-    }
-    settings.collapsedSections = settings.collapsedSections || {};
-    settings.collapsedSections[favStateKey] = !isCollapsed;
-    Storage.save({ collapsedSections: settings.collapsedSections });
-  });
-
-  favGroup.appendChild(favToggle);
-  favGroup.appendChild(favBody);
-  container.appendChild(favGroup);
-  buildFavoritesGroup();
-
-  // Space / Nature groups
-  THEME_GROUPS.forEach(({ key, label, themes }) => {
-    const stateKey = 'theme-' + key;
-    const collapsed = (settings.collapsedSections || {})[stateKey] || false;
-
-    const group = document.createElement('div');
-    group.className = 'theme-group';
-
-    const toggle = document.createElement('button');
-    toggle.className = 'theme-group-toggle';
-    toggle.type = 'button';
-    toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-    toggle.innerHTML = `<span>${label}</span><svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-
-    const body = document.createElement('div');
-    body.className = 'theme-group-body';
-    if (collapsed) body.style.height = '0px';
-
-    body.appendChild(makeRandomizeDailyBtn(key, `Randomize ${label} Daily`));
-    themes.forEach(themeKey => body.appendChild(makeThemeOption(themeKey)));
-
-    toggle.addEventListener('click', () => {
-      const isCollapsed = toggle.getAttribute('aria-expanded') === 'false';
-      if (isCollapsed) {
-        toggle.setAttribute('aria-expanded', 'true');
-        body.style.height = '0px';
-        body.getBoundingClientRect();
-        body.style.height = body.scrollHeight + 'px';
-        body.addEventListener('transitionend', () => { body.style.height = ''; }, { once: true });
-      } else {
-        toggle.setAttribute('aria-expanded', 'false');
-        body.style.height = body.scrollHeight + 'px';
-        body.getBoundingClientRect();
-        body.style.height = '0px';
-      }
-      settings.collapsedSections = settings.collapsedSections || {};
-      settings.collapsedSections[stateKey] = !isCollapsed;
-      Storage.save({ collapsedSections: settings.collapsedSections });
-    });
-
-    group.appendChild(toggle);
-    group.appendChild(body);
-    container.appendChild(group);
   });
 }
 
@@ -675,6 +751,7 @@ function buildAnimationSettings() {
       btns.forEach(b => b.classList.toggle('active', b === btn));
       engine.setOptions({ intensity: Storage.intensityValue(btn.dataset.value) });
       engine.switchTheme(THEME_MAP[settings.theme] || StarfieldTheme);
+      startAppearancePreview();
     });
   });
 
@@ -683,6 +760,7 @@ function buildAnimationSettings() {
     settings.animSpeed = v;
     Storage.save({ animSpeed: v });
     engine.setOptions({ speed: v });
+    livePreview.setSpeed(v);
     const display = Number.isInteger(v) ? v + '' : v.toFixed(2).replace(/0+$/, '');
     speedLbl.textContent = display + '×';
   });
@@ -691,6 +769,7 @@ function buildAnimationSettings() {
     settings.staticMode = staticEl.checked;
     Storage.save({ staticMode: staticEl.checked });
     engine.setOptions({ staticMode: staticEl.checked });
+    startAppearancePreview();
   });
 }
 

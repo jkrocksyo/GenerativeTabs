@@ -25,7 +25,7 @@ see `companion-dark-theme/README.md`.
 
 | Feature | How |
 |---------|-----|
-| Switch theme | Click the gear icon → **Background** |
+| Switch theme | Gear icon → **Appearance** → **Change background** → pick a category, then a scene |
 | Search | Type in the search box, press **Enter** |
 | Settings | Gear icon, bottom-right corner |
 | Quick links | Settings → **Quick Links** → Add link |
