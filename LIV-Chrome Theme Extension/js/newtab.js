@@ -266,6 +266,7 @@ function handleRandomizeClick(pool) {
   if (wasActive) {
     settings.randomizeDaily = null;
     Storage.save({ randomizeDaily: null });
+    refreshSelectionMarks();
   } else {
     const theme = getRandomThemeFromPool(pool);
     const today = new Date().toISOString().slice(0, 10);
@@ -401,11 +402,12 @@ function buildCategoryGrid() {
   const entries = [getCategoryEntry('favorites'), ...THEME_GROUPS];
 
   entries.forEach(cat => {
-    const isActive = cat.key !== 'favorites' && activeCat && activeCat.key === cat.key;
+    const isActive = !settings.randomizeDaily && cat.key !== 'favorites' && activeCat && activeCat.key === cat.key;
 
     const btn = document.createElement('button');
     btn.className = 'category-tile';
     btn.type = 'button';
+    btn.dataset.catKey = cat.key;
     btn.setAttribute('aria-label', `${cat.label} backgrounds`);
 
     const thumb = document.createElement('span');
@@ -458,7 +460,7 @@ function buildBackgroundGrid(categoryKey) {
 }
 
 function makeBackgroundTile(themeKey) {
-  const isActive = settings.theme === themeKey;
+  const isActive = !settings.randomizeDaily && settings.theme === themeKey;
   const isFav = (settings.favorites || []).includes(themeKey);
 
   const tile = document.createElement('div');
@@ -505,15 +507,27 @@ function applyTheme(themeKey) {
 }
 
 function refreshSelectionMarks() {
+  const showCheck = !settings.randomizeDaily;
+  const activeCat = showCheck ? categoryOf(settings.theme) : null;
+
   document.querySelectorAll('.background-tile').forEach(tile => {
     const thumb = tile.querySelector('.tile-thumb');
-    const isActive = tile.dataset.theme === settings.theme;
+    const isActive = showCheck && tile.dataset.theme === settings.theme;
     thumb.classList.toggle('selected', isActive);
     const badge = thumb.querySelector('.tile-check');
     if (isActive && !badge) thumb.appendChild(makeCheckBadge());
     else if (!isActive && badge) badge.remove();
   });
-  // Screen 1 always reflects the true active scene when the user gets back
+
+  document.querySelectorAll('.category-tile').forEach(tile => {
+    const thumb = tile.querySelector('.tile-thumb');
+    const isActive = activeCat && tile.dataset.catKey === activeCat.key;
+    thumb.classList.toggle('selected', !!isActive);
+    const badge = thumb.querySelector('.tile-check');
+    if (isActive && !badge) thumb.appendChild(makeCheckBadge());
+    else if (!isActive && badge) badge.remove();
+  });
+
   document.getElementById('appearance-name').textContent =
     THEME_LABELS[settings.theme] || '';
 }
