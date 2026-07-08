@@ -145,7 +145,7 @@
       sg.addColorStop(0, 'rgba(255,240,200,0.5)');
       sg.addColorStop(1, 'rgba(255,240,200,0)');
       ctx.fillStyle = sg;
-      ctx.fillRect(430, 10, 260, 260);
+      ctx.beginPath(); ctx.arc(560, 120, 150, 0, TAU); ctx.fill();
       ctx.fillStyle = 'rgba(255,248,220,0.85)';
       ctx.beginPath(); ctx.arc(560, 120, 32, 0, TAU); ctx.fill();
 
