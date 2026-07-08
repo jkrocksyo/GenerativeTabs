@@ -71,8 +71,8 @@ void main(){
     [0.902,1.000,0.569], // #e6ff91
     [1.000,0.961,0.502], // #fff580
   ];
-  const COUNT  = 75;
-  const STRIDE = 8;
+  const MAX_COUNT = 120;
+  const STRIDE    = 8;
 
   class ForestFirefliesTheme {
     constructor() { this.contextType = 'webgl'; }
@@ -81,6 +81,8 @@ void main(){
       this.canvas = canvas;
       this.dpr    = Math.min(window.devicePixelRatio || 1, 2);
       this.speed  = (opts && opts.speed) || 1.0;
+      const intMap = { low: 30, medium: 75, high: 120 };
+      this._count = intMap[(opts && opts.intensity) || 'medium'] || 75;
       this._lastTs= null;
       this._scaledTime = 0;
       this.W = 1; this.H = 1;
@@ -110,7 +112,7 @@ void main(){
 
       // Dynamic firefly VBO
       this.ffBuf  = gl.createBuffer();
-      this.ffData = new Float32Array(COUNT * 6 * STRIDE);
+      this.ffData = new Float32Array(this._count * 6 * STRIDE);
 
       this.flies = [];
       this.resize(canvas.clientWidth, canvas.clientHeight);
@@ -156,7 +158,7 @@ void main(){
 
     _initFlies() {
       this.flies = [];
-      for (let i = 0; i < COUNT; i++) {
+      for (let i = 0; i < this._count; i++) {
         const f = {};
         this._spawnFly(f, true);
         this.flies.push(f);
@@ -253,7 +255,7 @@ void main(){
       gl.enableVertexAttribArray(L.col);   gl.vertexAttribPointer(L.col,   3, gl.FLOAT, false, bs, 16);
       gl.enableVertexAttribArray(L.alpha); gl.vertexAttribPointer(L.alpha, 1, gl.FLOAT, false, bs, 28);
 
-      gl.drawArrays(gl.TRIANGLES, 0, COUNT * 6);
+      gl.drawArrays(gl.TRIANGLES, 0, this._count * 6);
       gl.disable(gl.BLEND);
     }
 

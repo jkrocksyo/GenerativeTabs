@@ -53,8 +53,8 @@ void main(){
     return              [1.000, 0.541, 0.082]; // bright amber   #ff8a15
   }
 
-  const COUNT  = 65;
-  const STRIDE = 8;
+  const MAX_COUNT = 104;
+  const STRIDE    = 8;
 
   class BokehLightsTheme {
     constructor() { this.contextType = 'webgl'; }
@@ -63,6 +63,8 @@ void main(){
       this.canvas  = canvas;
       this.dpr     = Math.min(window.devicePixelRatio || 1, 2);
       this.speed   = (opts && opts.speed) || 1.0;
+      const intMap = { low: 26, medium: 65, high: 104 };
+      this._count  = intMap[(opts && opts.intensity) || 'medium'] || 65;
       this._lastTs = null;
       this._scaledTime = 0;
       this.W = 1; this.H = 1;
@@ -90,7 +92,7 @@ void main(){
       };
 
       this.orbBuf  = gl.createBuffer();
-      this.orbData = new Float32Array(COUNT * 6 * STRIDE);
+      this.orbData = new Float32Array(this._count * 6 * STRIDE);
       this.orbs    = [];
 
       this.resize(canvas.clientWidth, canvas.clientHeight);
@@ -150,7 +152,7 @@ void main(){
 
     _initOrbs() {
       this.orbs = [];
-      for (let i = 0; i < COUNT; i++) {
+      for (let i = 0; i < this._count; i++) {
         const o = {};
         this._spawn(o);
         this.orbs.push(o);
@@ -249,7 +251,7 @@ void main(){
       gl.enableVertexAttribArray(L.col);   gl.vertexAttribPointer(L.col,   3, gl.FLOAT, false, bs, 16);
       gl.enableVertexAttribArray(L.alpha); gl.vertexAttribPointer(L.alpha, 1, gl.FLOAT, false, bs, 28);
 
-      gl.drawArrays(gl.TRIANGLES, 0, COUNT * 6);
+      gl.drawArrays(gl.TRIANGLES, 0, this._count * 6);
       gl.disable(gl.BLEND);
     }
 

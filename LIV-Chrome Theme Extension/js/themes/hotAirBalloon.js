@@ -4,11 +4,20 @@
 
   const W = 720, H = 380, TAU = Math.PI * 2;
 
+  const CLOUD_DEFS = [
+    { sp: 4, ph:   0, y:  70, rx: 52, ry: 8 },
+    { sp: 3, ph: 380, y: 112, rx: 40, ry: 6 },
+    { sp: 5, ph: 190, y:  88, rx: 46, ry: 7 },
+  ];
+
   class HotAirBalloonTheme {
     init(canvas, ctx, opts) {
       this.canvas  = canvas;
       this.ctx     = ctx || canvas.getContext('2d');
       this.speed   = (opts && opts.speed) || 1;
+      const intMap = { low: 1, medium: 3, high: 5 };
+      this._birdCount  = intMap[(opts && opts.intensity) || 'medium'] || 3;
+      this._cloudCount = { low: 1, medium: 2, high: 3 }[(opts && opts.intensity) || 'medium'] || 2;
       this._t      = 0;
       this._lastTs = null;
       this._cW     = canvas.width;
@@ -62,16 +71,17 @@
 
       // Clouds
       ctx.fillStyle = 'rgba(255,255,255,0.4)';
-      const w1 = W + 90 - ((t * 4) % (W + 180));
-      ctx.beginPath(); ctx.ellipse(w1,  70, 52, 8, 0, 0, TAU); ctx.fill();
-      const w2 = W + 90 - ((t * 3 + 380) % (W + 180));
-      ctx.beginPath(); ctx.ellipse(w2, 112, 40, 6, 0, 0, TAU); ctx.fill();
+      for (let ci = 0; ci < this._cloudCount; ci++) {
+        const cd = CLOUD_DEFS[ci];
+        const wx = W + 90 - ((t * cd.sp + cd.ph) % (W + 180));
+        ctx.beginPath(); ctx.ellipse(wx, cd.y, cd.rx, cd.ry, 0, 0, TAU); ctx.fill();
+      }
 
       // Birds
       ctx.strokeStyle = '#7A5B54';
       ctx.lineWidth   = 1.8;
       ctx.lineCap     = 'round';
-      for (let i2 = 0; i2 < 3; i2++) {
+      for (let i2 = 0; i2 < this._birdCount; i2++) {
         const bx = W + 60 - ((t * 16 + i2 * 250) % (W + 120));
         const by = 205 + i2 * 11 + Math.sin(t * 1.1 + i2) * 3;
         const glide = Math.min(1, Math.max(0, (Math.sin(t * 0.31 + i2 * 2.2) - 0.55) * 4));

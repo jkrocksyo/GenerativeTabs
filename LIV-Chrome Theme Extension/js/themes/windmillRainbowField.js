@@ -31,14 +31,15 @@
 
   // ── Flower field pre-generation ──────────────────────────────────────────
   // Exact replication of the reference seeding logic.
-  function buildFlowers() {
+  function buildFlowers(subRows) {
+    subRows = subRows || 3;
     const flowers = [];
     const n = BAND_COLORS.length;
     for (let b = 0; b < n; b++) {
       const yTop = FIELD_TOP + b * bandH;
       const depthFactor = b / (n - 1);
       const baseSize = 3 + depthFactor * 3;
-      for (let sr = 0; sr < 3; sr++) {
+      for (let sr = 0; sr < subRows; sr++) {
         const yBase = yTop + 3 + (bandH - 6) * ((sr + 0.5) / 3);
         for (let x = 8; x <= W - 4; x += 10 + depthFactor * 4) {
           const fx = x + (Math.random() - 0.5) * 6;
@@ -67,6 +68,8 @@
       this.canvas  = canvas;
       this.ctx     = ctx || canvas.getContext('2d');
       this.speed   = (opts && opts.speed) || 1;
+      const intMap = { low: 1, medium: 3, high: 5 };
+      const subRows = intMap[(opts && opts.intensity) || 'medium'] || 3;
       this._t      = 0;   // main time (flower sway, birds, sun)
       this._sails  = 0;   // sail angle — frozen in reduced-motion
       this._lastTs = null;
@@ -76,7 +79,7 @@
       // Deep-copy mutable state so restarts don't share positions
       this._clouds  = CLOUD_DEFS.map(c => Object.assign({}, c));
       this._birds   = BIRD_DEFS.map(b => Object.assign({}, b));
-      this._flowers = buildFlowers();
+      this._flowers = buildFlowers(subRows);
 
       this._build(canvas.width, canvas.height);
     }

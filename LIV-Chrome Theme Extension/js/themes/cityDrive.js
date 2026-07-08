@@ -20,7 +20,9 @@
       this._puffs   = [];
       this._puffAcc = 0;
       this._stars   = [];
-      for (let i = 0; i < 34; i++)
+      const intMap = { low: 14, medium: 34, high: 54 };
+      const starCount = intMap[(opts && opts.intensity) || 'medium'] || 34;
+      for (let i = 0; i < starCount; i++)
         this._stars.push([Math.random() * W, Math.random() * 200, Math.random() * TAU]);
     }
 

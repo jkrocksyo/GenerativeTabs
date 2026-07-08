@@ -61,12 +61,7 @@ void main(){
     gl.linkProgram(p); return p;
   }
 
-  const BACK_COUNT  = 200;
-  const MID_COUNT   = 120;
-  const FRONT_COUNT = 40;
-  // Front flakes = 2 quads each (halo + dot); others = 1 quad each
-  const TOTAL_QUADS = BACK_COUNT + MID_COUNT + FRONT_COUNT * 2; // 400
-  const STRIDE      = 9;
+  const STRIDE = 9;
 
   class FallingSnowTheme {
     constructor() { this.contextType = 'webgl'; }
@@ -75,6 +70,16 @@ void main(){
       this.canvas  = canvas;
       this.dpr     = Math.min(window.devicePixelRatio || 1, 2);
       this.speed   = (opts && opts.speed) || 1.0;
+      const intMap = {
+        low:    { back:  80, mid:  48, front: 16 },
+        medium: { back: 200, mid: 120, front: 40 },
+        high:   { back: 320, mid: 192, front: 64 },
+      };
+      const ic = intMap[(opts && opts.intensity) || 'medium'] || intMap.medium;
+      this._backCount  = ic.back;
+      this._midCount   = ic.mid;
+      this._frontCount = ic.front;
+      this._totalQuads = this._backCount + this._midCount + this._frontCount * 2;
       this._lastTs = null;
       this._scaledTime = 0;
       this.W = 1; this.H = 1;
@@ -104,7 +109,7 @@ void main(){
       };
 
       this.snowBuf  = gl.createBuffer();
-      this.snowData = new Float32Array(TOTAL_QUADS * 6 * STRIDE);
+      this.snowData = new Float32Array(this._totalQuads * 6 * STRIDE);
       this.flakes   = [];
 
       this.resize(canvas.clientWidth, canvas.clientHeight);
@@ -159,9 +164,9 @@ void main(){
 
     _initFlakes() {
       this.flakes = [];
-      for (let i = 0; i < BACK_COUNT;  i++) { const f = {}; this._spawnFlake(f, 0, true);  this.flakes.push(f); }
-      for (let i = 0; i < MID_COUNT;   i++) { const f = {}; this._spawnFlake(f, 1, true);  this.flakes.push(f); }
-      for (let i = 0; i < FRONT_COUNT; i++) { const f = {}; this._spawnFlake(f, 2, true);  this.flakes.push(f); }
+      for (let i = 0; i < this._backCount;  i++) { const f = {}; this._spawnFlake(f, 0, true); this.flakes.push(f); }
+      for (let i = 0; i < this._midCount;   i++) { const f = {}; this._spawnFlake(f, 1, true); this.flakes.push(f); }
+      for (let i = 0; i < this._frontCount; i++) { const f = {}; this._spawnFlake(f, 2, true); this.flakes.push(f); }
     }
 
     resize(w, h) {
@@ -241,26 +246,26 @@ void main(){
       };
 
       // Back layer — tiny tight dots
-      for (let i = 0; i < BACK_COUNT; i++) {
+      for (let i = 0; i < this._backCount; i++) {
         const f = this.flakes[i];
         const fa = Math.max(0, 1 - Math.max(0, f.by - (gndY - fadeLen)) / fadeLen);
         pushQuad(f.bx+f.sx, f.by, f.baseR, f.r, f.g, f.b, f.alpha * fa, 4.5);
       }
       // Mid layer — medium soft dots
-      const midEnd = BACK_COUNT + MID_COUNT;
-      for (let i = BACK_COUNT; i < midEnd; i++) {
+      const midEnd = this._backCount + this._midCount;
+      for (let i = this._backCount; i < midEnd; i++) {
         const f = this.flakes[i];
         const fa = Math.max(0, 1 - Math.max(0, f.by - (gndY - fadeLen)) / fadeLen);
         pushQuad(f.bx+f.sx, f.by, f.baseR, f.r, f.g, f.b, f.alpha * fa, 3.5);
       }
       // Front halos (wide, faint — rendered before dots so dots appear on top)
-      for (let i = midEnd; i < midEnd+FRONT_COUNT; i++) {
+      for (let i = midEnd; i < midEnd+this._frontCount; i++) {
         const f = this.flakes[i];
         const fa = Math.max(0, 1 - Math.max(0, f.by - (gndY - fadeLen)) / fadeLen);
         pushQuad(f.bx+f.sx, f.by, f.baseR*2.8, f.r, f.g, f.b, f.haloAlpha * fa, 1.0);
       }
       // Front dots (on top of halos)
-      for (let i = midEnd; i < midEnd+FRONT_COUNT; i++) {
+      for (let i = midEnd; i < midEnd+this._frontCount; i++) {
         const f = this.flakes[i];
         const fa = Math.max(0, 1 - Math.max(0, f.by - (gndY - fadeLen)) / fadeLen);
         pushQuad(f.bx+f.sx, f.by, f.baseR, f.r, f.g, f.b, f.alpha * fa, 3.0);
@@ -281,7 +286,7 @@ void main(){
       gl.enableVertexAttribArray(L.alpha); gl.vertexAttribPointer(L.alpha, 1, gl.FLOAT, false, bs, 28);
       gl.enableVertexAttribArray(L.soft);  gl.vertexAttribPointer(L.soft,  1, gl.FLOAT, false, bs, 32);
 
-      gl.drawArrays(gl.TRIANGLES, 0, TOTAL_QUADS * 6);
+      gl.drawArrays(gl.TRIANGLES, 0, this._totalQuads * 6);
       gl.disable(gl.BLEND);
     }
 

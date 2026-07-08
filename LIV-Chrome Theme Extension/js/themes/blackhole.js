@@ -2,7 +2,7 @@
   const VERT = 'attribute vec2 a;void main(){gl_Position=vec4(a,0.0,1.0);}';
 
   const FRAG = `precision highp float;
-uniform vec2 u_res; uniform float u_time;
+uniform vec2 u_res; uniform float u_time; uniform float u_intensity;
 float hash(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
 float noise(vec2 p){ vec2 i=floor(p),f=fract(p); float a=hash(i),b=hash(i+vec2(1.,0.)),c=hash(i+vec2(0.,1.)),d=hash(i+vec2(1.,1.)); vec2 u=f*f*(3.-2.*f); return mix(mix(a,b,u.x),mix(c,d,u.x),u.y); }
 float fbm(vec2 p){ float v=0.,a=0.5; for(int i=0;i<4;i++){ v+=a*noise(p); p=p*2.03; a*=0.5; } return v; }
@@ -68,19 +68,19 @@ void main(){
   float backMask=1.0-frontMask;
   vec3 diskCol=grade(clamp(disk*0.55,0.,1.));
   float emBack=disk*backMask;
-  col+=diskCol*emBack;
+  col+=diskCol*emBack*u_intensity;
   col*=smoothstep(Rs-0.004,Rs+0.004,r);
   float envB=smoothstep(Rs-0.002,Rs+0.007,r)*(1.0-smoothstep(Rs*1.10,Rs*1.32,r));
   float ringB=envB*streak*1.8;
-  col+=grade(clamp(ringB*0.55,0.,1.))*ringB;
+  col+=grade(clamp(ringB*0.55,0.,1.))*ringB*u_intensity;
   float prd=(r-Rs)/0.006;
   float pflow=0.78+0.42*fbm(vec2(cos(ang),sin(ang))*2.0+flow);
   float pring=exp(-prd*prd)*pflow;
-  col+=grade(0.95)*pring*2.0;
+  col+=grade(0.95)*pring*2.0*u_intensity;
   float emFront=disk*frontMask;
-  col+=diskCol*emFront;
+  col+=diskCol*emFront*u_intensity;
   float bloom=exp(-r*3.0)*0.45+exp(-abs(pr.y)*9.0)*exp(-max(0.0,r-Rs)*4.0)*0.3;
-  col+=grade(0.8)*bloom*0.55;
+  col+=grade(0.8)*bloom*0.55*u_intensity;
   vec2 q=(frag/u_res-0.5); q.x*=(u_res.x/u_res.y)*0.5;
   col*=smoothstep(1.0,0.25,length(q));
   col*=1.3; col=col/(col+vec3(1.0)); col=pow(col,vec3(0.82));
@@ -102,6 +102,8 @@ void main(){
       this.canvas = canvas;
       this.opts = options || {};
       this.speed = (options && options.speed) || 1.0;
+      const intMap = { low: 0.55, medium: 1.0, high: 1.5 };
+      this._intensity = intMap[(options && options.intensity) || 'medium'] || 1.0;
       this.dpr = Math.min(window.devicePixelRatio || 1, 2);
       this._lastTs = null;
       this._scaledTime = 0;
@@ -118,8 +120,9 @@ void main(){
       const al = gl.getAttribLocation(prog, 'a');
       gl.enableVertexAttribArray(al);
       gl.vertexAttribPointer(al, 2, gl.FLOAT, false, 0, 0);
-      this.uRes  = gl.getUniformLocation(prog, 'u_res');
-      this.uTime = gl.getUniformLocation(prog, 'u_time');
+      this.uRes       = gl.getUniformLocation(prog, 'u_res');
+      this.uTime      = gl.getUniformLocation(prog, 'u_time');
+      this.uIntensity = gl.getUniformLocation(prog, 'u_intensity');
       this.resize(canvas.clientWidth, canvas.clientHeight);
     }
 
@@ -138,6 +141,7 @@ void main(){
       gl.useProgram(this.prog);
       gl.uniform2f(this.uRes, this.canvas.width, this.canvas.height);
       gl.uniform1f(this.uTime, this._scaledTime);
+      gl.uniform1f(this.uIntensity, this._intensity);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
 

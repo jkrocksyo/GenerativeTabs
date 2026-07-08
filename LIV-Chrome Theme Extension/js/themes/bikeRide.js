@@ -9,6 +9,8 @@
       this.canvas = canvas;
       this.ctx    = ctx || canvas.getContext('2d');
       this.speed  = (opts && opts.speed) || 1;
+      const intMap = { low: 1, medium: 3, high: 5 };
+      this._birdCount = intMap[(opts && opts.intensity) || 'medium'] || 3;
       this._t     = 0;
       this._lastTs = null;
       this._cW    = canvas.width;
@@ -75,7 +77,7 @@
       ctx.strokeStyle = '#2E2143';
       ctx.lineWidth   = 2;
       ctx.lineCap     = 'round';
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < this._birdCount; i++) {
         const bx = W + 70 - ((t * 22 + i * 270) % (W + 140));
         const by = 96 + i * 22 + Math.sin(t * 1.3 + i) * 5;
         const glide = Math.min(1, Math.max(0, (Math.sin(t * 0.37 + i * 2.6) - 0.55) * 4));

@@ -11,6 +11,8 @@
       this.canvas  = canvas;
       this.ctx     = ctx || canvas.getContext('2d');
       this.speed   = (opts && opts.speed) || 1;
+      const intMap = { low: 10, medium: 24, high: 40 };
+      this._leafCount = intMap[(opts && opts.intensity) || 'medium'] || 24;
       this._t      = 0;
       this._lastTs = null;
       this._cW     = canvas.width;
@@ -20,7 +22,7 @@
 
     _initLeaves() {
       this._fall = [];
-      for (let i = 0; i < 24; i++) {
+      for (let i = 0; i < this._leafCount; i++) {
         this._fall.push({
           x:   Math.random() * (W + 100) - 20,
           y:   Math.random() * H,
