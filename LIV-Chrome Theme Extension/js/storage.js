@@ -22,6 +22,10 @@ const Storage = (() => {
   };
 
   const INTENSITY_MAP = { low: 0.5, medium: 1.0, high: 1.6 };
+  // Intensity doubles as a quality control: each tier also caps the render
+  // resolution (device-pixel ratio). Lower tier → fewer pixels/frame → less
+  // GPU. High keeps full native retina sharpness (the previous fixed cap).
+  const QUALITY_MAP = { low: 1.0, medium: 1.5, high: 2.0 };
 
   function load() {
     return new Promise(resolve => {
@@ -55,5 +59,9 @@ const Storage = (() => {
     return INTENSITY_MAP[name] || 1.0;
   }
 
-  return { DEFAULTS, load, save, intensityValue };
+  function qualityValue(name) {
+    return QUALITY_MAP[name] || 1.5;
+  }
+
+  return { DEFAULTS, load, save, intensityValue, qualityValue };
 })();

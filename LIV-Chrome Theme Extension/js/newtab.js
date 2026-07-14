@@ -101,6 +101,7 @@ let settings;
   engine = new ThemeEngine(document.getElementById('canvas-container'));
   engine.setOptions({
     intensity:  Storage.intensityValue(settings.intensity),
+    quality:    Storage.qualityValue(settings.intensity),
     speed:      settings.animSpeed,
     staticMode: settings.staticMode,
   });
@@ -773,7 +774,10 @@ function buildAnimationSettings() {
       settings.intensity = btn.dataset.value;
       Storage.save({ intensity: btn.dataset.value });
       btns.forEach(b => b.classList.toggle('active', b === btn));
-      engine.setOptions({ intensity: Storage.intensityValue(btn.dataset.value) });
+      engine.setOptions({
+        intensity: Storage.intensityValue(btn.dataset.value),
+        quality:   Storage.qualityValue(btn.dataset.value),
+      });
       engine.switchTheme(THEME_MAP[settings.theme] || StarfieldTheme);
       startAppearancePreview();
     });

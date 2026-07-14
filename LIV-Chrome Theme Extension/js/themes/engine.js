@@ -12,7 +12,7 @@ class ThemeEngine {
     this._webglFailed = false;
     this._dpr = 1;
 
-    this.options = { intensity: 1.0, staticMode: false, speed: 1.0 };
+    this.options = { intensity: 1.0, staticMode: false, speed: 1.0, quality: 2 };
 
     this._prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -35,7 +35,7 @@ class ThemeEngine {
   }
 
   _sizeCanvas(canvas) {
-    this._dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this._dpr = Math.min(window.devicePixelRatio || 1, this.options.quality || 2);
     canvas.width = Math.floor(window.innerWidth * this._dpr);
     canvas.height = Math.floor(window.innerHeight * this._dpr);
     canvas.style.width = '100vw';
@@ -118,10 +118,15 @@ class ThemeEngine {
   }
 
   setOptions(opts) {
+    const qualityChanged =
+      opts.quality !== undefined && opts.quality !== this.options.quality;
     Object.assign(this.options, opts);
     if (this.currentTheme && opts.speed !== undefined) {
       this.currentTheme.speed = opts.speed;
     }
+    // Changing the quality cap changes the canvas resolution — re-size so it
+    // takes effect immediately (also notifies the theme via resize()).
+    if (qualityChanged && this.canvas) this._handleResize();
     this._checkShouldAnimate();
   }
 
