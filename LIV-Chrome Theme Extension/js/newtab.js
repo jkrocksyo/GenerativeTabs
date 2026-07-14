@@ -208,7 +208,14 @@ function initSearch() {
   input.addEventListener('keydown', e => {
     if (e.key !== 'Enter') return;
     const q = input.value.trim();
-    if (q) window.location.href = `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+    if (!q) return;
+    // Route through the browser's configured default search engine rather than
+    // forcing Google. Fall back to Google only if the search API is missing.
+    if (chrome.search && chrome.search.query) {
+      chrome.search.query({ text: q, disposition: 'CURRENT_TAB' });
+    } else {
+      window.location.href = `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+    }
   });
 }
 
