@@ -160,6 +160,10 @@
       ctx.arc(x,      RT - 62, 20, 0, TAU);
       ctx.arc(x - 13, RT - 50, 13, 0, TAU);
       ctx.arc(x + 13, RT - 50, 13, 0, TAU);
+      // The two lower lobes only just touch, so their inner arcs pull away
+      // from the trunk and leave a small triangular notch on each side. This
+      // centre lobe fills the base so the canopy reads as one solid mass.
+      ctx.arc(x,      RT - 47, 12, 0, TAU);
       ctx.fill();
     }
 

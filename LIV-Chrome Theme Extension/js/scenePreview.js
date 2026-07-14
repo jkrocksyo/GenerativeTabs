@@ -116,8 +116,17 @@ const ScenePreview = (() => {
         for (let t = 0; t <= SIM_MS; t += STEP_MS) theme.draw(t);
         return;
       }
+      // Match the live background's ~60fps cap (see ThemeEngine._startLoop).
+      // Without it this preview runs at the display's full refresh rate — on a
+      // 120Hz ProMotion screen that's double, so per-frame-increment scenes
+      // (starfield, galaxy, …) appear to animate ~2× faster than the real
+      // background does.
+      let last = 0;
       const loop = ts => {
         this.rafId = requestAnimationFrame(loop);
+        if (!last) { last = ts; return; }
+        if (ts - last < 16) return;
+        last = ts;
         if (this.theme) this.theme.draw(ts);
       };
       this.rafId = requestAnimationFrame(loop);
