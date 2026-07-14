@@ -94,12 +94,17 @@ const ScenePreview = (() => {
 
       // Fresh canvas each time — a canvas is permanently bound to its first
       // context type, and themes may need 2d or webgl.
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const w = Math.max(1, this.container.clientWidth);
-      const h = Math.max(1, Math.round(w * SNAP_H / SNAP_W));
+      //
+      // Render at the live background's own resolution (same window dimensions
+      // and quality-capped dpr the ThemeEngine uses), then CSS object-fit:cover
+      // into the tile. Scenes that advance a fixed number of device-pixels per
+      // frame (starfield, galaxy, …) otherwise drift much faster in a small
+      // preview canvas than they do full-screen; matching the resolution makes
+      // the preview a true scaled-down mirror moving at the same on-screen speed.
+      const dpr = Math.min(window.devicePixelRatio || 1, opts.quality || 2);
       const canvas = document.createElement('canvas');
-      canvas.width = Math.floor(w * dpr);
-      canvas.height = Math.floor(h * dpr);
+      canvas.width = Math.max(1, Math.floor(window.innerWidth * dpr));
+      canvas.height = Math.max(1, Math.floor(window.innerHeight * dpr));
       canvas.style.width = '100%';
       canvas.style.height = '100%';
       this.container.replaceChildren(canvas);

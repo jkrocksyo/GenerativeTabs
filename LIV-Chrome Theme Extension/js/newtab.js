@@ -370,6 +370,7 @@ function startAppearancePreview() {
   if (!overlay.classList.contains('open') || nav.view !== 'main') return;
   livePreview.show(THEME_MAP[settings.theme] || StarfieldTheme, {
     intensity:  Storage.intensityValue(settings.intensity),
+    quality:    Storage.qualityValue(settings.intensity),
     speed:      settings.animSpeed,
     staticMode: settings.staticMode,
   });
