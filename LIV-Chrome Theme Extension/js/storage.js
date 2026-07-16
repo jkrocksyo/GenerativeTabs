@@ -13,6 +13,7 @@ const Storage = (() => {
     hideText:           false,
     hideSearch:         false,
     quickLinks:         [],
+    brandColorCache:    {},         // { domain: {bg,fg} } cached favicon colours
     intensity:          'medium',
     animSpeed:          1.0,
     staticMode:         false,

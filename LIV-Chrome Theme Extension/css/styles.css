@@ -197,6 +197,22 @@ html, body {
   color: #fff;
 }
 
+/* Brand-coloured pills: --ql-bg / --ql-fg are set inline per site. The tint
+   sits over the existing blur, so it still reads as glass rather than a flat
+   button; hover deepens to the full brand colour. */
+.quick-link.branded {
+  background: color-mix(in srgb, var(--ql-bg) 80%, transparent);
+  border-color: color-mix(in srgb, var(--ql-fg) 42%, transparent);
+  color: var(--ql-fg);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.quick-link.branded:hover {
+  background: var(--ql-bg);
+  border-color: var(--ql-fg);
+  color: var(--ql-fg);
+}
+
 /* ── Settings gear button ─────────────────────────────────────────────────── */
 #settings-btn {
   position: fixed;

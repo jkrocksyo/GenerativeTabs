@@ -233,7 +233,38 @@ function renderQuickLinks() {
     a.textContent = link.label;
     a.addEventListener('click', e => { e.preventDefault(); window.location.href = link.url; });
     container.appendChild(a);
+    styleBrandLink(a, link.url);
   });
+}
+
+// Colour a quick-link pill to match its site. Curated overrides win; otherwise
+// we read the colour from Chrome's local favicon cache (once, then remembered).
+function styleBrandLink(a, url) {
+  const domain = BrandColors.domainOf(url);
+  if (!domain) return;
+
+  const override = BrandColors.lookup(domain);
+  if (override) { applyBrandStyle(a, override); return; }
+
+  const cache = settings.brandColorCache || {};
+  if (cache[domain]) { applyBrandStyle(a, cache[domain]); return; }
+
+  // Not cached yet: read the local favicon. We only remember successes, so a
+  // site with no cached icon yet (never visited) will light up on a later new
+  // tab once Chrome has its favicon — no permanent "no colour" verdict.
+  BrandColors.extract(url).then(colors => {
+    if (!colors) return;
+    settings.brandColorCache = settings.brandColorCache || {};
+    settings.brandColorCache[domain] = colors;
+    Storage.save({ brandColorCache: settings.brandColorCache });
+    applyBrandStyle(a, colors);
+  });
+}
+
+function applyBrandStyle(a, colors) {
+  a.style.setProperty('--ql-bg', colors.bg);
+  a.style.setProperty('--ql-fg', colors.fg);
+  a.classList.add('branded');
 }
 
 // ── Daily Randomize ───────────────────────────────────────────────────────────
