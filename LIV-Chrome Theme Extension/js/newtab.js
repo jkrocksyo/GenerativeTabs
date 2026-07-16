@@ -771,21 +771,6 @@ function buildDisplaySettings() {
   });
 }
 
-// Show a live favicon preview in an editor row; falls back to a neutral dot
-// when the URL is empty/invalid or has no cached icon.
-function setRowIcon(el, url) {
-  el.innerHTML = '';
-  el.classList.add('placeholder');
-  const iconUrl = BrandColors.domainOf(url) && BrandColors.faviconUrl(url, 32);
-  if (!iconUrl) return;
-  const img = document.createElement('img');
-  img.src = iconUrl;
-  img.alt = '';
-  img.addEventListener('load', () => el.classList.remove('placeholder'));
-  img.addEventListener('error', () => { el.innerHTML = ''; el.classList.add('placeholder'); });
-  el.appendChild(img);
-}
-
 // Quick links editor
 function buildQuickLinksEditor() {
   const container = document.getElementById('quick-links-editor');
@@ -804,16 +789,12 @@ function buildQuickLinksEditor() {
       const row = document.createElement('div');
       row.className = 'ql-row';
       row.innerHTML = `
-        <span class="ql-row-icon"></span>
         <input class="ql-label" type="text" placeholder="Label" value="${escHtml(link.label || '')}" maxlength="20">
         <input class="ql-url"   type="url"  placeholder="Paste entire link"  value="${escHtml(link.url   || '')}">
         <button class="ql-remove" type="button" aria-label="Remove">✕</button>
       `;
-      const iconEl = row.querySelector('.ql-row-icon');
-      const urlEl  = row.querySelector('.ql-url');
-      setRowIcon(iconEl, urlEl.value);
       row.querySelector('.ql-label').addEventListener('input', e => { settings.quickLinks[i].label = e.target.value; persist(); });
-      urlEl.addEventListener('input', e => { settings.quickLinks[i].url = e.target.value; setRowIcon(iconEl, e.target.value); persist(); });
+      row.querySelector('.ql-url').addEventListener('input',   e => { settings.quickLinks[i].url   = e.target.value; persist(); });
       row.querySelector('.ql-remove').addEventListener('click', () => { settings.quickLinks.splice(i, 1); persist(true); });
       container.appendChild(row);
     });
