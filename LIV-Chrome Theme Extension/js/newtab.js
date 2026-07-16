@@ -226,39 +226,53 @@ function renderQuickLinks() {
   const container = document.getElementById('quick-links');
   container.innerHTML = '';
   (settings.quickLinks || []).forEach(link => {
-    if (!link.label || !link.url) return;
+    if (!link.url) return;
+    const label = link.label || BrandColors.siteName(link.url);
+    if (!label) return;
+
     const a = document.createElement('a');
     a.className = 'quick-link';
     a.href = link.url;
-    a.textContent = link.label;
+    a.textContent = label;
     a.addEventListener('click', e => { e.preventDefault(); window.location.href = link.url; });
+
     container.appendChild(a);
-    styleBrandLink(a, link.url);
+    decorateQuickLink(a, link.url);
   });
 }
 
-// Colour a quick-link pill to match its site. Curated overrides win; otherwise
-// we read the colour from Chrome's local favicon cache (once, then remembered).
-function styleBrandLink(a, url) {
-  if (!settings.brandColors) return;
+// Add the site's favicon and brand colour to a pill. The favicon is only shown
+// when it's a real icon — Chrome's blank default globe (uncached sites) is
+// skipped so those pills stay text-only rather than showing an empty glyph.
+function decorateQuickLink(a, url) {
   const domain = BrandColors.domainOf(url);
   if (!domain) return;
 
+  // Curated / cached colour can apply immediately, without touching the icon.
   const override = BrandColors.lookup(domain);
-  if (override) { applyBrandStyle(a, override); return; }
+  const cached = (settings.brandColorCache || {})[domain];
+  if (settings.brandColors && (override || cached)) {
+    applyBrandStyle(a, override || cached);
+  }
 
-  const cache = settings.brandColorCache || {};
-  if (cache[domain]) { applyBrandStyle(a, cache[domain]); return; }
-
-  // Not cached yet: read the local favicon. We only remember successes, so a
-  // site with no cached icon yet (never visited) will light up on a later new
-  // tab once Chrome has its favicon — no permanent "no colour" verdict.
-  BrandColors.extract(url).then(colors => {
-    if (!colors) return;
-    settings.brandColorCache = settings.brandColorCache || {};
-    settings.brandColorCache[domain] = colors;
-    Storage.save({ brandColorCache: settings.brandColorCache });
-    applyBrandStyle(a, colors);
+  BrandColors.analyze(url).then(({ blank, colors }) => {
+    if (!blank) {
+      const img = document.createElement('img');
+      img.className = 'ql-icon';
+      img.src = BrandColors.faviconUrl(url, 32);
+      img.alt = '';
+      img.decoding = 'async';
+      img.addEventListener('error', () => img.remove());
+      a.insertBefore(img, a.firstChild);
+    }
+    // Remember an extracted colour (only successes) and apply it if we had no
+    // curated/cached one already.
+    if (colors && !override && !cached) {
+      settings.brandColorCache = settings.brandColorCache || {};
+      settings.brandColorCache[domain] = colors;
+      Storage.save({ brandColorCache: settings.brandColorCache });
+      if (settings.brandColors) applyBrandStyle(a, colors);
+    }
   });
 }
 

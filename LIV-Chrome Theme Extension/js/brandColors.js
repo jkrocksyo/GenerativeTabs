@@ -217,23 +217,23 @@ const BrandColors = (() => {
     return { bg, fg };
   }
 
-  // Resolve colours for a page by reading its local favicon. Resolves to
-  // { bg, fg } or null (no cached icon / too grey / unavailable).
-  function extract(pageUrl) {
+  // Load a page's local favicon into a fixed 32×32 canvas and return its raw
+  // RGBA bytes (or null on failure/timeout).
+  const ICON_SIZE = 32;
+  function loadIconData(pageUrl) {
     return new Promise(resolve => {
-      const src = faviconUrl(pageUrl, 32);
+      const src = faviconUrl(pageUrl, ICON_SIZE);
       if (!src) { resolve(null); return; }
       let done = false;
       const finish = v => { if (!done) { done = true; resolve(v); } };
       const img = new Image();
       img.onload = () => {
         try {
-          const s = img.naturalWidth || 32;
           const canvas = document.createElement('canvas');
-          canvas.width = s; canvas.height = s;
+          canvas.width = ICON_SIZE; canvas.height = ICON_SIZE;
           const ctx = canvas.getContext('2d', { willReadFrequently: true });
-          ctx.drawImage(img, 0, 0, s, s);
-          finish(dominantColor(ctx.getImageData(0, 0, s, s).data));
+          ctx.drawImage(img, 0, 0, ICON_SIZE, ICON_SIZE);
+          finish(ctx.getImageData(0, 0, ICON_SIZE, ICON_SIZE).data);
         } catch (e) { finish(null); }
       };
       img.onerror = () => finish(null);
@@ -242,5 +242,44 @@ const BrandColors = (() => {
     });
   }
 
-  return { OVERRIDES, domainOf, lookup, extract };
+  // Chrome serves a generic grey globe when it has no cached favicon for a
+  // site. We fingerprint it once by requesting a bogus URL, then treat any
+  // icon that matches it as "blank" so the caller can skip the logo.
+  let defaultSigPromise = null;
+  function defaultSignature() {
+    if (!defaultSigPromise) {
+      defaultSigPromise = loadIconData('https://liv-blank-favicon.invalid/');
+    }
+    return defaultSigPromise;
+  }
+
+  function sameIcon(a, b) {
+    if (!a || !b || a.length !== b.length) return false;
+    let sum = 0;
+    for (let i = 0; i < a.length; i++) sum += Math.abs(a[i] - b[i]);
+    return sum / a.length < 6;   // near-identical → it's Chrome's default
+  }
+
+  // Read a page's favicon and report whether it's the blank/default globe and,
+  // if not, the brand colour extracted from it.
+  function analyze(pageUrl) {
+    return Promise.all([loadIconData(pageUrl), defaultSignature()])
+      .then(([data, def]) => {
+        if (!data) return { blank: true, colors: null };
+        const blank = sameIcon(data, def);
+        return { blank, colors: blank ? null : dominantColor(data) };
+      });
+  }
+
+  // A display name derived from the domain, e.g. "netflix.com" → "Netflix",
+  // "mail.google.com" → "Google". Used when a link has no label.
+  function siteName(url) {
+    const domain = domainOf(url);
+    if (!domain) return '';
+    const parts = domain.split('.');
+    const core = parts.length > 2 ? parts[parts.length - 2] : parts[0];
+    return core.charAt(0).toUpperCase() + core.slice(1);
+  }
+
+  return { OVERRIDES, domainOf, lookup, analyze, faviconUrl, siteName };
 })();

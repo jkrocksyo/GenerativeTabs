@@ -178,7 +178,10 @@ html, body {
 }
 
 .quick-link {
-  padding: 0.3rem 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.85rem;
   border-radius: 9999px;
   border: 1px solid rgba(255,255,255,0.14);
   background: rgba(255,255,255,0.06);
@@ -188,13 +191,23 @@ html, body {
   font-size: 0.82rem;
   font-family: var(--ui-font);
   text-decoration: none;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s,
+              transform 0.15s, box-shadow 0.15s;
   white-space: nowrap;
 }
 .quick-link:hover {
   background: rgba(255,255,255,0.14);
   border-color: rgba(255,255,255,0.28);
   color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.22);
+}
+.ql-icon {
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+  object-fit: contain;
+  flex: 0 0 auto;
 }
 
 /* Brand-coloured pills: --ql-bg / --ql-fg are set inline per site. The tint
