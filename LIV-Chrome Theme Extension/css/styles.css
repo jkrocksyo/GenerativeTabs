@@ -607,6 +607,11 @@ button.tile-thumb:hover { border-color: rgba(255,255,255,0.38); }
   cursor: pointer;
 }
 .setting-row > span:first-child { flex: 1; }
+.ql-brand-toggle {
+  gap: 1.1rem;
+  padding: 0.55rem 0;
+  margin-bottom: 0.65rem;
+}
 
 /* Toggle */
 .setting-row input[type="checkbox"] {
