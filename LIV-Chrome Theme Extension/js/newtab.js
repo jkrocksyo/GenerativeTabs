@@ -240,6 +240,7 @@ function renderQuickLinks() {
 // Colour a quick-link pill to match its site. Curated overrides win; otherwise
 // we read the colour from Chrome's local favicon cache (once, then remembered).
 function styleBrandLink(a, url) {
+  if (!settings.brandColors) return;
   const domain = BrandColors.domainOf(url);
   if (!domain) return;
 
@@ -689,6 +690,7 @@ function buildDisplaySettings() {
   const timeDateEl  = document.getElementById('setting-time-in-date');
   const hideTextEl  = document.getElementById('setting-hide-text');
   const hideSearchEl= document.getElementById('setting-hide-search');
+  const brandEl     = document.getElementById('setting-brand-colors');
 
   const updateSubSections = () => {
     timeSubEl.hidden = settings.layout !== 'time';
@@ -702,6 +704,7 @@ function buildDisplaySettings() {
   timeDateEl.checked  = settings.showTimeInDate;
   hideTextEl.checked  = settings.hideText;
   hideSearchEl.checked= settings.hideSearch;
+  brandEl.checked     = settings.brandColors;
   updateSubSections();
 
   layoutBtns.forEach(btn => {
@@ -746,6 +749,11 @@ function buildDisplaySettings() {
     settings.hideSearch = hideSearchEl.checked;
     Storage.save({ hideSearch: hideSearchEl.checked });
     renderSearch();
+  });
+  brandEl.addEventListener('change', () => {
+    settings.brandColors = brandEl.checked;
+    Storage.save({ brandColors: brandEl.checked });
+    renderQuickLinks();
   });
 }
 
