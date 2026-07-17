@@ -241,9 +241,11 @@ function renderQuickLinks() {
   });
 }
 
-// Add the site's favicon and brand colour to a pill. The favicon is only shown
-// when it's a real icon — Chrome's blank default globe (uncached sites) is
-// skipped so those pills stay text-only rather than showing an empty glyph.
+// Add the site's logo and brand colour to a pill. Curated brands get a bundled
+// logo (always shown, tinted to the pill accent). Everything else falls back to
+// Chrome's locally-cached favicon, which is only drawn when it's a real icon —
+// the blank default globe (uncached sites) is skipped so those pills stay
+// text-only rather than showing an empty glyph.
 function decorateQuickLink(a, url) {
   const domain = BrandColors.domainOf(url);
   if (!domain) return;
@@ -253,6 +255,16 @@ function decorateQuickLink(a, url) {
   const cached = (settings.brandColorCache || {})[domain];
   if (settings.brandColors && (override || cached)) {
     applyBrandStyle(a, override || cached);
+  }
+
+  // Bundled brand logo wins: it's local, always present, and consistent.
+  const logoDomain = BrandColors.logoDomain(domain);
+  if (logoDomain) {
+    const logo = document.createElement('span');
+    logo.className = 'ql-logo';
+    logo.style.setProperty('--ql-logo-src', `url("${BrandColors.logoUrl(logoDomain)}")`);
+    a.insertBefore(logo, a.firstChild);
+    return;
   }
 
   BrandColors.analyze(url).then(({ blank, colors }) => {

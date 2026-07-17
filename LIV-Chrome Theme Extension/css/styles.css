@@ -210,6 +210,17 @@ html, body {
   flex: 0 0 auto;
 }
 
+/* Bundled monochrome brand logo, drawn as a mask so it takes the pill's accent
+   colour (--ql-fg on branded pills, otherwise the text colour). */
+.ql-logo {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  background-color: var(--ql-fg, currentColor);
+  -webkit-mask: var(--ql-logo-src) center / contain no-repeat;
+  mask: var(--ql-logo-src) center / contain no-repeat;
+}
+
 /* Brand-coloured pills: --ql-bg / --ql-fg are set inline per site. The tint
    sits over the existing blur, so it still reads as glass rather than a flat
    button; hover deepens to the full brand colour. */

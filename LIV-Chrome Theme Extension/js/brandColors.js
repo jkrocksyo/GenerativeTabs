@@ -120,6 +120,31 @@ const BrandColors = (() => {
     'yahoo.com':          { bg: '#1D0A3F', fg: '#7B16FF' },
   };
 
+  // Domains with a bundled brand logo under icons/brands/<domain>.svg. These are
+  // monochrome single-path marks (Simple Icons, CC0) fetched at build time — so
+  // the "zero network requests" promise holds. Having a local copy means the
+  // logo shows for curated brands even when Chrome has no cached favicon.
+  //
+  // Brands whose mark is just a bare letter/monogram (Netflix N, Facebook f,
+  // Medium M, X, Tumblr t, Quora Q, Google G) are intentionally left out — a
+  // lone letter adds nothing over the text label, so those pills stay text-only.
+  const BRAND_LOGOS = new Set([
+    'airbnb.com', 'aliexpress.com', 'amazon.com', 'apple.com', 'atlassian.com', 'bandcamp.com',
+    'bbc.com', 'binance.com', 'booking.com', 'bsky.app', 'calendar.google.com', 'chatgpt.com',
+    'claude.ai', 'cnn.com', 'codepen.io', 'coinbase.com', 'crunchyroll.com', 'discord.com',
+    'docs.google.com', 'doordash.com', 'drive.google.com', 'dropbox.com', 'ebay.com', 'epicgames.com',
+    'etsy.com', 'figma.com', 'gemini.google.com', 'github.com', 'gitlab.com', 'gmail.com',
+    'huggingface.co', 'hulu.com', 'imdb.com', 'instagram.com', 'linkedin.com', 'maps.google.com',
+    'meet.google.com', 'music.apple.com', 'notion.so', 'npmjs.com', 'openai.com', 'paramountplus.com',
+    'paypal.com', 'perplexity.ai', 'pinterest.com', 'playstation.com', 'reddit.com', 'replit.com',
+    'robinhood.com', 'roblox.com', 'slack.com', 'snapchat.com', 'soundcloud.com',
+    'spotify.com', 'stackoverflow.com', 'steampowered.com', 'substack.com', 'target.com', 'telegram.org',
+    'threads.net',
+    'tidal.com', 'tiktok.com', 'trello.com', 'tv.apple.com', 'twitch.tv', 'uber.com',
+    'vercel.com', 'vimeo.com', 'walmart.com', 'whatsapp.com', 'wikipedia.org', 'yahoo.com',
+    'yelp.com', 'youtube.com',
+  ]);
+
   // Registrable domain (drop www / m). Not a full public-suffix parse, but it
   // matches the map keys well enough for real-world quick links.
   function domainOf(url) {
@@ -142,6 +167,31 @@ const BrandColors = (() => {
       if (OVERRIDES[base]) return OVERRIDES[base];
     }
     return null;
+  }
+
+  // Resolve a domain to the domain whose bundled logo we should use, matching
+  // either the full host or the last two labels (so subdomains resolve). Returns
+  // null when we ship no logo for the site.
+  function logoDomain(domain) {
+    if (!domain) return null;
+    if (BRAND_LOGOS.has(domain)) return domain;
+    const parts = domain.split('.');
+    if (parts.length > 2) {
+      const base = parts.slice(-2).join('.');
+      if (BRAND_LOGOS.has(base)) return base;
+    }
+    return null;
+  }
+
+  // Absolute extension URL for a bundled logo (no network request). Absolute so
+  // it resolves correctly when used inside a CSS mask, where a relative URL
+  // would be resolved against the stylesheet, not the page.
+  function logoUrl(domain) {
+    const path = 'icons/brands/' + domain + '.svg';
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL) {
+      return chrome.runtime.getURL(path);
+    }
+    return path;
   }
 
   // Local favicon URL from Chrome's cache — no network request.
@@ -281,5 +331,5 @@ const BrandColors = (() => {
     return core.charAt(0).toUpperCase() + core.slice(1);
   }
 
-  return { OVERRIDES, domainOf, lookup, analyze, faviconUrl, siteName };
+  return { OVERRIDES, domainOf, lookup, analyze, faviconUrl, logoDomain, logoUrl, siteName };
 })();
