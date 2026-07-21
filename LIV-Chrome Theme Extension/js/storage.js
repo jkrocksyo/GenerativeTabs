@@ -12,6 +12,8 @@ const Storage = (() => {
     collapsedSections:  {},
     hideText:           false,
     hideSearch:         false,
+    // corners + center column: 'center' keeps the classic centered stack
+    logoPosition:       'center',
     quickLinks:         [],
     brandColors:        false,      // colour quick-link pills to match each site
     brandColorCache:    {},         // { domain: {bg,fg} } cached favicon colours

@@ -916,6 +916,7 @@ input[type="range"]#setting-speed::-moz-range-thumb {
 .settings-panel-section { display: none; }
 .settings-panel-section.active { display: block; }
 
+.panel-block { margin-bottom: 1rem; }
 .panel-label {
   display: block;
   font-size: 0.7rem;
@@ -926,6 +927,69 @@ input[type="range"]#setting-speed::-moz-range-thumb {
   margin-bottom: 0.5rem;
 }
 .ql-editor-label { margin-top: 0.9rem; }
+
+/* Inline category grid under Change Background (Home panel) */
+#home-category-grid { margin-top: 1rem; }
+
+/* ── Logo position picker ─────────────────────────────────────────────────── */
+.logo-pos-picker {
+  position: relative;
+  width: 140px;
+  height: 88px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.04);
+}
+.logo-pos-dot {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.12);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.logo-pos-dot[data-pos="top-left"]      { top: 8px; left: 8px; }
+.logo-pos-dot[data-pos="top-center"]    { top: 8px; left: calc(50% - 8px); }
+.logo-pos-dot[data-pos="top-right"]     { top: 8px; right: 8px; }
+.logo-pos-dot[data-pos="center"]        { top: calc(50% - 8px); left: calc(50% - 8px); }
+.logo-pos-dot[data-pos="bottom-left"]   { bottom: 8px; left: 8px; }
+.logo-pos-dot[data-pos="bottom-center"] { bottom: 8px; left: calc(50% - 8px); }
+.logo-pos-dot[data-pos="bottom-right"]  { bottom: 8px; right: 8px; }
+.logo-pos-dot:hover { border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.2); }
+.logo-pos-dot.active {
+  background: rgba(100,160,255,0.9);
+  border-color: rgba(160,200,255,0.95);
+  box-shadow: 0 0 0 3px rgba(100,160,255,0.25);
+}
+
+/* ── Corner / center-column pinned header (logo position) ─────────────────── */
+/* 'center' keeps the natural centered stack — only the other values pin. */
+body[data-logo-position="top-left"]      #header,
+body[data-logo-position="top-center"]    #header,
+body[data-logo-position="top-right"]     #header,
+body[data-logo-position="bottom-left"]   #header,
+body[data-logo-position="bottom-center"] #header,
+body[data-logo-position="bottom-right"]  #header {
+  position: fixed;
+  z-index: 11;
+  margin: 0;
+}
+body[data-logo-position="top-left"]      #header { top: 2.2rem; left: 2.4rem; align-items: flex-start; }
+body[data-logo-position="top-right"]     #header { top: 2.2rem; right: 2.4rem; align-items: flex-end; }
+body[data-logo-position="bottom-left"]   #header { bottom: 2.2rem; left: 2.4rem; align-items: flex-start; }
+body[data-logo-position="bottom-right"]  #header { bottom: 2.2rem; right: 2.4rem; align-items: flex-end; }
+body[data-logo-position="top-center"]    #header { top: 2.2rem; left: 50%; transform: translateX(-50%); align-items: center; }
+body[data-logo-position="bottom-center"] #header { bottom: 2.2rem; left: 50%; transform: translateX(-50%); align-items: center; }
+/* Pinned header shrinks to a widget scale so it reads as a corner/edge mark. */
+body[data-logo-position]:not([data-logo-position="center"]) .wordmark     { font-size: clamp(2rem, 5vw, 3.2rem); }
+body[data-logo-position]:not([data-logo-position="center"]) #clock-hm     { font-size: clamp(2rem, 5.5vw, 3.4rem); }
+body[data-logo-position]:not([data-logo-position="center"]) .clock-sub    { font-size: clamp(0.9rem, 1.8vw, 1.4rem); }
+body[data-logo-position]:not([data-logo-position="center"]) #date-weekday { font-size: clamp(1.7rem, 5vw, 2.8rem); }
+body[data-logo-position="top-right"]    #date-line,
+body[data-logo-position="bottom-right"] #date-line { justify-content: flex-end; }
 
 /* ── Utility ──────────────────────────────────────────────────────────────── */
 .hidden { display: none !important; }

@@ -109,10 +109,26 @@
             <div id="appearance-preview" class="appearance-preview"></div>
             <div id="appearance-name" class="appearance-name"></div>
             <button id="change-background" class="change-bg-btn" type="button">Change Background</button>
+            <div id="home-category-grid" class="category-grid"></div>
           </section>
 
           <section class="settings-panel-section" data-panel="font" role="tabpanel" aria-label="Font">
-            <div id="font-picker"></div>
+            <div class="panel-block">
+              <span class="panel-label">Logo position</span>
+              <div class="logo-pos-picker" role="group" aria-label="Logo position">
+                <button class="logo-pos-dot" type="button" data-pos="top-left"      aria-label="Top left"></button>
+                <button class="logo-pos-dot" type="button" data-pos="top-center"    aria-label="Top center"></button>
+                <button class="logo-pos-dot" type="button" data-pos="top-right"     aria-label="Top right"></button>
+                <button class="logo-pos-dot" type="button" data-pos="center"        aria-label="Center"></button>
+                <button class="logo-pos-dot" type="button" data-pos="bottom-left"   aria-label="Bottom left"></button>
+                <button class="logo-pos-dot" type="button" data-pos="bottom-center" aria-label="Bottom center"></button>
+                <button class="logo-pos-dot" type="button" data-pos="bottom-right"  aria-label="Bottom right"></button>
+              </div>
+            </div>
+            <div class="panel-block">
+              <span class="panel-label">Font</span>
+              <div id="font-picker"></div>
+            </div>
           </section>
 
           <section class="settings-panel-section" data-panel="display" role="tabpanel" aria-label="Display">

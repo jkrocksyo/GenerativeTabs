@@ -108,6 +108,7 @@ let settings;
   engine.switchTheme(THEME_MAP[settings.theme] || StarfieldTheme);
 
   applyFont();
+  applyLogoPosition();
   renderHeader();
   renderSearch();
   initClock();
@@ -147,6 +148,12 @@ function renderHeader() {
 
 function renderSearch() {
   document.getElementById('search-container').hidden = settings.hideSearch;
+}
+
+// Position the header (logo / clock / date). 'center' keeps the classic
+// centered stack; every other value pins it to that spot on the screen.
+function applyLogoPosition() {
+  document.body.dataset.logoPosition = settings.logoPosition || 'center';
 }
 
 // ── Clock ─────────────────────────────────────────────────────────────────────
@@ -422,6 +429,7 @@ function navigateTo(view, categoryKey = null, animate = true) {
 function renderAppearance() {
   document.getElementById('appearance-name').textContent =
     THEME_LABELS[settings.theme] || '';
+  buildCategoryGrid('home-category-grid');   // inline category tiles under Change Background
   startAppearancePreview();
 }
 
@@ -457,8 +465,8 @@ function makeThumbImg(themeKey) {
   return img;
 }
 
-function buildCategoryGrid() {
-  const grid = document.getElementById('category-grid');
+function buildCategoryGrid(gridId = 'category-grid') {
+  const grid = document.getElementById(gridId);
   grid.innerHTML = '';
 
   const activeCat = categoryOf(settings.theme);
@@ -638,11 +646,27 @@ function initSettings() {
   randAll.classList.toggle('active', settings.randomizeDaily === 'all');
   randAll.addEventListener('click', () => handleRandomizeClick('all'));
 
+  buildLogoPositionPicker();
   buildFontSettings();
   buildDisplaySettings();
   buildQuickLinksEditor();
   buildAnimationSettings();
   initRailNav();
+}
+
+// Logo position picker — corner + center-column dots over a mini new-tab rect.
+function buildLogoPositionPicker() {
+  const dots = document.querySelectorAll('.logo-pos-dot');
+  const refresh = () => dots.forEach(d => d.classList.toggle('active', d.dataset.pos === settings.logoPosition));
+  refresh();
+  dots.forEach(dot => {
+    dot.addEventListener('click', () => {
+      settings.logoPosition = dot.dataset.pos;
+      Storage.save({ logoPosition: dot.dataset.pos });
+      applyLogoPosition();
+      refresh();
+    });
+  });
 }
 
 // Left icon rail: only the active section's panel is shown. The Home panel
