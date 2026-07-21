@@ -388,6 +388,8 @@ function toggleFavorite(themeKey) {
 
 const VIEW_INDEX = { main: 0, categories: 1, backgrounds: 2 };
 const nav = { view: 'main', categoryKey: null };
+let activePanel = 'home';   // which rail section is showing on the main view
+let showPanel;              // set by initRailNav; switches the active rail section
 let livePreview;
 
 function applyNavTransforms(animate = true) {
@@ -425,7 +427,8 @@ function renderAppearance() {
 
 function startAppearancePreview() {
   const overlay = document.getElementById('settings-overlay');
-  if (!overlay.classList.contains('open') || nav.view !== 'main') return;
+  // The preview lives in the Home panel, so only run it while that tab is shown.
+  if (!overlay.classList.contains('open') || nav.view !== 'main' || activePanel !== 'home') return;
   livePreview.show(THEME_MAP[settings.theme] || StarfieldTheme, {
     intensity:  Storage.intensityValue(settings.intensity),
     quality:    Storage.qualityValue(settings.intensity),
@@ -606,7 +609,7 @@ function initSettings() {
     overlay.classList.remove('hidden', 'closing');
     overlay.classList.add('open');
     panel.setAttribute('aria-hidden', 'false');
-    renderAppearance();
+    showPanel('home');   // always open on the Home tab
     document.querySelector('#view-main .settings-close').focus();
   };
   const close = () => {
@@ -639,49 +642,31 @@ function initSettings() {
   buildDisplaySettings();
   buildQuickLinksEditor();
   buildAnimationSettings();
-  initSectionToggles();
+  initRailNav();
 }
 
-function initSectionToggles() {
-  const collapsed = settings.collapsedSections || {};
+// Left icon rail: only the active section's panel is shown. The Home panel
+// (background preview + Change Background) is the default.
+function initRailNav() {
+  const railBtns = document.querySelectorAll('.rail-btn');
+  const panels   = document.querySelectorAll('.settings-panel-section');
 
-  document.querySelectorAll('.settings-section').forEach(section => {
-    const key  = section.dataset.section;
-    const btn  = section.querySelector('.section-toggle');
-    const body = section.querySelector('.section-body');
-
-    if (collapsed[key]) {
-      body.style.height = '0px';
-      section.classList.add('collapsed');
-      btn.setAttribute('aria-expanded', 'false');
-    } else {
-      body.style.height = body.scrollHeight + 'px';
-      requestAnimationFrame(() => { body.style.height = ''; });
-    }
-
-    btn.addEventListener('click', () => {
-      const isCollapsed = section.classList.contains('collapsed');
-
-      if (isCollapsed) {
-        section.classList.remove('collapsed');
-        btn.setAttribute('aria-expanded', 'true');
-        body.style.height = '0px';
-        body.getBoundingClientRect();
-        body.style.height = body.scrollHeight + 'px';
-        body.addEventListener('transitionend', () => { body.style.height = ''; }, { once: true });
-      } else {
-        body.style.height = body.scrollHeight + 'px';
-        body.getBoundingClientRect();
-        body.style.height = '0px';
-        section.classList.add('collapsed');
-        btn.setAttribute('aria-expanded', 'false');
-      }
-
-      settings.collapsedSections = settings.collapsedSections || {};
-      settings.collapsedSections[key] = !isCollapsed;
-      Storage.save({ collapsedSections: settings.collapsedSections });
+  showPanel = panel => {
+    activePanel = panel;
+    railBtns.forEach(b => {
+      const on = b.dataset.panel === panel;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
     });
-  });
+    panels.forEach(p => p.classList.toggle('active', p.dataset.panel === panel));
+
+    // The live scene preview only belongs to the Home panel.
+    if (panel === 'home') renderAppearance();
+    else livePreview.stop();
+  };
+
+  railBtns.forEach(btn => btn.addEventListener('click', () => showPanel(btn.dataset.panel)));
+  showPanel(activePanel);
 }
 
 // Font picker

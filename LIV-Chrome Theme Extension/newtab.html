@@ -67,42 +67,55 @@
         <button class="settings-close" type="button" aria-label="Close settings">✕</button>
       </div>
 
-      <div class="settings-body">
+      <div class="settings-nav-layout">
 
-        <section class="settings-section" data-section="appearance">
-          <button class="section-toggle" type="button" aria-expanded="true">
-            <span>Appearance</span>
-            <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <nav class="settings-rail" role="tablist" aria-label="Settings sections">
+          <button class="rail-btn active" type="button" data-panel="home" role="tab" aria-selected="true" aria-label="Home">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3.5 9.4 10 4l6.5 5.4"/>
+              <path d="M5 8.3v8h10v-8"/>
+              <path d="M8.2 16.3v-4.1h3.6v4.1"/>
             </svg>
           </button>
-          <div class="section-body"><div class="section-body-inner">
+          <button class="rail-btn" type="button" data-panel="font" role="tab" aria-selected="false" aria-label="Font">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 6V4.6h12V6"/>
+              <path d="M10 4.6V15.4"/>
+              <path d="M7.8 15.4h4.4"/>
+            </svg>
+          </button>
+          <button class="rail-btn" type="button" data-panel="display" role="tab" aria-selected="false" aria-label="Display">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <rect x="2.5" y="3.5" width="15" height="13" rx="2"/>
+              <line x1="8" y1="3.5" x2="8" y2="16.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button class="rail-btn" type="button" data-panel="quicklinks" role="tab" aria-selected="false" aria-label="Quick Links">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+              <path d="M8.4 11.6a3 3 0 0 0 4.24 0l2.3-2.3a3 3 0 1 0-4.24-4.24l-1 1"/>
+              <path d="M11.6 8.4a3 3 0 0 0-4.24 0l-2.3 2.3a3 3 0 1 0 4.24 4.24l1-1"/>
+            </svg>
+          </button>
+          <button class="rail-btn" type="button" data-panel="animation" role="tab" aria-selected="false" aria-label="Animation">
+            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path d="M6 4.4v11.2a.6.6 0 0 0 .92.5l8.7-5.6a.6.6 0 0 0 0-1L6.92 3.9A.6.6 0 0 0 6 4.4z"/>
+            </svg>
+          </button>
+        </nav>
+
+        <div class="settings-panels">
+
+          <section class="settings-panel-section active" data-panel="home" role="tabpanel" aria-label="Home">
             <div id="appearance-preview" class="appearance-preview"></div>
             <div id="appearance-name" class="appearance-name"></div>
             <button id="change-background" class="change-bg-btn" type="button">Change Background</button>
-          </div></div>
-        </section>
+          </section>
 
-        <section class="settings-section" data-section="font">
-          <button class="section-toggle" type="button" aria-expanded="true">
-            <span>Font</span>
-            <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          <div class="section-body"><div class="section-body-inner">
+          <section class="settings-panel-section" data-panel="font" role="tabpanel" aria-label="Font">
             <div id="font-picker"></div>
-          </div></div>
-        </section>
+          </section>
 
-        <section class="settings-section" data-section="display">
-          <button class="section-toggle" type="button" aria-expanded="true">
-            <span>Display</span>
-            <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          <div class="section-body"><div class="section-body-inner">
+          <section class="settings-panel-section" data-panel="display" role="tabpanel" aria-label="Display">
             <div class="setting-row">
               <span>Header</span>
               <div class="button-group" role="group" aria-label="Header content">
@@ -139,34 +152,19 @@
               <span>Hide search bar</span>
               <input type="checkbox" id="setting-hide-search">
             </label>
-          </div></div>
-        </section>
+          </section>
 
-        <section class="settings-section" data-section="quicklinks">
-          <button class="section-toggle" type="button" aria-expanded="true">
-            <span>Quick Links <span class="settings-hint">(up to 6)</span></span>
-            <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          <div class="section-body"><div class="section-body-inner">
+          <section class="settings-panel-section" data-panel="quicklinks" role="tabpanel" aria-label="Quick Links">
             <label class="setting-row ql-brand-toggle">
               <span>Use Theme Color</span>
               <input type="checkbox" id="setting-brand-colors">
             </label>
+            <div class="panel-label ql-editor-label">Links <span class="settings-hint">(up to 6)</span></div>
             <div id="quick-links-editor"></div>
             <button id="add-quick-link" type="button" class="add-btn">+ Add link</button>
-          </div></div>
-        </section>
+          </section>
 
-        <section class="settings-section" data-section="animation">
-          <button class="section-toggle" type="button" aria-expanded="true">
-            <span>Animation</span>
-            <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          <div class="section-body"><div class="section-body-inner">
+          <section class="settings-panel-section" data-panel="animation" role="tabpanel" aria-label="Animation">
             <div class="setting-row">
               <span>Intensity &amp; Quality</span>
               <div class="button-group" role="group" aria-label="Animation intensity and render quality">
@@ -186,9 +184,9 @@
               <span>Static mode <span class="settings-hint">(no animation)</span></span>
               <input type="checkbox" id="setting-static">
             </label>
-          </div></div>
-        </section>
+          </section>
 
+        </div>
       </div>
       </div>
 
