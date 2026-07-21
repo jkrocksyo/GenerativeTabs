@@ -84,12 +84,6 @@
               <path d="M7.8 15.4h4.4"/>
             </svg>
           </button>
-          <button class="rail-btn" type="button" data-panel="display" role="tab" aria-selected="false" aria-label="Display">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-              <rect x="2.5" y="3.5" width="15" height="13" rx="2"/>
-              <line x1="8" y1="3.5" x2="8" y2="16.5" stroke-linecap="round"/>
-            </svg>
-          </button>
           <button class="rail-btn" type="button" data-panel="quicklinks" role="tab" aria-selected="false" aria-label="Quick Links">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
               <path d="M8.4 11.6a3 3 0 0 0 4.24 0l2.3-2.3a3 3 0 1 0-4.24-4.24l-1 1"/>
@@ -114,7 +108,7 @@
 
           <section class="settings-panel-section" data-panel="font" role="tabpanel" aria-label="Font">
             <div class="panel-block">
-              <span class="panel-label">Logo position</span>
+              <span class="panel-label">Logo</span>
               <div class="logo-pos-picker" role="group" aria-label="Logo position">
                 <button class="logo-pos-dot" type="button" data-pos="top-left"      aria-label="Top left"></button>
                 <button class="logo-pos-dot" type="button" data-pos="top-center"    aria-label="Top center"></button>
@@ -124,50 +118,47 @@
                 <button class="logo-pos-dot" type="button" data-pos="bottom-center" aria-label="Bottom center"></button>
                 <button class="logo-pos-dot" type="button" data-pos="bottom-right"  aria-label="Bottom right"></button>
               </div>
+              <div class="setting-row logo-header-row">
+                <span>Header</span>
+                <div class="button-group" role="group" aria-label="Header content">
+                  <button class="layout-btn" data-value="logo" type="button">Logo</button>
+                  <button class="layout-btn" data-value="time" type="button">Time</button>
+                  <button class="layout-btn" data-value="date" type="button">Date</button>
+                </div>
+              </div>
+              <div id="time-sub-settings">
+                <label class="setting-row">
+                  <span>12-hour</span>
+                  <input type="checkbox" id="setting-12h">
+                </label>
+                <label class="setting-row">
+                  <span>Seconds</span>
+                  <input type="checkbox" id="setting-seconds">
+                </label>
+                <label class="setting-row">
+                  <span>Date below</span>
+                  <input type="checkbox" id="setting-date">
+                </label>
+              </div>
+              <div id="date-sub-settings">
+                <label class="setting-row">
+                  <span>Time below</span>
+                  <input type="checkbox" id="setting-time-in-date">
+                </label>
+              </div>
+              <label class="setting-row">
+                <span>Hide text</span>
+                <input type="checkbox" id="setting-hide-text">
+              </label>
+              <label class="setting-row">
+                <span>Hide search bar</span>
+                <input type="checkbox" id="setting-hide-search">
+              </label>
             </div>
             <div class="panel-block">
               <span class="panel-label">Font</span>
               <div id="font-picker"></div>
             </div>
-          </section>
-
-          <section class="settings-panel-section" data-panel="display" role="tabpanel" aria-label="Display">
-            <div class="setting-row">
-              <span>Header</span>
-              <div class="button-group" role="group" aria-label="Header content">
-                <button class="layout-btn" data-value="logo" type="button">Logo</button>
-                <button class="layout-btn" data-value="time" type="button">Time</button>
-                <button class="layout-btn" data-value="date" type="button">Date</button>
-              </div>
-            </div>
-            <div id="time-sub-settings">
-              <label class="setting-row">
-                <span>12-hour</span>
-                <input type="checkbox" id="setting-12h">
-              </label>
-              <label class="setting-row">
-                <span>Seconds</span>
-                <input type="checkbox" id="setting-seconds">
-              </label>
-              <label class="setting-row">
-                <span>Date below</span>
-                <input type="checkbox" id="setting-date">
-              </label>
-            </div>
-            <div id="date-sub-settings">
-              <label class="setting-row">
-                <span>Time below</span>
-                <input type="checkbox" id="setting-time-in-date">
-              </label>
-            </div>
-            <label class="setting-row">
-              <span>Hide text</span>
-              <input type="checkbox" id="setting-hide-text">
-            </label>
-            <label class="setting-row">
-              <span>Hide search bar</span>
-              <input type="checkbox" id="setting-hide-search">
-            </label>
           </section>
 
           <section class="settings-panel-section" data-panel="quicklinks" role="tabpanel" aria-label="Quick Links">

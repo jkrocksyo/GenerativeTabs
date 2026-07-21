@@ -934,16 +934,16 @@ input[type="range"]#setting-speed::-moz-range-thumb {
 /* ── Logo position picker ─────────────────────────────────────────────────── */
 .logo-pos-picker {
   position: relative;
-  width: 140px;
-  height: 88px;
-  border-radius: 10px;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 12px;
   border: 1px solid rgba(255,255,255,0.16);
   background: rgba(255,255,255,0.04);
 }
 .logo-pos-dot {
   position: absolute;
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   padding: 0;
   border-radius: 50%;
   border: 1px solid rgba(255,255,255,0.25);
@@ -951,13 +951,14 @@ input[type="range"]#setting-speed::-moz-range-thumb {
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
-.logo-pos-dot[data-pos="top-left"]      { top: 8px; left: 8px; }
-.logo-pos-dot[data-pos="top-center"]    { top: 8px; left: calc(50% - 8px); }
-.logo-pos-dot[data-pos="top-right"]     { top: 8px; right: 8px; }
-.logo-pos-dot[data-pos="center"]        { top: calc(50% - 8px); left: calc(50% - 8px); }
-.logo-pos-dot[data-pos="bottom-left"]   { bottom: 8px; left: 8px; }
-.logo-pos-dot[data-pos="bottom-center"] { bottom: 8px; left: calc(50% - 8px); }
-.logo-pos-dot[data-pos="bottom-right"]  { bottom: 8px; right: 8px; }
+.logo-pos-dot[data-pos="top-left"]      { top: 12px; left: 12px; }
+.logo-pos-dot[data-pos="top-center"]    { top: 12px; left: calc(50% - 10px); }
+.logo-pos-dot[data-pos="top-right"]     { top: 12px; right: 12px; }
+.logo-pos-dot[data-pos="center"]        { top: calc(50% - 10px); left: calc(50% - 10px); }
+.logo-pos-dot[data-pos="bottom-left"]   { bottom: 12px; left: 12px; }
+.logo-pos-dot[data-pos="bottom-center"] { bottom: 12px; left: calc(50% - 10px); }
+.logo-pos-dot[data-pos="bottom-right"]  { bottom: 12px; right: 12px; }
+.logo-header-row { margin-top: 0.8rem; }
 .logo-pos-dot:hover { border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.2); }
 .logo-pos-dot.active {
   background: rgba(100,160,255,0.9);
