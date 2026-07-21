@@ -109,6 +109,7 @@ let settings;
 
   applyFont();
   applyLogoPosition();
+  applyLogoScale();
   renderHeader();
   renderSearch();
   initClock();
@@ -154,6 +155,11 @@ function renderSearch() {
 // centered stack; every other value pins it to that spot on the screen.
 function applyLogoPosition() {
   document.body.dataset.logoPosition = settings.logoPosition || 'center';
+}
+
+// Header text size is driven only by the slider — never by its position.
+function applyLogoScale() {
+  document.documentElement.style.setProperty('--logo-scale', settings.logoScale || 1);
 }
 
 // ── Clock ─────────────────────────────────────────────────────────────────────
@@ -647,6 +653,7 @@ function initSettings() {
   randAll.addEventListener('click', () => handleRandomizeClick('all'));
 
   buildLogoPositionPicker();
+  buildLogoScaleSlider();
   buildFontSettings();
   buildDisplaySettings();
   buildQuickLinksEditor();
@@ -666,6 +673,24 @@ function buildLogoPositionPicker() {
       applyLogoPosition();
       refresh();
     });
+  });
+}
+
+// Text size slider — scales the header text regardless of logo position.
+function buildLogoScaleSlider() {
+  const slider = document.getElementById('setting-logo-scale');
+  const label  = document.getElementById('logo-scale-label');
+  const setLabel = v => { label.textContent = Math.round(v * 100) + '%'; };
+
+  slider.value = settings.logoScale || 1;
+  setLabel(slider.value);
+
+  slider.addEventListener('input', () => {
+    const v = parseFloat(slider.value);
+    settings.logoScale = v;
+    Storage.save({ logoScale: v });
+    applyLogoScale();
+    setLabel(v);
   });
 }
 

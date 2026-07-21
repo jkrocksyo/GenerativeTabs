@@ -68,7 +68,7 @@ html, body {
 /* Liv wordmark */
 .wordmark {
   font-family: var(--ui-font);
-  font-size: clamp(4rem, 13vw, 8rem);
+  font-size: calc(clamp(4rem, 13vw, 8rem) * var(--logo-scale, 1));
   font-weight: 300;
   letter-spacing: 0.05em;
   color: rgba(255,255,255,0.92);
@@ -86,7 +86,7 @@ html, body {
 
 #clock-hm {
   font-family: var(--ui-font);
-  font-size: clamp(3.5rem, 9vw, 6.5rem);
+  font-size: calc(clamp(3.5rem, 9vw, 6.5rem) * var(--logo-scale, 1));
   font-weight: 200;
   letter-spacing: -0.02em;
   text-shadow: 0 0 40px rgba(255,255,255,0.18), 0 2px 8px rgba(0,0,0,0.6);
@@ -94,7 +94,7 @@ html, body {
 
 .clock-sub {
   font-family: var(--ui-font);
-  font-size: clamp(1.2rem, 2.8vw, 2.2rem);
+  font-size: calc(clamp(1.2rem, 2.8vw, 2.2rem) * var(--logo-scale, 1));
   font-weight: 200;
   opacity: 0.65;
   margin-left: 0.08em;
@@ -105,7 +105,7 @@ html, body {
 
 #clock-date-line {
   margin-top: 0.4rem;
-  font-size: clamp(0.72rem, 1.4vw, 0.9rem);
+  font-size: calc(clamp(0.72rem, 1.4vw, 0.9rem) * var(--logo-scale, 1));
   font-weight: 300;
   letter-spacing: 0.1em;
   opacity: 0.5;
@@ -115,7 +115,7 @@ html, body {
 /* Date header */
 #date-weekday {
   font-family: var(--ui-font);
-  font-size: clamp(2.8rem, 9vw, 6rem);
+  font-size: calc(clamp(2.8rem, 9vw, 6rem) * var(--logo-scale, 1));
   font-weight: 200;
   letter-spacing: -0.02em;
   text-shadow: 0 0 40px rgba(255,255,255,0.18), 0 2px 8px rgba(0,0,0,0.6);
@@ -132,7 +132,7 @@ html, body {
 #date-full,
 #date-time-small,
 #date-separator {
-  font-size: clamp(0.8rem, 1.6vw, 1rem);
+  font-size: calc(clamp(0.8rem, 1.6vw, 1rem) * var(--logo-scale, 1));
   font-weight: 300;
   letter-spacing: 0.1em;
   opacity: 0.55;
@@ -698,17 +698,17 @@ button.tile-thumb:hover { border-color: rgba(255,255,255,0.38); }
   min-width: 2.4em;
   text-align: right;
 }
-input[type="range"]#setting-speed {
+.liv-slider {
   -webkit-appearance: none;
   appearance: none;
-  width: 96px;
   height: 3px;
   border-radius: 9999px;
   background: rgba(255,255,255,0.15);
   outline: none;
   cursor: pointer;
 }
-input[type="range"]#setting-speed::-webkit-slider-thumb {
+.speed-control .liv-slider { width: 96px; }
+.liv-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 13px; height: 13px;
@@ -718,17 +718,25 @@ input[type="range"]#setting-speed::-webkit-slider-thumb {
   cursor: pointer;
   transition: background 0.15s, transform 0.12s;
 }
-input[type="range"]#setting-speed::-webkit-slider-thumb:hover {
+.liv-slider::-webkit-slider-thumb:hover {
   background: #fff;
   transform: scale(1.15);
 }
-input[type="range"]#setting-speed::-moz-range-thumb {
+.liv-slider::-moz-range-thumb {
   width: 13px; height: 13px;
   border: none;
   border-radius: 50%;
   background: rgba(100,160,255,0.9);
   cursor: pointer;
 }
+
+/* Text size slider (Font page) — full-width row */
+.logo-scale-control {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+.logo-scale-control .liv-slider { flex: 1; }
 
 /* Display sub-settings */
 #time-sub-settings, #date-sub-settings { padding-left: 0.1rem; }
@@ -984,11 +992,8 @@ body[data-logo-position="bottom-left"]   #header { bottom: 2.2rem; left: 2.4rem;
 body[data-logo-position="bottom-right"]  #header { bottom: 2.2rem; right: 2.4rem; align-items: flex-end; }
 body[data-logo-position="top-center"]    #header { top: 2.2rem; left: 50%; transform: translateX(-50%); align-items: center; }
 body[data-logo-position="bottom-center"] #header { bottom: 2.2rem; left: 50%; transform: translateX(-50%); align-items: center; }
-/* Pinned header shrinks to a widget scale so it reads as a corner/edge mark. */
-body[data-logo-position]:not([data-logo-position="center"]) .wordmark     { font-size: clamp(2rem, 5vw, 3.2rem); }
-body[data-logo-position]:not([data-logo-position="center"]) #clock-hm     { font-size: clamp(2rem, 5.5vw, 3.4rem); }
-body[data-logo-position]:not([data-logo-position="center"]) .clock-sub    { font-size: clamp(0.9rem, 1.8vw, 1.4rem); }
-body[data-logo-position]:not([data-logo-position="center"]) #date-weekday { font-size: clamp(1.7rem, 5vw, 2.8rem); }
+/* Text size is controlled only by the slider (--logo-scale), never by
+   position — so the header keeps its size wherever it's placed. */
 body[data-logo-position="top-right"]    #date-line,
 body[data-logo-position="bottom-right"] #date-line { justify-content: flex-end; }
 
