@@ -102,7 +102,9 @@
           <section class="settings-panel-section active" data-panel="home" role="tabpanel" aria-label="Home">
             <div id="appearance-preview" class="appearance-preview"></div>
             <div id="appearance-name" class="appearance-name"></div>
-            <button id="change-background" class="change-bg-btn" type="button">Change Background</button>
+            <button class="theme-option randomize-daily-btn" id="randomize-all-daily" data-pool="all" type="button">
+              <span class="rdaily-icon">↻</span><span>Randomize All Daily</span>
+            </button>
             <div id="home-category-grid" class="category-grid"></div>
           </section>
 
@@ -204,27 +206,9 @@
       </div>
       </div>
 
-      <div class="settings-view" id="view-categories" data-view="categories" aria-hidden="true">
-        <div class="settings-header">
-          <button class="back-btn" id="back-to-main" type="button" aria-label="Back to settings">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          <span class="settings-title">Backgrounds</span>
-          <button class="settings-close" type="button" aria-label="Close settings">✕</button>
-        </div>
-        <div class="settings-body view-grid-body">
-          <button class="theme-option randomize-daily-btn" id="randomize-all-daily" data-pool="all" type="button">
-            <span class="rdaily-icon">↻</span><span>Randomize All Daily</span>
-          </button>
-          <div id="category-grid" class="category-grid"></div>
-        </div>
-      </div>
-
       <div class="settings-view" id="view-backgrounds" data-view="backgrounds" aria-hidden="true">
         <div class="settings-header">
-          <button class="back-btn" id="back-to-categories" type="button" aria-label="Back to backgrounds">
+          <button class="back-btn" id="back-to-home" type="button" aria-label="Back to home">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>

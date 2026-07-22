@@ -484,9 +484,12 @@ function toggleFavorite(themeKey) {
   }
 }
 
-// ── Background picker navigation (Main → Categories → Backgrounds) ──────────
+// ── Background picker navigation (Home → Backgrounds → Edit) ────────────────
+// Home's category tiles jump straight to a category's backgrounds; Back returns
+// straight to Home. There's no separate categories page — the tiles under the
+// preview are that index.
 
-const VIEW_INDEX = { main: 0, categories: 1, backgrounds: 2, editbg: 3 };
+const VIEW_INDEX = { main: 0, backgrounds: 1, editbg: 2 };
 const nav = { view: 'main', categoryKey: null, editKey: null };
 let activePanel = 'home';   // which rail section is showing on the main view
 let showPanel;              // set by initRailNav; switches the active rail section
@@ -517,8 +520,7 @@ function navigateTo(view, arg = null, animate = true) {
     renderAppearance();
   } else {
     livePreview.stop();
-    if (view === 'categories') buildCategoryGrid();
-    else if (view === 'backgrounds') buildBackgroundGrid(nav.categoryKey);
+    if (view === 'backgrounds') buildBackgroundGrid(nav.categoryKey);
     else if (view === 'editbg') buildEditBackground(nav.editKey);
   }
   applyNavTransforms(animate);
@@ -529,7 +531,7 @@ function navigateTo(view, arg = null, animate = true) {
 function renderAppearance() {
   document.getElementById('appearance-name').textContent =
     THEME_LABELS[settings.theme] || '';
-  buildCategoryGrid('home-category-grid');   // inline category tiles under Change Background
+  buildCategoryGrid('home-category-grid');   // category tiles under the preview
   startAppearancePreview();
 }
 
@@ -609,7 +611,7 @@ function buildCategoryGrid(gridId = 'category-grid') {
 
 function buildBackgroundGrid(categoryKey) {
   const cat = getCategoryEntry(categoryKey);
-  if (!cat) { navigateTo('categories'); return; }
+  if (!cat) { navigateTo('main'); return; }
 
   document.getElementById('backgrounds-title').textContent = cat.label;
 
@@ -960,9 +962,7 @@ function initSettings() {
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.classList.contains('open')) close(); });
 
-  document.getElementById('change-background').addEventListener('click', () => navigateTo('categories'));
-  document.getElementById('back-to-main').addEventListener('click', () => navigateTo('main'));
-  document.getElementById('back-to-categories').addEventListener('click', () => navigateTo('categories'));
+  document.getElementById('back-to-home').addEventListener('click', () => navigateTo('main'));
   document.getElementById('back-to-backgrounds').addEventListener('click', () => navigateTo('backgrounds', nav.categoryKey));
   document.getElementById('editbg-enabled').addEventListener('change', e => editToggleEnabled(e.target.checked));
 
