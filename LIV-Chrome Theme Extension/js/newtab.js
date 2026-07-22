@@ -90,20 +90,100 @@ const FONTS = {
 };
 
 let engine;
-let settings;
+let settings;   // global defaults — the source of truth every background inherits
+let live;       // effective settings for the ACTIVE background (global + its override)
+
+// ── Per-background overrides (Advanced Custom Preset) ─────────────────────────
+
+// Each override field, and the global/live settings key it maps onto. The
+// override object uses its own names (header/static/speed); the live+global
+// objects use layout/staticMode/animSpeed.
+const OVERRIDE_FIELDS = [
+  { ov: 'header',       key: 'layout' },
+  { ov: 'hideText',     key: 'hideText' },
+  { ov: 'hideSearch',   key: 'hideSearch' },
+  { ov: 'logoPosition', key: 'logoPosition' },
+  { ov: 'font',         key: 'font' },
+  { ov: 'intensity',    key: 'intensity' },
+  { ov: 'speed',        key: 'animSpeed' },
+  { ov: 'static',       key: 'staticMode' },
+  { ov: 'cardSize',     key: 'cardSize' },
+  { ov: 'iconStyle',    key: 'iconStyle' },
+  { ov: 'newTabLinks',  key: 'newTabLinks' },
+];
+
+// A fresh override = an exact copy of the current global settings, so enabling
+// it changes nothing visually until the user edits a specific field.
+function makeOverrideFromGlobal() {
+  const ov = { enabled: true };
+  OVERRIDE_FIELDS.forEach(f => { ov[f.ov] = settings[f.key]; });
+  return ov;
+}
+
+function overrideFor(themeKey) {
+  return (settings.overrides || {})[themeKey] || null;
+}
+
+function saveOverrides() {
+  settings.overrides = settings.overrides || {};
+  Storage.save({ overrides: settings.overrides });
+}
+
+function activeHasEnabledOverride() {
+  const ov = overrideFor(settings.theme);
+  return !!(ov && ov.enabled);
+}
+
+// Effective settings for the active background: global, with an enabled
+// override layered on top. This is the single resolution used by the live
+// page, normal selection, and daily randomize alike.
+function computeLive() {
+  const l = Object.assign({}, settings);
+  const ov = overrideFor(settings.theme);
+  if (ov && ov.enabled) {
+    OVERRIDE_FIELDS.forEach(f => { l[f.key] = ov[f.ov]; });
+  }
+  return l;
+}
+
+function recomputeLive() { live = computeLive(); }
+
+// Push the engine options in `live` to the running background. Only re-inits
+// the theme when asked (intensity/quality changes need a fresh init).
+function applyLiveEngine(reinit = false) {
+  engine.setOptions({
+    intensity:  Storage.intensityValue(live.intensity),
+    quality:    Storage.qualityValue(live.intensity),
+    speed:      live.animSpeed,
+    staticMode: live.staticMode,
+  });
+  if (reinit) engine.switchTheme(THEME_MAP[settings.theme] || StarfieldTheme);
+}
+
+// Re-apply every live-page render from the current `live` object.
+function applyLiveToPage(reinit = false) {
+  applyFont();
+  applyLogoPosition();
+  applyLogoScale();
+  renderHeader();
+  renderSearch();
+  renderQuickLinks();
+  applyLiveEngine(reinit);
+}
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 
 (async () => {
   settings = await Storage.load();
   checkDailyRandomize();
+  recomputeLive();
 
   engine = new ThemeEngine(document.getElementById('canvas-container'));
   engine.setOptions({
-    intensity:  Storage.intensityValue(settings.intensity),
-    quality:    Storage.qualityValue(settings.intensity),
-    speed:      settings.animSpeed,
-    staticMode: settings.staticMode,
+    intensity:  Storage.intensityValue(live.intensity),
+    quality:    Storage.qualityValue(live.intensity),
+    speed:      live.animSpeed,
+    staticMode: live.staticMode,
   });
   engine.switchTheme(THEME_MAP[settings.theme] || StarfieldTheme);
 
@@ -127,39 +207,39 @@ let settings;
 // ── Font ──────────────────────────────────────────────────────────────────────
 
 function applyFont() {
-  const font = FONTS[settings.font] || FONTS.system;
+  const font = FONTS[live.font] || FONTS.system;
   document.documentElement.style.setProperty('--ui-font', font.stack);
 }
 
 // ── Header / Layout ───────────────────────────────────────────────────────────
 
 function renderHeader() {
-  const hide = settings.hideText;
-  document.getElementById('header-logo').hidden = settings.layout !== 'logo' || hide;
-  document.getElementById('header-time').hidden = settings.layout !== 'time' || hide;
-  document.getElementById('header-date').hidden = settings.layout !== 'date' || hide;
+  const hide = live.hideText;
+  document.getElementById('header-logo').hidden = live.layout !== 'logo' || hide;
+  document.getElementById('header-time').hidden = live.layout !== 'time' || hide;
+  document.getElementById('header-date').hidden = live.layout !== 'date' || hide;
   document.querySelectorAll('.layout-btn').forEach(b =>
-    b.classList.toggle('active', !hide && b.dataset.value === settings.layout)
+    b.classList.toggle('active', !settings.hideText && b.dataset.value === settings.layout)
   );
   const hasSubline =
-    (settings.layout === 'time' && settings.showDate) ||
-    settings.layout === 'date';
+    (live.layout === 'time' && live.showDate) ||
+    live.layout === 'date';
   document.getElementById('header').classList.toggle('has-subline', !hide && hasSubline);
 }
 
 function renderSearch() {
-  document.getElementById('search-container').hidden = settings.hideSearch;
+  document.getElementById('search-container').hidden = live.hideSearch;
 }
 
 // Position the header (logo / clock / date). 'center' keeps the classic
 // centered stack; every other value pins it to that spot on the screen.
 function applyLogoPosition() {
-  document.body.dataset.logoPosition = settings.logoPosition || 'center';
+  document.body.dataset.logoPosition = live.logoPosition || 'center';
 }
 
 // Header text size is driven only by the slider — never by its position.
 function applyLogoScale() {
-  document.documentElement.style.setProperty('--logo-scale', settings.logoScale || 1);
+  document.documentElement.style.setProperty('--logo-scale', live.logoScale || 1);
 }
 
 // ── Clock ─────────────────────────────────────────────────────────────────────
@@ -238,6 +318,8 @@ function initSearch() {
 function renderQuickLinks() {
   const container = document.getElementById('quick-links');
   container.innerHTML = '';
+  container.classList.toggle('ql-compact', live.cardSize === 'compact');
+  container.classList.toggle('ql-icons-hidden', live.iconStyle === 'custom');
   (settings.quickLinks || []).forEach(link => {
     if (!link.url) return;
     const label = link.label || BrandColors.siteName(link.url);
@@ -247,7 +329,11 @@ function renderQuickLinks() {
     a.className = 'quick-link';
     a.href = link.url;
     a.textContent = label;
-    a.addEventListener('click', e => { e.preventDefault(); window.location.href = link.url; });
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      if (live.newTabLinks) window.open(link.url, '_blank');
+      else window.location.href = link.url;
+    });
 
     container.appendChild(a);
     decorateQuickLink(a, link.url);
@@ -346,7 +432,8 @@ function handleRandomizeClick(pool) {
     settings.theme = theme;
     settings.randomizeDailyDate = today;
     Storage.save({ randomizeDaily: pool, theme, randomizeDailyDate: today });
-    engine.switchTheme(THEME_MAP[theme]);
+    recomputeLive();          // the picked background may carry its own preset
+    applyLiveToPage(true);
     refreshSelectionMarks();
     startAppearancePreview();
   }
@@ -399,11 +486,12 @@ function toggleFavorite(themeKey) {
 
 // ── Background picker navigation (Main → Categories → Backgrounds) ──────────
 
-const VIEW_INDEX = { main: 0, categories: 1, backgrounds: 2 };
-const nav = { view: 'main', categoryKey: null };
+const VIEW_INDEX = { main: 0, categories: 1, backgrounds: 2, editbg: 3 };
+const nav = { view: 'main', categoryKey: null, editKey: null };
 let activePanel = 'home';   // which rail section is showing on the main view
 let showPanel;              // set by initRailNav; switches the active rail section
 let livePreview;
+let editPreview;            // live scene preview on the Edit background page
 
 function applyNavTransforms(animate = true) {
   const current = VIEW_INDEX[nav.view];
@@ -416,16 +504,22 @@ function applyNavTransforms(animate = true) {
   });
 }
 
-function navigateTo(view, categoryKey = null, animate = true) {
+function navigateTo(view, arg = null, animate = true) {
+  const prev = nav.view;
   nav.view = view;
-  if (view === 'backgrounds') nav.categoryKey = categoryKey;
+  if (view === 'backgrounds') nav.categoryKey = arg;
+  if (view === 'editbg') nav.editKey = arg;
+
+  // Leaving the Edit page tears down its own live preview.
+  if (prev === 'editbg' && view !== 'editbg' && editPreview) editPreview.stop();
 
   if (view === 'main') {
     renderAppearance();
   } else {
     livePreview.stop();
     if (view === 'categories') buildCategoryGrid();
-    else buildBackgroundGrid(nav.categoryKey);
+    else if (view === 'backgrounds') buildBackgroundGrid(nav.categoryKey);
+    else if (view === 'editbg') buildEditBackground(nav.editKey);
   }
   applyNavTransforms(animate);
 }
@@ -444,10 +538,10 @@ function startAppearancePreview() {
   // The preview lives in the Home panel, so only run it while that tab is shown.
   if (!overlay.classList.contains('open') || nav.view !== 'main' || activePanel !== 'home') return;
   livePreview.show(THEME_MAP[settings.theme] || StarfieldTheme, {
-    intensity:  Storage.intensityValue(settings.intensity),
-    quality:    Storage.qualityValue(settings.intensity),
-    speed:      settings.animSpeed,
-    staticMode: settings.staticMode,
+    intensity:  Storage.intensityValue(live.intensity),
+    quality:    Storage.qualityValue(live.intensity),
+    speed:      live.animSpeed,
+    staticMode: live.staticMode,
   });
 }
 
@@ -560,6 +654,16 @@ function makeBackgroundTile(themeKey) {
   heart.addEventListener('click', e => { e.stopPropagation(); toggleFavorite(themeKey); });
   thumbBtn.appendChild(heart);
 
+  // Edit icon sits on the artwork itself, bottom-left. Tapping it opens the
+  // full-page Edit background screen instead of selecting the background.
+  const edit = document.createElement('button');
+  edit.type = 'button';
+  edit.className = 'tile-edit';
+  edit.setAttribute('aria-label', `Edit ${THEME_LABELS[themeKey]} background`);
+  edit.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13.5 6.5l4 4M4 20l1-4L15.5 5.5a1.5 1.5 0 0 1 2.12 0l.88.88a1.5 1.5 0 0 1 0 2.12L8 19l-4 1z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  edit.addEventListener('click', e => { e.stopPropagation(); navigateTo('editbg', themeKey); });
+  thumbBtn.appendChild(edit);
+
   thumbBtn.addEventListener('click', () => applyTheme(themeKey));
 
   const row = document.createElement('div');
@@ -579,7 +683,8 @@ function makeBackgroundTile(themeKey) {
 function applyTheme(themeKey) {
   settings.theme = themeKey;
   Storage.save({ theme: themeKey });
-  engine.switchTheme(THEME_MAP[themeKey]);
+  recomputeLive();            // apply the new background's preset (if enabled)
+  applyLiveToPage(true);
   refreshSelectionMarks();
 }
 
@@ -609,6 +714,216 @@ function refreshSelectionMarks() {
     THEME_LABELS[settings.theme] || '';
 }
 
+// ── Screen 4: Edit background (per-background Advanced Custom Preset) ─────────
+
+const HEADER_OPTS    = [['logo', 'Logo'], ['time', 'Time'], ['date', 'Date']];
+const LOGO_POS_OPTS  = [
+  ['top-left', 'Top left'], ['top-right', 'Top right'],
+  ['bottom-left', 'Bottom left'], ['bottom-right', 'Bottom right'],
+  ['top-center', 'Top center'], ['bottom-center', 'Bottom center'], ['center', 'Center'],
+];
+const FONT_OPTS      = Object.entries(FONTS).map(([k, f]) => [k, f.label]);
+const INTENSITY_OPTS = [['low', 'Low'], ['medium', 'Med'], ['high', 'High']];
+const SPEED_OPTS     = [[0.5, 'Slow'], [0.75, 'Relaxed'], [1, 'Normal'], [1.5, 'Fast'], [2, 'Very fast']];
+const CARDSIZE_OPTS  = [['compact', 'Compact'], ['roomy', 'Roomy']];
+const ICONSTYLE_OPTS = [['favicon', 'Favicon'], ['custom', 'Custom']];
+
+function nearestSpeedValue(v) {
+  let best = SPEED_OPTS[0][0], bestD = Infinity;
+  for (const [val] of SPEED_OPTS) {
+    const d = Math.abs(val - v);
+    if (d < bestD) { bestD = d; best = val; }
+  }
+  return best;
+}
+
+// Whether the edited background currently reads from its override or from global.
+function editSource() {
+  const ov = overrideFor(nav.editKey);
+  return { ov, enabled: !!(ov && ov.enabled) };
+}
+
+function editFieldValue(ovKey, globalKey) {
+  const { ov, enabled } = editSource();
+  return enabled ? ov[ovKey] : settings[globalKey];
+}
+
+// Engine opts the preview / live page should show for the edited background:
+// its override values when enabled, otherwise the current global values.
+function editEngineOpts() {
+  const { ov, enabled } = editSource();
+  const intensity = enabled ? ov.intensity  : settings.intensity;
+  const speed     = enabled ? ov.speed       : settings.animSpeed;
+  const staticM   = enabled ? ov.static      : settings.staticMode;
+  return {
+    intensity:  Storage.intensityValue(intensity),
+    quality:    Storage.qualityValue(intensity),
+    speed,
+    staticMode: staticM,
+  };
+}
+
+function startEditPreview() {
+  editPreview.show(THEME_MAP[nav.editKey] || StarfieldTheme, editEngineOpts());
+}
+
+function makeEditSelectRow(label, options, current, onChange) {
+  const row = document.createElement('div');
+  row.className = 'edit-row';
+  const lbl = document.createElement('span');
+  lbl.className = 'edit-row-label';
+  lbl.textContent = label;
+  const sel = document.createElement('select');
+  sel.className = 'edit-select';
+  options.forEach(([val, text]) => {
+    const o = document.createElement('option');
+    o.value = String(val);
+    o.textContent = text;
+    sel.appendChild(o);
+  });
+  sel.value = String(current);
+  sel.addEventListener('change', () => onChange(sel.value));
+  row.append(lbl, sel);
+  return row;
+}
+
+function makeEditToggleRow(label, checked, onChange) {
+  const row = document.createElement('label');
+  row.className = 'edit-row';
+  const lbl = document.createElement('span');
+  lbl.className = 'edit-row-label';
+  lbl.textContent = label;
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.checked = !!checked;
+  cb.addEventListener('change', () => onChange(cb.checked));
+  row.append(lbl, cb);
+  return row;
+}
+
+// Write one field into the edited background's override. Auto-enables the
+// preset on first touch, seeding a full copy of global so only this field moves.
+function editField(ovKey, value) {
+  settings.overrides = settings.overrides || {};
+  let ov = settings.overrides[nav.editKey];
+  if (!ov || !ov.enabled) {
+    ov = makeOverrideFromGlobal();          // exact copy of current global
+    settings.overrides[nav.editKey] = ov;
+  }
+  ov[ovKey] = value;
+  ov.enabled = true;
+  saveOverrides();
+
+  if (nav.editKey === settings.theme) {
+    recomputeLive();
+    applyLiveToPage(ovKey === 'intensity');
+    refreshSelectionMarks();
+  }
+  if (ovKey === 'speed') editPreview.setSpeed(editEngineOpts().speed);
+  else if (ovKey === 'intensity' || ovKey === 'static') startEditPreview();
+
+  renderEditPage();
+}
+
+function editToggleEnabled(checked) {
+  settings.overrides = settings.overrides || {};
+  let ov = settings.overrides[nav.editKey];
+  if (checked) {
+    if (!ov) { ov = makeOverrideFromGlobal(); settings.overrides[nav.editKey] = ov; }
+    ov.enabled = true;
+  } else if (ov) {
+    ov.enabled = false;   // keep the object cached so re-enabling restores it
+  }
+  saveOverrides();
+
+  if (nav.editKey === settings.theme) {
+    recomputeLive();
+    applyLiveToPage(true);
+    refreshSelectionMarks();
+  }
+  startEditPreview();     // effective opts may have flipped override↔global
+  renderEditPage();
+}
+
+function renderEditStatus() {
+  const { enabled } = editSource();
+  const statusEl = document.getElementById('editbg-status');
+  statusEl.textContent = enabled ? 'Custom preset active' : 'Using global settings';
+  statusEl.classList.toggle('active', enabled);
+  document.getElementById('editbg-enabled').checked = enabled;
+  document.getElementById('editbg-settings').classList.toggle('edit-inherited', !enabled);
+}
+
+function renderEditRows() {
+  const box = document.getElementById('editbg-settings');
+  box.innerHTML = '';
+  box.append(
+    makeEditSelectRow('Header', HEADER_OPTS, editFieldValue('header', 'layout'),
+      v => editField('header', v)),
+    makeEditToggleRow('Hide text', editFieldValue('hideText', 'hideText'),
+      v => editField('hideText', v)),
+    makeEditToggleRow('Hide search bar', editFieldValue('hideSearch', 'hideSearch'),
+      v => editField('hideSearch', v)),
+    makeEditSelectRow('Logo position', LOGO_POS_OPTS, editFieldValue('logoPosition', 'logoPosition'),
+      v => editField('logoPosition', v)),
+    makeEditSelectRow('Font', FONT_OPTS, editFieldValue('font', 'font'),
+      v => editField('font', v)),
+    makeEditSelectRow('Animation intensity', INTENSITY_OPTS, editFieldValue('intensity', 'intensity'),
+      v => editField('intensity', v)),
+    makeEditSelectRow('Animation speed', SPEED_OPTS, nearestSpeedValue(editFieldValue('speed', 'animSpeed')),
+      v => editField('speed', parseFloat(v))),
+    makeEditToggleRow('Static mode', editFieldValue('static', 'staticMode'),
+      v => editField('static', v)),
+    makeEditSelectRow('Quick link card size', CARDSIZE_OPTS, editFieldValue('cardSize', 'cardSize'),
+      v => editField('cardSize', v)),
+    makeEditSelectRow('Quick link icon style', ICONSTYLE_OPTS, editFieldValue('iconStyle', 'iconStyle'),
+      v => editField('iconStyle', v)),
+    makeEditToggleRow('Open links in new tab', editFieldValue('newTabLinks', 'newTabLinks'),
+      v => editField('newTabLinks', v)),
+  );
+}
+
+function renderEditPage() {
+  renderEditStatus();
+  renderEditRows();
+}
+
+function buildEditBackground(themeKey) {
+  document.getElementById('editbg-title').textContent = THEME_LABELS[themeKey] || '';
+  startEditPreview();
+  renderEditPage();
+}
+
+// ── Global-settings conflict popup ───────────────────────────────────────────
+// Changing a global default while the ACTIVE background has an enabled override
+// asks whether to drop that override. The global change is already applied by
+// the caller; this only decides the override's fate.
+
+let conflictOpen = false;
+
+function maybeConflictPopup() {
+  if (conflictOpen || !activeHasEnabledOverride()) return;
+  conflictOpen = true;
+  document.getElementById('preset-conflict').classList.remove('hidden');
+}
+
+function initConflictPopup() {
+  const overlay = document.getElementById('preset-conflict');
+  const close = () => { overlay.classList.add('hidden'); conflictOpen = false; };
+
+  document.getElementById('preset-conflict-yes').addEventListener('click', () => {
+    const ov = overrideFor(settings.theme);
+    if (ov) {
+      ov.enabled = false;          // revert active background to inherit global
+      saveOverrides();
+      recomputeLive();
+      applyLiveToPage(true);
+    }
+    close();
+  });
+  document.getElementById('preset-conflict-no').addEventListener('click', close);
+}
+
 // ── Settings panel ────────────────────────────────────────────────────────────
 
 function initSettings() {
@@ -617,6 +932,7 @@ function initSettings() {
   const panel   = document.getElementById('settings-panel');
 
   livePreview = new ScenePreview.LivePreview(document.getElementById('appearance-preview'));
+  editPreview = new ScenePreview.LivePreview(document.getElementById('editbg-preview'));
   applyNavTransforms(false);
 
   const open = () => {
@@ -647,6 +963,8 @@ function initSettings() {
   document.getElementById('change-background').addEventListener('click', () => navigateTo('categories'));
   document.getElementById('back-to-main').addEventListener('click', () => navigateTo('main'));
   document.getElementById('back-to-categories').addEventListener('click', () => navigateTo('categories'));
+  document.getElementById('back-to-backgrounds').addEventListener('click', () => navigateTo('backgrounds', nav.categoryKey));
+  document.getElementById('editbg-enabled').addEventListener('change', e => editToggleEnabled(e.target.checked));
 
   const randAll = document.getElementById('randomize-all-daily');
   randAll.classList.toggle('active', settings.randomizeDaily === 'all');
@@ -659,6 +977,7 @@ function initSettings() {
   buildQuickLinksEditor();
   buildAnimationSettings();
   initRailNav();
+  initConflictPopup();
 }
 
 // Logo position picker — corner + center-column dots over a mini new-tab rect.
@@ -670,8 +989,10 @@ function buildLogoPositionPicker() {
     dot.addEventListener('click', () => {
       settings.logoPosition = dot.dataset.pos;
       Storage.save({ logoPosition: dot.dataset.pos });
+      recomputeLive();
       applyLogoPosition();
       refresh();
+      maybeConflictPopup();
     });
   });
 }
@@ -689,6 +1010,7 @@ function buildLogoScaleSlider() {
     const v = parseFloat(slider.value);
     settings.logoScale = v;
     Storage.save({ logoScale: v });
+    recomputeLive();
     applyLogoScale();
     setLabel(v);
   });
@@ -732,8 +1054,10 @@ function buildFontSettings() {
     btn.addEventListener('click', () => {
       settings.font = key;
       Storage.save({ font: key });
+      recomputeLive();
       applyFont();
       document.querySelectorAll('.font-option').forEach(b => b.classList.toggle('active', b === btn));
+      maybeConflictPopup();
     });
     container.appendChild(btn);
   }
@@ -773,46 +1097,57 @@ function buildDisplaySettings() {
       Storage.save({ layout: btn.dataset.value });
       layoutBtns.forEach(b => b.classList.toggle('active', b === btn));
       updateSubSections();
+      recomputeLive();
       renderHeader();
       tickClock();
+      maybeConflictPopup();
     });
   });
 
   h12El.addEventListener('change', () => {
     settings.clockFormat = h12El.checked ? '12h' : '24h';
     Storage.save({ clockFormat: settings.clockFormat });
+    recomputeLive();
     tickClock();
   });
   secsEl.addEventListener('change', () => {
     settings.showSeconds = secsEl.checked;
     Storage.save({ showSeconds: secsEl.checked });
+    recomputeLive();
     tickClock();
   });
   dateEl.addEventListener('change', () => {
     settings.showDate = dateEl.checked;
     Storage.save({ showDate: dateEl.checked });
+    recomputeLive();
     renderHeader();
     tickClock();
   });
   timeDateEl.addEventListener('change', () => {
     settings.showTimeInDate = timeDateEl.checked;
     Storage.save({ showTimeInDate: timeDateEl.checked });
+    recomputeLive();
     renderHeader();
     tickClock();
   });
   hideTextEl.addEventListener('change', () => {
     settings.hideText = hideTextEl.checked;
     Storage.save({ hideText: hideTextEl.checked });
+    recomputeLive();
     renderHeader();
+    maybeConflictPopup();
   });
   hideSearchEl.addEventListener('change', () => {
     settings.hideSearch = hideSearchEl.checked;
     Storage.save({ hideSearch: hideSearchEl.checked });
+    recomputeLive();
     renderSearch();
+    maybeConflictPopup();
   });
   brandEl.addEventListener('change', () => {
     settings.brandColors = brandEl.checked;
     Storage.save({ brandColors: brandEl.checked });
+    recomputeLive();
     renderQuickLinks();
   });
 }
@@ -881,12 +1216,12 @@ function buildAnimationSettings() {
       settings.intensity = btn.dataset.value;
       Storage.save({ intensity: btn.dataset.value });
       btns.forEach(b => b.classList.toggle('active', b === btn));
-      engine.setOptions({
-        intensity: Storage.intensityValue(btn.dataset.value),
-        quality:   Storage.qualityValue(btn.dataset.value),
-      });
-      engine.switchTheme(THEME_MAP[settings.theme] || StarfieldTheme);
+      recomputeLive();
+      // When the active background masks intensity with its own preset, `live`
+      // is unchanged — re-init nothing; otherwise apply + re-init the scene.
+      applyLiveEngine(!activeHasEnabledOverride());
       startAppearancePreview();
+      maybeConflictPopup();
     });
   });
 
@@ -894,17 +1229,21 @@ function buildAnimationSettings() {
     const v = parseFloat(speedEl.value);
     settings.animSpeed = v;
     Storage.save({ animSpeed: v });
-    engine.setOptions({ speed: v });
-    livePreview.setSpeed(v);
+    recomputeLive();
+    engine.setOptions({ speed: live.animSpeed });
+    livePreview.setSpeed(live.animSpeed);
     const display = Number.isInteger(v) ? v + '' : v.toFixed(2).replace(/0+$/, '');
     speedLbl.textContent = display + '×';
   });
+  speedEl.addEventListener('change', () => maybeConflictPopup());
 
   staticEl.addEventListener('change', () => {
     settings.staticMode = staticEl.checked;
     Storage.save({ staticMode: staticEl.checked });
-    engine.setOptions({ staticMode: staticEl.checked });
+    recomputeLive();
+    engine.setOptions({ staticMode: live.staticMode });
     startAppearancePreview();
+    maybeConflictPopup();
   });
 }
 

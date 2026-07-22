@@ -485,8 +485,8 @@ html, body {
 
 .background-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.85rem 0.7rem;
+  grid-template-columns: 1fr;   /* full-width tiles, one per row */
+  gap: 1.1rem;
   margin-top: 0.7rem;
 }
 .more-coming-soon {
@@ -562,10 +562,11 @@ button.tile-thumb:hover { border-color: rgba(255,255,255,0.38); }
 .tile-name-row {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   min-height: 1.2em;
-  padding: 0.1rem 0;
+  padding: 0.1rem 0.1rem;
 }
+.background-tile .tile-label { text-align: left; }
 
 #backgrounds-randomize .randomize-daily-btn,
 #backgrounds-randomize .favorites-empty { width: 100%; justify-content: center; }
@@ -996,6 +997,182 @@ body[data-logo-position="bottom-center"] #header { bottom: 2.2rem; left: 50%; tr
    position — so the header keeps its size wherever it's placed. */
 body[data-logo-position="top-right"]    #date-line,
 body[data-logo-position="bottom-right"] #date-line { justify-content: flex-end; }
+
+/* ── Edit icon on gallery tiles (bottom-left, over the artwork) ───────────── */
+.tile-edit {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 0 8px 0 10px;
+  background: rgba(10,10,18,0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  z-index: 2;
+  padding: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.tile-edit:hover { background: rgba(20,20,35,0.95); color: #fff; }
+.tile-edit svg { width: 15px; height: 15px; }
+
+/* ── Edit background page (Screen 4) ──────────────────────────────────────── */
+.editbg-titlerow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.7rem;
+  margin: 0.7rem 0 0.9rem;
+}
+.editbg-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.92);
+}
+.edit-status {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: rgba(255,255,255,0.45);
+  white-space: nowrap;
+}
+.edit-status.active { color: rgba(120,190,255,0.95); }
+
+.editbg-settings { display: flex; flex-direction: column; }
+.editbg-settings.edit-inherited { opacity: 0.82; }
+
+.edit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  padding: 0.5rem 0;
+  font-size: 0.84rem;
+  color: rgba(255,255,255,0.82);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  cursor: default;
+}
+.edit-row-label { flex: 1; }
+
+.edit-select {
+  flex-shrink: 0;
+  min-width: 116px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.13);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.9);
+  font-family: var(--ui-font);
+  font-size: 0.8rem;
+  padding: 0.3rem 0.5rem;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.14s;
+}
+.edit-select:hover  { border-color: rgba(255,255,255,0.28); }
+.edit-select:focus  { border-color: rgba(100,160,255,0.55); }
+.edit-select option { background: #14141f; color: #fff; }
+
+/* The edit-page toggle rows share the main toggle look. */
+.edit-row input[type="checkbox"] {
+  width: 34px; height: 18px;
+  appearance: none; -webkit-appearance: none;
+  background: rgba(255,255,255,0.14);
+  border-radius: 9999px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.edit-row input[type="checkbox"]::before {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.75);
+  transition: transform 0.2s;
+}
+.edit-row input[type="checkbox"]:checked { background: rgba(100,160,255,0.65); }
+.edit-row input[type="checkbox"]:checked::before { transform: translateX(16px); background: #fff; }
+
+.editbg-enable-row {
+  margin-top: 1rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.13);
+  background: rgba(255,255,255,0.04);
+  font-weight: 500;
+  color: rgba(255,255,255,0.9);
+}
+
+/* ── Global-settings conflict popup ───────────────────────────────────────── */
+.preset-conflict-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.preset-conflict-dialog {
+  width: min(320px, 100%);
+  padding: 1.3rem 1.3rem 1rem;
+  border-radius: 16px;
+  background: rgba(20,20,30,0.96);
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 18px 50px rgba(0,0,0,0.5);
+}
+.preset-conflict-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 0.5rem;
+}
+.preset-conflict-sub {
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: rgba(255,255,255,0.62);
+  margin-bottom: 1.1rem;
+}
+.preset-conflict-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+.preset-conflict-btn {
+  padding: 0.45rem 1.1rem;
+  border-radius: 9px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.85);
+  font-family: var(--ui-font);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.14s, border-color 0.14s, color 0.14s;
+}
+.preset-conflict-btn:hover { background: rgba(255,255,255,0.13); color: #fff; }
+.preset-conflict-btn.primary {
+  background: rgba(100,160,255,0.28);
+  border-color: rgba(100,160,255,0.5);
+  color: #fff;
+}
+.preset-conflict-btn.primary:hover { background: rgba(100,160,255,0.42); }
+
+/* ── Quick-link card size / icon style ────────────────────────────────────── */
+#quick-links.ql-compact { gap: 0.35rem; }
+#quick-links.ql-compact .quick-link { padding: 0.2rem 0.6rem; font-size: 0.76rem; }
+#quick-links.ql-icons-hidden .ql-icon,
+#quick-links.ql-icons-hidden .ql-logo { display: none; }
 
 /* ── Utility ──────────────────────────────────────────────────────────────── */
 .hidden { display: none !important; }

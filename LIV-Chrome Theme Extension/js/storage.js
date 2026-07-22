@@ -21,9 +21,16 @@ const Storage = (() => {
     intensity:          'medium',
     animSpeed:          1.0,
     staticMode:         false,
+    cardSize:           'roomy',    // quick-link card size: 'compact' | 'roomy'
+    iconStyle:          'favicon',  // quick-link icon: 'favicon' | 'custom'
+    newTabLinks:        false,      // open quick links in a new tab
     favorites:          [],
     randomizeDaily:     null,
     randomizeDailyDate: '',
+    // Per-background Advanced Custom Preset overrides, keyed by theme.
+    // Absent / { enabled:false } → background inherits global settings live.
+    // { enabled:true } → background always uses its own stored values.
+    overrides:          {},
   };
 
   const INTENSITY_MAP = { low: 0.5, medium: 1.0, high: 1.6 };

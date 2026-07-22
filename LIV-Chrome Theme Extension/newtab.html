@@ -239,6 +239,41 @@
         </div>
       </div>
 
+      <div class="settings-view" id="view-editbg" data-view="editbg" aria-hidden="true">
+        <div class="settings-header">
+          <button class="back-btn" id="back-to-backgrounds" type="button" aria-label="Back to backgrounds">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <span class="settings-title">Edit background</span>
+          <button class="settings-close" type="button" aria-label="Close settings">✕</button>
+        </div>
+        <div class="settings-body view-grid-body">
+          <div id="editbg-preview" class="appearance-preview"></div>
+          <div class="editbg-titlerow">
+            <span id="editbg-title" class="editbg-name"></span>
+            <span id="editbg-status" class="edit-status">Using global settings</span>
+          </div>
+          <div id="editbg-settings" class="editbg-settings"></div>
+          <label class="setting-row editbg-enable-row">
+            <span>Advanced Custom Preset</span>
+            <input type="checkbox" id="editbg-enabled">
+          </label>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="preset-conflict" class="preset-conflict-overlay hidden" role="dialog" aria-modal="true" aria-label="Turn off Advanced Custom Preset">
+    <div class="preset-conflict-dialog">
+      <p class="preset-conflict-title">Turn off Advanced Custom Preset?</p>
+      <p class="preset-conflict-sub">This background is using its own custom preset. Changing global settings won’t affect it unless you turn its preset off.</p>
+      <div class="preset-conflict-actions">
+        <button id="preset-conflict-no" class="preset-conflict-btn" type="button">No</button>
+        <button id="preset-conflict-yes" class="preset-conflict-btn primary" type="button">Yes</button>
+      </div>
     </div>
   </div>
 
