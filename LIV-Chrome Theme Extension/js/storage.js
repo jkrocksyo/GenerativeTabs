@@ -16,6 +16,8 @@ const Storage = (() => {
     logoPosition:       'center',
     logoScale:          1.0,        // header text size multiplier (slider only)
     quickLinks:         [],
+    quickLinkGrid:      {},         // { linkId: {row,col} } — grid positions
+    iconOnly:           false,      // quick links: icon-only tiles vs oval pills
     brandColors:        false,      // colour quick-link pills to match each site
     brandColorCache:    {},         // { domain: {bg,fg} } cached favicon colours
     intensity:          'medium',

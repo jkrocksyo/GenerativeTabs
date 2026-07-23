@@ -168,74 +168,208 @@ html, body {
   box-shadow: 0 0 0 3px rgba(255,255,255,0.07), 0 4px 20px rgba(0,0,0,0.3);
 }
 
-/* ── Quick links ──────────────────────────────────────────────────────────── */
+/* ── Quick links — rearrangeable full-tab grid ────────────────────────────── */
+/* Grid canvas spans the whole viewport; tiles are absolutely placed per cell.
+   Container ignores pointer events so the centre stays interactive; tiles opt
+   back in. Two display modes toggle via .icon-only. */
 #quick-links {
+  position: fixed;
+  inset: 0;
+  z-index: 11;
+  pointer-events: none;
+}
+
+.ql-tile {
+  position: absolute;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: center;
-  max-width: 580px;
-}
-
-.quick-link {
-  display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.3rem 0.85rem;
-  border-radius: 9999px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.06);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  color: rgba(255,255,255,0.78);
-  font-size: 0.82rem;
-  font-family: var(--ui-font);
-  text-decoration: none;
-  transition: background 0.15s, border-color 0.15s, color 0.15s,
-              transform 0.15s, box-shadow 0.15s;
-  white-space: nowrap;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  transition: left 0.22s cubic-bezier(0.2,0.8,0.3,1), top 0.22s cubic-bezier(0.2,0.8,0.3,1);
 }
-.quick-link:hover {
-  background: rgba(255,255,255,0.14);
-  border-color: rgba(255,255,255,0.28);
-  color: #fff;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.22);
-}
-.ql-icon {
-  width: 15px;
-  height: 15px;
-  border-radius: 3px;
-  object-fit: contain;
-  flex: 0 0 auto;
+.ql-tile:focus-visible { outline: none; }
+.ql-tile:focus-visible .ql-body { outline: 2px solid rgba(100,180,255,0.7); outline-offset: 2px; }
+
+.ql-body {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
-/* Bundled monochrome brand logo, drawn as a mask so it takes the pill's accent
-   colour (--ql-fg on branded pills, otherwise the text colour). */
-.ql-logo {
-  width: 15px;
-  height: 15px;
+/* Icon box: favicon / masked brand logo / first-letter fallback */
+.ql-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.16);
+  color: rgba(255,255,255,0.92);
+  font-weight: 600;
   flex: 0 0 auto;
-  background-color: var(--ql-fg, currentColor);
+}
+.ql-icon-box.ql-letter { text-transform: uppercase; }
+.ql-fav { width: 100%; height: 100%; object-fit: cover; }
+.ql-logo-mask {
+  width: 60%; height: 60%;
+  background-color: var(--ql-fg, rgba(255,255,255,0.92));
   -webkit-mask: var(--ql-logo-src) center / contain no-repeat;
   mask: var(--ql-logo-src) center / contain no-repeat;
 }
 
-/* Brand-coloured pills: --ql-bg / --ql-fg are set inline per site. The tint
-   sits over the existing blur, so it still reads as glass rather than a flat
-   button; hover deepens to the full brand colour. */
-.quick-link.branded {
-  background: color-mix(in srgb, var(--ql-bg) 80%, transparent);
-  border-color: color-mix(in srgb, var(--ql-fg) 42%, transparent);
-  color: var(--ql-fg);
-  font-weight: 600;
-  letter-spacing: 0.01em;
+.ql-tile-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255,255,255,0.9);
+  font-family: var(--ui-font);
 }
-.quick-link.branded:hover {
+
+/* ── Oval (pill) mode ─────────────────────────────────────────────────────── */
+#quick-links:not(.icon-only) .ql-body {
+  gap: 0.5rem;
+  padding: 0.42rem 0.95rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.22);
+}
+#quick-links:not(.icon-only) .ql-icon-box {
+  width: 15px; height: 15px; border-radius: 3px; font-size: 0.7rem;
+  background: none; border: none;          /* just the logo mark, no framed box */
+}
+#quick-links:not(.icon-only) .ql-tile-label { font-size: 0.85rem; font-weight: 500; }
+#quick-links:not(.icon-only) .ql-logo-mask { width: 100%; height: 100%; }   /* fill the frameless box */
+#quick-links:not(.icon-only) .ql-tile:not(.dragging):hover .ql-body {
+  background: rgba(255,255,255,0.15);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+}
+
+/* Branded pill: fill with the app's shell colour, text/logo in its accent. */
+#quick-links:not(.icon-only) .ql-body.branded {
   background: var(--ql-bg);
-  border-color: var(--ql-fg);
-  color: var(--ql-fg);
+  border-color: color-mix(in srgb, var(--ql-fg) 40%, transparent);
 }
+#quick-links:not(.icon-only) .ql-body.branded .ql-tile-label { color: var(--ql-fg); }
+#quick-links:not(.icon-only) .ql-tile:not(.dragging):hover .ql-body.branded {
+  background: var(--ql-bg);
+  border-color: color-mix(in srgb, var(--ql-fg) 65%, transparent);
+}
+
+/* ── Icon-only mode ───────────────────────────────────────────────────────── */
+#quick-links.icon-only .ql-body { flex-direction: column; }
+#quick-links.icon-only .ql-icon-box {
+  width: 60px; height: 60px; border-radius: 16px; font-size: 1.6rem;
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.32);
+}
+#quick-links.icon-only .ql-body.branded .ql-icon-box { background: var(--ql-bg); }
+#quick-links.icon-only .ql-tile:not(.dragging):hover .ql-icon-box {
+  box-shadow: 0 7px 20px rgba(0,0,0,0.45);
+}
+
+/* Lifted tile while dragging */
+.ql-tile.dragging {
+  transition: none;
+  transform: scale(1.1);
+  z-index: 5;
+  cursor: grabbing;
+}
+#quick-links:not(.icon-only) .ql-tile.dragging .ql-body { box-shadow: 0 12px 28px rgba(0,0,0,0.5); }
+#quick-links.icon-only .ql-tile.dragging .ql-icon-box { box-shadow: 0 12px 28px rgba(0,0,0,0.5); }
+
+/* Dashed empty drop-target slots (edit mode) */
+.ql-cell { position: absolute; pointer-events: none; }
+.ql-cell::before {
+  content: '';
+  position: absolute;
+  border: 1.5px dashed rgba(255,255,255,0.2);
+}
+#quick-links:not(.icon-only) .ql-cell::before {
+  top: 8px; bottom: 8px;
+  left: 50%; transform: translateX(-50%);
+  width: var(--ql-slot-w, 168px);        /* hug the widest pill, centred in the cell */
+  border-radius: 9999px;                 /* oval slots */
+}
+#quick-links.icon-only .ql-cell::before {
+  top: 15px; left: 50%; transform: translateX(-50%);   /* matches the centred 60px icon */
+  width: 60px; height: 60px;
+  border-radius: 16px;                   /* rounded-square slots */
+}
+
+/* Target slot lights up under the dragged tile */
+.ql-cell.highlight::before {
+  border-color: rgba(255,255,255,0.75);
+  border-style: solid;
+  background: rgba(255,255,255,0.14);
+  box-shadow: 0 0 16px rgba(255,255,255,0.18);
+}
+
+/* Jiggle — randomized per-tile delay breaks the phase */
+#quick-links.editing .ql-tile {
+  animation: ql-jiggle 0.32s ease-in-out infinite;
+  animation-delay: var(--jiggle-delay, 0ms);
+}
+#quick-links.editing .ql-tile.dragging { animation: none; }
+@keyframes ql-jiggle {
+  0%   { transform: rotate(-2deg); }
+  50%  { transform: rotate(2deg); }
+  100% { transform: rotate(-2deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #quick-links.editing .ql-tile { animation: none; }
+}
+
+/* Delete badge (edit-mode shortcut) */
+.ql-del {
+  position: absolute;
+  top: -4px; left: -4px;              /* sits on the app/pill's top-left corner */
+  width: 20px; height: 20px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(30,30,36,0.94);
+  color: #fff;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 6;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+#quick-links.editing .ql-del { display: flex; }
+.ql-del:hover { background: rgba(230,70,70,0.95); }
+
+/* Done button (secondary exit) */
+#ql-done {
+  position: fixed;
+  top: 1.2rem;
+  right: 1.2rem;
+  z-index: 30;
+  padding: 0.4rem 1.1rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.14);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: #fff;
+  font-family: var(--ui-font);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+#ql-done:hover { background: rgba(255,255,255,0.22); }
 
 /* ── Settings gear button ─────────────────────────────────────────────────── */
 #settings-btn {
@@ -1168,11 +1302,113 @@ body[data-logo-position="bottom-right"] #date-line { justify-content: flex-end; 
 }
 .preset-conflict-btn.primary:hover { background: rgba(100,160,255,0.42); }
 
-/* ── Quick-link card size / icon style ────────────────────────────────────── */
-#quick-links.ql-compact { gap: 0.35rem; }
-#quick-links.ql-compact .quick-link { padding: 0.2rem 0.6rem; font-size: 0.76rem; }
-#quick-links.ql-icons-hidden .ql-icon,
-#quick-links.ql-icons-hidden .ql-logo { display: none; }
+
+/* ── Panel subheaders ─────────────────────────────────────────────────────── */
+.panel-subheader {
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #fff;
+  margin: 0 0 0.9rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid rgba(255,255,255,0.09);
+}
+.panel-intro {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: rgba(255,255,255,0.58);
+  margin-bottom: 0.9rem;
+}
+
+/* Section labels inside the all-backgrounds preset picker */
+.bg-section-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+  margin: 1.1rem 0 0.3rem;
+}
+.bg-section-label:first-child { margin-top: 0; }
+
+/* ── Advanced Customization: preset list ──────────────────────────────────── */
+.add-preset-btn { margin-bottom: 1rem; }
+
+.preset-list { display: flex; flex-direction: column; gap: 1rem; }
+
+.preset-empty {
+  padding: 1rem 0.85rem;
+  border-radius: 10px;
+  border: 1px dashed rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.03);
+  color: rgba(255,255,255,0.4);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.preset-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03);
+}
+.preset-card.active {
+  border-color: rgba(100,160,255,0.55);
+  background: rgba(100,160,255,0.08);
+}
+.preset-card-thumb { cursor: pointer; }
+.preset-card-name {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.92);
+}
+.preset-card-status {
+  font-size: 0.74rem;
+  color: rgba(255,255,255,0.5);
+  margin-top: -0.25rem;
+}
+.preset-card.active .preset-card-status { color: rgba(140,190,255,0.9); }
+
+.preset-save-btn {
+  width: 100%;
+  padding: 0.55rem 0.8rem;
+  border-radius: 9px;
+  border: 1px solid rgba(100,160,255,0.5);
+  background: rgba(100,160,255,0.22);
+  color: #fff;
+  font-family: var(--ui-font);
+  font-size: 0.86rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.14s, border-color 0.14s;
+}
+.preset-save-btn:hover { background: rgba(100,160,255,0.36); }
+.preset-save-btn.saved {
+  background: rgba(80,190,120,0.3);
+  border-color: rgba(80,190,120,0.6);
+}
+
+.preset-delete-btn {
+  width: 100%;
+  padding: 0.42rem 0.8rem;
+  border-radius: 9px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: none;
+  color: rgba(255,120,120,0.85);
+  font-family: var(--ui-font);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.14s, border-color 0.14s, color 0.14s;
+}
+.preset-delete-btn:hover {
+  background: rgba(255,80,80,0.12);
+  border-color: rgba(255,80,80,0.4);
+  color: rgba(255,140,140,0.95);
+}
 
 /* ── Utility ──────────────────────────────────────────────────────────────── */
 .hidden { display: none !important; }

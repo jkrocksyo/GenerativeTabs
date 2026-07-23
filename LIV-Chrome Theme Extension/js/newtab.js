@@ -90,63 +90,71 @@ const FONTS = {
 };
 
 let engine;
-let settings;   // global defaults — the source of truth every background inherits
-let live;       // effective settings for the ACTIVE background (global + its override)
+let settings;   // global defaults — the toolbar settings shared by every background
+let live;       // effective settings for the ACTIVE background (global or its preset)
 
-// ── Per-background overrides (Advanced Custom Preset) ─────────────────────────
+// ── Per-background presets (Advanced Customization) ──────────────────────────
+//
+// A preset is a saved snapshot of the toolbar settings attached to a specific
+// background (settings.overrides[themeKey]). When that background is the active
+// one, the tab renders with its preset instead of the global toolbar settings.
+//
+// The snapshot stores real settings keys, so applying a preset is just a merge
+// over global. Presets are created/saved/deleted on the Advanced page.
 
-// Each override field, and the global/live settings key it maps onto. The
-// override object uses its own names (header/static/speed); the live+global
-// objects use layout/staticMode/animSpeed.
-const OVERRIDE_FIELDS = [
-  { ov: 'header',       key: 'layout' },
-  { ov: 'hideText',     key: 'hideText' },
-  { ov: 'hideSearch',   key: 'hideSearch' },
-  { ov: 'logoPosition', key: 'logoPosition' },
-  { ov: 'font',         key: 'font' },
-  { ov: 'intensity',    key: 'intensity' },
-  { ov: 'speed',        key: 'animSpeed' },
-  { ov: 'static',       key: 'staticMode' },
-  { ov: 'cardSize',     key: 'cardSize' },
-  { ov: 'iconStyle',    key: 'iconStyle' },
-  { ov: 'newTabLinks',  key: 'newTabLinks' },
+const PRESET_FIELDS = [
+  'layout', 'hideText', 'hideSearch', 'logoPosition', 'logoScale', 'font',
+  'clockFormat', 'showSeconds', 'showDate', 'showTimeInDate',
+  'brandColors', 'cardSize', 'iconStyle', 'newTabLinks',
+  'intensity', 'animSpeed', 'staticMode',
 ];
 
-// A fresh override = an exact copy of the current global settings, so enabling
-// it changes nothing visually until the user edits a specific field.
-function makeOverrideFromGlobal() {
-  const ov = { enabled: true };
-  OVERRIDE_FIELDS.forEach(f => { ov[f.ov] = settings[f.key]; });
-  return ov;
+// The background being set up / edited on the Advanced page. While it's pending
+// it previews the live global toolbar (so toolbar tweaks are visible), even if
+// it already has a saved preset. null the rest of the time.
+let pendingPresetBg = null;
+
+function snapshotSettings() {
+  const s = {};
+  PRESET_FIELDS.forEach(k => { s[k] = settings[k]; });
+  return s;
 }
 
 function overrideFor(themeKey) {
   return (settings.overrides || {})[themeKey] || null;
 }
 
-function saveOverrides() {
+function savePresets() {
   settings.overrides = settings.overrides || {};
   Storage.save({ overrides: settings.overrides });
 }
 
-function activeHasEnabledOverride() {
-  const ov = overrideFor(settings.theme);
-  return !!(ov && ov.enabled);
+// Effective settings for the active background: its saved preset wins, unless
+// it's the one being edited (then it previews the global toolbar so changes
+// show live). Single resolution used by the live page, selection and randomize.
+function activeUsesPreset() {
+  return !!overrideFor(settings.theme) && settings.theme !== pendingPresetBg;
 }
 
-// Effective settings for the active background: global, with an enabled
-// override layered on top. This is the single resolution used by the live
-// page, normal selection, and daily randomize alike.
 function computeLive() {
-  const l = Object.assign({}, settings);
-  const ov = overrideFor(settings.theme);
-  if (ov && ov.enabled) {
-    OVERRIDE_FIELDS.forEach(f => { l[f.key] = ov[f.ov]; });
-  }
-  return l;
+  if (activeUsesPreset()) return Object.assign({}, settings, overrideFor(settings.theme));
+  return Object.assign({}, settings);
 }
 
 function recomputeLive() { live = computeLive(); }
+
+// Presets used to be stored under a different schema (mapped field names +
+// an `enabled` flag). Drop any leftover ones so they don't show as phantom
+// presets; a snapshot always carries the real `layout` key.
+function migrateOldPresets() {
+  const ov = settings.overrides;
+  if (!ov) return;
+  let changed = false;
+  for (const key of Object.keys(ov)) {
+    if (!ov[key] || typeof ov[key].layout === 'undefined') { delete ov[key]; changed = true; }
+  }
+  if (changed) Storage.save({ overrides: ov });
+}
 
 // Push the engine options in `live` to the running background. Only re-inits
 // the theme when asked (intensity/quality changes need a fresh init).
@@ -175,6 +183,7 @@ function applyLiveToPage(reinit = false) {
 
 (async () => {
   settings = await Storage.load();
+  migrateOldPresets();
   checkDailyRandomize();
   recomputeLive();
 
@@ -195,6 +204,13 @@ function applyLiveToPage(reinit = false) {
   initClock();
   initSearch();
   renderQuickLinks();
+  document.getElementById('ql-done').addEventListener('click', exitQlEdit);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && qlEditing) exitQlEdit(); });
+  let qlResizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(qlResizeTimer);
+    qlResizeTimer = setTimeout(() => { if (!qlEditing) renderQuickLinks(); }, 200);
+  });
   initSettings();
 
   requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -313,84 +329,405 @@ function initSearch() {
   });
 }
 
-// ── Quick links ───────────────────────────────────────────────────────────────
+
+// ── Quick links — rearrangeable full-tab grid (oval pills or icon-only) ──────
+//
+// Links sit on a grid that fills the whole tab (minus the centre — logo/clock/
+// search — and an edge margin). "Icon only" (Widgets toggle) renders each link
+// as just its app icon; otherwise each is an oval pill with text. Press-and-hold
+// enters edit mode (jiggle + pointer-drag rearrange); positions persist to
+// settings.quickLinkGrid { linkId: {row,col} }.
+
+const QL_MAX = 24;
+const QL_HOLD_MS = 500;
+const QL_MOVE_THRESHOLD = 8;
+const QL_EDGE = 30;                    // keep-clear margin from the screen edges
+
+let qlEditing = false;
+let qlHoldTimer = null;
+let qlGeomCache = null;
+let rebuildQuickLinksEditor = null;    // set by the settings editor
+
+function qlIconOnly() { return !!settings.iconOnly; }
+function qlCellSize() { return qlIconOnly() ? { w: 80, h: 90 } : { w: 184, h: 58 }; }
+
+function qlLinks() {
+  return (settings.quickLinks || []).filter(l => l.url && (l.label || BrandColors.siteName(l.url)));
+}
+
+function ensureLinkIds() {
+  let changed = false;
+  (settings.quickLinks || []).forEach(l => {
+    if (!l.id) { l.id = 'ql_' + Math.random().toString(36).slice(2, 9); changed = true; }
+  });
+  if (changed) Storage.save({ quickLinks: settings.quickLinks });
+}
+
+// The centre region (logo/clock + search) the grid must leave clear.
+function qlProtectedRect() {
+  let rect = null;
+  ['header', 'search-container'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || el.hidden) return;
+    const r = el.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) return;
+    if (!rect) rect = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+    else {
+      rect.left = Math.min(rect.left, r.left); rect.top = Math.min(rect.top, r.top);
+      rect.right = Math.max(rect.right, r.right); rect.bottom = Math.max(rect.bottom, r.bottom);
+    }
+  });
+  if (rect) { const m = 24; rect.left -= m; rect.top -= m; rect.right += m; rect.bottom += m; }
+  return rect;
+}
+
+// Full-viewport grid geometry (centred, with edge margins) + protected rect.
+function qlGeom() {
+  const { w, h } = qlCellSize();
+  const cols = Math.max(1, Math.floor((window.innerWidth  - QL_EDGE * 2) / w));
+  const rows = Math.max(1, Math.floor((window.innerHeight - QL_EDGE * 2) / h));
+  const ox = Math.round((window.innerWidth  - cols * w) / 2);
+  const oy = Math.round((window.innerHeight - rows * h) / 2);
+  return { w, h, cols, rows, ox, oy, prot: qlProtectedRect() };
+}
+
+function qlCellBlocked(g, row, col) {
+  if (!g.prot) return false;
+  const x = g.ox + col * g.w, y = g.oy + row * g.h;
+  return !(x + g.w <= g.prot.left || x >= g.prot.right || y + g.h <= g.prot.top || y >= g.prot.bottom);
+}
+
+function qlFirstFreeCell(g, taken) {
+  for (let r = 0; r < g.rows; r++) for (let c = 0; c < g.cols; c++) {
+    if (!taken.has(r + ',' + c) && !qlCellBlocked(g, r, c)) return { row: r, col: c };
+  }
+  return null;
+}
+
+function qlPlacements(links, g) {
+  const map = settings.quickLinkGrid || {};
+  const taken = new Set();
+  const placed = [], rest = [];
+  links.forEach(link => {
+    const p = map[link.id];
+    const ok = p && Number.isInteger(p.row) && Number.isInteger(p.col) &&
+               p.row < g.rows && p.col < g.cols &&
+               !taken.has(p.row + ',' + p.col) && !qlCellBlocked(g, p.row, p.col);
+    if (ok) { taken.add(p.row + ',' + p.col); placed.push({ link, row: p.row, col: p.col }); }
+    else rest.push(link);
+  });
+  rest.forEach(link => {
+    const cell = qlFirstFreeCell(g, taken);
+    if (!cell) return;
+    taken.add(cell.row + ',' + cell.col);
+    placed.push({ link, row: cell.row, col: cell.col });
+  });
+  return placed;
+}
+
+function qlSaveGrid(map) {
+  settings.quickLinkGrid = map;
+  Storage.save({ quickLinkGrid: map });
+}
+
+function qlPersistFromDom() {
+  const map = {};
+  document.querySelectorAll('#quick-links .ql-tile').forEach(t => {
+    map[t.dataset.id] = { row: +t.dataset.row, col: +t.dataset.col };
+  });
+  qlSaveGrid(map);
+}
 
 function renderQuickLinks() {
   const container = document.getElementById('quick-links');
+  ensureLinkIds();
   container.innerHTML = '';
-  container.classList.toggle('ql-compact', live.cardSize === 'compact');
-  container.classList.toggle('ql-icons-hidden', live.iconStyle === 'custom');
-  (settings.quickLinks || []).forEach(link => {
-    if (!link.url) return;
-    const label = link.label || BrandColors.siteName(link.url);
-    if (!label) return;
+  container.classList.toggle('editing', qlEditing);
+  container.classList.toggle('icon-only', qlIconOnly());
 
-    const a = document.createElement('a');
-    a.className = 'quick-link';
-    a.href = link.url;
-    a.textContent = label;
-    a.addEventListener('click', e => {
-      e.preventDefault();
-      if (live.newTabLinks) window.open(link.url, '_blank');
-      else window.location.href = link.url;
-    });
+  const g = qlGeomCache = qlGeom();
+  const placed = qlPlacements(qlLinks(), g);
 
-    container.appendChild(a);
-    decorateQuickLink(a, link.url);
-  });
+  const map = {};
+  placed.forEach(p => { map[p.link.id] = { row: p.row, col: p.col }; });
+  qlSaveGrid(map);
+
+  placed.forEach(p => container.appendChild(makeQuickLinkTile(p.link, p.row, p.col, g)));
+  qlRenderCells();
 }
 
-// Add the site's logo and brand colour to a pill. Curated brands get a bundled
-// logo (always shown, tinted to the pill accent). Everything else falls back to
-// Chrome's locally-cached favicon, which is only drawn when it's a real icon —
-// the blank default globe (uncached sites) is skipped so those pills stay
-// text-only rather than showing an empty glyph.
-function decorateQuickLink(a, url) {
-  const domain = BrandColors.domainOf(url);
-  if (!domain) return;
+// Dashed empty slots for every free, non-protected cell (edit mode only).
+function qlRenderCells() {
+  const container = document.getElementById('quick-links');
+  container.querySelectorAll('.ql-cell').forEach(c => c.remove());
+  if (!qlEditing) return;
+  const g = qlGeomCache || (qlGeomCache = qlGeom());
 
-  // Curated / cached colour can apply immediately, without touching the icon.
-  const override = BrandColors.lookup(domain);
-  const cached = (settings.brandColorCache || {})[domain];
-  if (settings.brandColors && (override || cached)) {
-    applyBrandStyle(a, override || cached);
+  // Oval slots hug the widest actual pill rather than filling the whole cell.
+  if (!qlIconOnly()) {
+    let maxW = 0;
+    container.querySelectorAll('.ql-tile .ql-body').forEach(b => { maxW = Math.max(maxW, b.offsetWidth); });
+    container.style.setProperty('--ql-slot-w', (maxW ? maxW + 8 : 168) + 'px');
   }
 
-  // Bundled brand logo wins: it's local, always present, and consistent.
+  for (let r = 0; r < g.rows; r++) for (let c = 0; c < g.cols; c++) {
+    if (qlCellBlocked(g, r, c)) continue;
+    const cell = document.createElement('div');
+    cell.className = 'ql-cell';
+    cell.dataset.row = r;
+    cell.dataset.col = c;
+    cell.style.left = (g.ox + c * g.w) + 'px';
+    cell.style.top  = (g.oy + r * g.h) + 'px';
+    cell.style.width  = g.w + 'px';
+    cell.style.height = g.h + 'px';
+    container.insertBefore(cell, container.firstChild);
+  }
+}
+
+function qlPositionTile(tile, row, col, g) {
+  g = g || qlGeomCache;
+  tile.style.left = (g.ox + col * g.w) + 'px';
+  tile.style.top  = (g.oy + row * g.h) + 'px';
+  tile.dataset.row = row;
+  tile.dataset.col = col;
+}
+
+function makeQuickLinkTile(link, row, col, g) {
+  const label = link.label || BrandColors.siteName(link.url);
+  const tile = document.createElement('div');
+  tile.className = 'ql-tile';
+  tile.dataset.id = link.id;
+  tile.tabIndex = 0;
+  tile.setAttribute('role', 'link');
+  tile.setAttribute('aria-label', label);
+  tile.title = label;
+  tile.style.width  = g.w + 'px';
+  tile.style.height = g.h + 'px';
+  qlPositionTile(tile, row, col, g);
+  tile.style.setProperty('--jiggle-delay', Math.floor(Math.random() * 150) + 'ms');
+  tile.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && !qlEditing) { e.preventDefault(); openQuickLink(link); }
+  });
+
+  const body = document.createElement('div');
+  body.className = 'ql-body';
+
+  // Delete badge lives on the app body so it sits on the icon/pill's corner.
+  const del = document.createElement('button');
+  del.className = 'ql-del';
+  del.type = 'button';
+  del.setAttribute('aria-label', 'Remove ' + label);
+  del.textContent = '×';
+  del.addEventListener('pointerdown', e => e.stopPropagation());
+  del.addEventListener('click', e => { e.stopPropagation(); removeQuickLink(link.id); });
+  body.appendChild(del);
+
+  // Both modes show the app icon (brand logo → favicon → letter), tinted by the
+  // theme colour when enabled. Oval mode adds the text label beside it.
+  const box = document.createElement('div');
+  box.className = 'ql-icon-box';
+  body.appendChild(box);
+  decorateQuickTile(box, link.url, label);
+
+  if (!qlIconOnly()) {
+    const lbl = document.createElement('span');
+    lbl.className = 'ql-tile-label';
+    lbl.textContent = label;
+    body.appendChild(lbl);
+  }
+  tile.appendChild(body);
+
+  attachTilePointer(tile, link);
+  return tile;
+}
+
+function openQuickLink(link) {
+  if (live.newTabLinks) window.open(link.url, '_blank');
+  else window.location.href = link.url;
+}
+
+function removeQuickLink(id) {
+  const idx = (settings.quickLinks || []).findIndex(l => l.id === id);
+  if (idx === -1) return;
+  settings.quickLinks.splice(idx, 1);
+  if (settings.quickLinkGrid) delete settings.quickLinkGrid[id];
+  Storage.save({ quickLinks: settings.quickLinks, quickLinkGrid: settings.quickLinkGrid || {} });
+  renderQuickLinks();
+  if (rebuildQuickLinksEditor) rebuildQuickLinksEditor();
+}
+
+// Fill a tile's icon box: bundled brand logo → favicon → first-letter fallback.
+// When "Use Theme Color" is on the whole tile goes branded: --ql-bg fills the
+// pill / icon box (the app's outer shell, e.g. Spotify black) and --ql-fg tints
+// the text and the masked logo mark (the app's accent, e.g. Spotify green).
+function decorateQuickTile(box, url, label) {
+  const body = box.parentElement;
+  const domain = BrandColors.domainOf(url);
+  const letter = () => { box.classList.add('ql-letter'); box.textContent = (label || '?').charAt(0).toUpperCase(); };
+  if (!domain) { letter(); return; }
+
+  const override = BrandColors.lookup(domain);
+  const cached   = (settings.brandColorCache || {})[domain];
+  const colors   = override || cached;
+  if (settings.brandColors && colors) applyBrandColors(body, colors);
+
   const logoDomain = BrandColors.logoDomain(domain);
   if (logoDomain) {
     const logo = document.createElement('span');
-    logo.className = 'ql-logo';
+    logo.className = 'ql-logo-mask';
     logo.style.setProperty('--ql-logo-src', `url("${BrandColors.logoUrl(logoDomain)}")`);
-    a.insertBefore(logo, a.firstChild);
+    box.appendChild(logo);
     return;
   }
 
-  BrandColors.analyze(url).then(({ blank, colors }) => {
+  BrandColors.analyze(url).then(({ blank, colors: found }) => {
     if (!blank) {
       const img = document.createElement('img');
-      img.className = 'ql-icon';
-      img.src = BrandColors.faviconUrl(url, 32);
+      img.className = 'ql-fav';
+      img.src = BrandColors.faviconUrl(url, 64);
       img.alt = '';
       img.decoding = 'async';
-      img.addEventListener('error', () => img.remove());
-      a.insertBefore(img, a.firstChild);
+      img.addEventListener('error', () => { img.remove(); letter(); });
+      box.appendChild(img);
+    } else {
+      letter();
     }
-    // Remember an extracted colour (only successes) and apply it if we had no
-    // curated/cached one already.
-    if (colors && !override && !cached) {
+    if (found && !colors) {
       settings.brandColorCache = settings.brandColorCache || {};
-      settings.brandColorCache[domain] = colors;
+      settings.brandColorCache[domain] = found;
       Storage.save({ brandColorCache: settings.brandColorCache });
-      if (settings.brandColors) applyBrandStyle(a, colors);
+      if (settings.brandColors) applyBrandColors(body, found);
     }
   });
 }
 
-function applyBrandStyle(a, colors) {
-  a.style.setProperty('--ql-bg', colors.bg);
-  a.style.setProperty('--ql-fg', colors.fg);
-  a.classList.add('branded');
+// Flag a tile as brand-coloured; CSS reads --ql-bg / --ql-fg per display mode.
+function applyBrandColors(body, colors) {
+  body.style.setProperty('--ql-bg', colors.bg);
+  body.style.setProperty('--ql-fg', colors.fg);
+  body.classList.add('branded');
+}
+
+// ── Grid interaction: press-hold, jiggle edit mode, pointer drag ─────────────
+
+function clearHold() { if (qlHoldTimer) { clearTimeout(qlHoldTimer); qlHoldTimer = null; } }
+
+function attachTilePointer(tile, link) {
+  tile.addEventListener('pointerdown', e => {
+    if (e.button && e.button !== 0) return;
+    const state = { link, tile, x0: e.clientX, y0: e.clientY, pid: e.pointerId, moved: false, dragging: false };
+    try { tile.setPointerCapture(e.pointerId); } catch (_) {}
+
+    const onMove = ev => {
+      if (!state.dragging) {
+        if (Math.hypot(ev.clientX - state.x0, ev.clientY - state.y0) > QL_MOVE_THRESHOLD) {
+          state.moved = true;
+          clearHold();
+          if (qlEditing) beginDrag(state, ev);
+          else cleanup();          // moved before the hold fired → not a press-hold
+        }
+        return;
+      }
+      dragMove(state, ev);
+    };
+    const onUp = () => {
+      clearHold();
+      if (state.dragging) endDrag(state);
+      else if (!state.moved && !qlEditing) openQuickLink(link);
+      cleanup();
+    };
+    const cleanup = () => {
+      try { tile.releasePointerCapture(state.pid); } catch (_) {}
+      tile.removeEventListener('pointermove', onMove);
+      tile.removeEventListener('pointerup', onUp);
+      tile.removeEventListener('pointercancel', onUp);
+    };
+
+    tile.addEventListener('pointermove', onMove);
+    tile.addEventListener('pointerup', onUp);
+    tile.addEventListener('pointercancel', onUp);
+
+    if (!qlEditing) {
+      clearHold();
+      qlHoldTimer = setTimeout(() => {
+        qlHoldTimer = null;
+        enterQlEdit();
+        beginDrag(state, { clientX: state.x0, clientY: state.y0 });   // hold → grab the tile
+      }, QL_HOLD_MS);
+    }
+  });
+}
+
+function qlHighlightCell(row, col) {
+  const container = document.getElementById('quick-links');
+  container.querySelectorAll('.ql-cell.highlight').forEach(c => c.classList.remove('highlight'));
+  const cell = container.querySelector(`.ql-cell[data-row="${row}"][data-col="${col}"]`);
+  if (cell) cell.classList.add('highlight');
+}
+
+function beginDrag(state, ev) {
+  state.dragging = true;
+  const rect = state.tile.getBoundingClientRect();
+  state.offsetX = ev.clientX - rect.left;
+  state.offsetY = ev.clientY - rect.top;
+  state.curRow = +state.tile.dataset.row;
+  state.curCol = +state.tile.dataset.col;
+  state.tile.classList.add('dragging');
+  qlHighlightCell(state.curRow, state.curCol);
+  dragMove(state, ev);
+}
+
+function dragMove(state, ev) {
+  const g = qlGeomCache;
+  const crect = document.getElementById('quick-links').getBoundingClientRect();
+  const x = ev.clientX - crect.left - state.offsetX;
+  const y = ev.clientY - crect.top  - state.offsetY;
+  state.tile.style.left = x + 'px';
+  state.tile.style.top  = y + 'px';
+
+  let col = Math.round((x - g.ox) / g.w);
+  let row = Math.round((y - g.oy) / g.h);
+  col = Math.max(0, Math.min(g.cols - 1, col));
+  row = Math.max(0, Math.min(g.rows - 1, row));
+
+  if ((row !== state.curRow || col !== state.curCol) && !qlCellBlocked(g, row, col)) {
+    const occ = document.querySelector(`#quick-links .ql-tile[data-row="${row}"][data-col="${col}"]:not(.dragging)`);
+    if (occ) qlPositionTile(occ, state.curRow, state.curCol, g);   // swap occupant into the vacated cell
+    state.curRow = row;
+    state.curCol = col;
+    qlHighlightCell(row, col);                                     // light up the target slot
+  }
+}
+
+function endDrag(state) {
+  state.tile.classList.remove('dragging');
+  document.querySelectorAll('#quick-links .ql-cell.highlight').forEach(c => c.classList.remove('highlight'));
+  qlPositionTile(state.tile, state.curRow, state.curCol);   // ease-out snap (CSS transition)
+  qlPersistFromDom();
+}
+
+function enterQlEdit() {
+  if (qlEditing) return;
+  qlEditing = true;
+  document.getElementById('quick-links').classList.add('editing');
+  qlRenderCells();
+  document.getElementById('ql-done').classList.remove('hidden');
+  setTimeout(() => document.addEventListener('pointerdown', qlOutsideDown, true), 0);
+}
+
+function exitQlEdit() {
+  if (!qlEditing) return;
+  qlEditing = false;
+  document.getElementById('quick-links').classList.remove('editing');
+  qlRenderCells();
+  document.getElementById('ql-done').classList.add('hidden');
+  document.removeEventListener('pointerdown', qlOutsideDown, true);
+  qlPersistFromDom();
+}
+
+function qlOutsideDown(e) {
+  if (e.target.closest('.ql-tile') || e.target.closest('#ql-done')) return;
+  exitQlEdit();
 }
 
 // ── Daily Randomize ───────────────────────────────────────────────────────────
@@ -420,6 +757,7 @@ function checkDailyRandomize() {
 }
 
 function handleRandomizeClick(pool) {
+  pendingPresetBg = null;
   const wasActive = settings.randomizeDaily === pool;
   if (wasActive) {
     settings.randomizeDaily = null;
@@ -489,12 +827,13 @@ function toggleFavorite(themeKey) {
 // straight to Home. There's no separate categories page — the tiles under the
 // preview are that index.
 
-const VIEW_INDEX = { main: 0, backgrounds: 1, editbg: 2 };
-const nav = { view: 'main', categoryKey: null, editKey: null };
+const VIEW_INDEX = { main: 0, backgrounds: 1 };
+// pickMode: 'select' (tap a tile to use it) | 'preset' (tap a tile to attach a
+// preset to it). categoryKey 'all' shows every background grouped by category.
+const nav = { view: 'main', categoryKey: null, pickMode: 'select' };
 let activePanel = 'home';   // which rail section is showing on the main view
 let showPanel;              // set by initRailNav; switches the active rail section
 let livePreview;
-let editPreview;            // live scene preview on the Edit background page
 
 function applyNavTransforms(animate = true) {
   const current = VIEW_INDEX[nav.view];
@@ -508,22 +847,28 @@ function applyNavTransforms(animate = true) {
 }
 
 function navigateTo(view, arg = null, animate = true) {
-  const prev = nav.view;
   nav.view = view;
   if (view === 'backgrounds') nav.categoryKey = arg;
-  if (view === 'editbg') nav.editKey = arg;
-
-  // Leaving the Edit page tears down its own live preview.
-  if (prev === 'editbg' && view !== 'editbg' && editPreview) editPreview.stop();
 
   if (view === 'main') {
     renderAppearance();
-  } else {
+  } else if (view === 'backgrounds') {
     livePreview.stop();
-    if (view === 'backgrounds') buildBackgroundGrid(nav.categoryKey);
-    else if (view === 'editbg') buildEditBackground(nav.editKey);
+    buildBackgroundGrid(nav.categoryKey);
   }
   applyNavTransforms(animate);
+}
+
+// Enter the background grid to select a background normally.
+function openBackgroundBrowse(categoryKey) {
+  nav.pickMode = 'select';
+  navigateTo('backgrounds', categoryKey);
+}
+
+// Enter the background grid (all backgrounds) to attach a new preset.
+function openPresetPicker() {
+  nav.pickMode = 'preset';
+  navigateTo('backgrounds', 'all');
 }
 
 // ── Screen 1: Appearance ─────────────────────────────────────────────────────
@@ -602,7 +947,7 @@ function buildCategoryGrid(gridId = 'category-grid') {
     label.textContent = cat.label;
 
     btn.append(thumb, label);
-    btn.addEventListener('click', () => navigateTo('backgrounds', cat.key));
+    btn.addEventListener('click', () => openBackgroundBrowse(cat.key));
     grid.appendChild(btn);
   });
 }
@@ -610,15 +955,30 @@ function buildCategoryGrid(gridId = 'category-grid') {
 // ── Screen 3: Background grid ────────────────────────────────────────────────
 
 function buildBackgroundGrid(categoryKey) {
+  const preset = nav.pickMode === 'preset';
+  const randWrap = document.getElementById('backgrounds-randomize');
+  const grid = document.getElementById('background-grid');
+  randWrap.innerHTML = '';
+  grid.innerHTML = '';
+
+  // 'all' shows every background grouped by category (used by the preset picker).
+  if (categoryKey === 'all') {
+    document.getElementById('backgrounds-title').textContent =
+      preset ? 'Choose a Background' : 'All Backgrounds';
+    THEME_GROUPS.forEach(group => {
+      const heading = document.createElement('div');
+      heading.className = 'bg-section-label';
+      heading.textContent = group.label;
+      grid.appendChild(heading);
+      group.themes.forEach(themeKey => grid.appendChild(makeBackgroundTile(themeKey)));
+    });
+    return;
+  }
+
   const cat = getCategoryEntry(categoryKey);
   if (!cat) { navigateTo('main'); return; }
 
   document.getElementById('backgrounds-title').textContent = cat.label;
-
-  const randWrap = document.getElementById('backgrounds-randomize');
-  randWrap.innerHTML = '';
-  const grid = document.getElementById('background-grid');
-  grid.innerHTML = '';
 
   if (!cat.themes.length) {
     const empty = document.createElement('div');
@@ -628,7 +988,7 @@ function buildBackgroundGrid(categoryKey) {
     return;
   }
 
-  randWrap.appendChild(makeRandomizeDailyBtn(cat.key, `Randomize ${cat.label} Daily`));
+  if (!preset) randWrap.appendChild(makeRandomizeDailyBtn(cat.key, `Randomize ${cat.label} Daily`));
   cat.themes.forEach(themeKey => grid.appendChild(makeBackgroundTile(themeKey)));
 }
 
@@ -656,17 +1016,10 @@ function makeBackgroundTile(themeKey) {
   heart.addEventListener('click', e => { e.stopPropagation(); toggleFavorite(themeKey); });
   thumbBtn.appendChild(heart);
 
-  // Edit icon sits on the artwork itself, bottom-left. Tapping it opens the
-  // full-page Edit background screen instead of selecting the background.
-  const edit = document.createElement('button');
-  edit.type = 'button';
-  edit.className = 'tile-edit';
-  edit.setAttribute('aria-label', `Edit ${THEME_LABELS[themeKey]} background`);
-  edit.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13.5 6.5l4 4M4 20l1-4L15.5 5.5a1.5 1.5 0 0 1 2.12 0l.88.88a1.5 1.5 0 0 1 0 2.12L8 19l-4 1z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  edit.addEventListener('click', e => { e.stopPropagation(); navigateTo('editbg', themeKey); });
-  thumbBtn.appendChild(edit);
-
-  thumbBtn.addEventListener('click', () => applyTheme(themeKey));
+  // Tapping the tile selects the background — or, in preset-pick mode, attaches
+  // a new preset to it.
+  thumbBtn.addEventListener('click', () =>
+    nav.pickMode === 'preset' ? choosePresetBackground(themeKey) : applyTheme(themeKey));
 
   const row = document.createElement('div');
   row.className = 'tile-name-row';
@@ -683,9 +1036,10 @@ function makeBackgroundTile(themeKey) {
 // Applying stays on the grid (Chrome behavior): swap the live background and
 // move the checkmark, no navigation.
 function applyTheme(themeKey) {
+  pendingPresetBg = null;     // a normal selection isn't a preset-edit session
   settings.theme = themeKey;
   Storage.save({ theme: themeKey });
-  recomputeLive();            // apply the new background's preset (if enabled)
+  recomputeLive();            // apply the new background's preset (if it has one)
   applyLiveToPage(true);
   refreshSelectionMarks();
 }
@@ -716,214 +1070,178 @@ function refreshSelectionMarks() {
     THEME_LABELS[settings.theme] || '';
 }
 
-// ── Screen 4: Edit background (per-background Advanced Custom Preset) ─────────
+// ── Advanced Customization: per-background presets ───────────────────────────
 
-const HEADER_OPTS    = [['logo', 'Logo'], ['time', 'Time'], ['date', 'Date']];
-const LOGO_POS_OPTS  = [
-  ['top-left', 'Top left'], ['top-right', 'Top right'],
-  ['bottom-left', 'Bottom left'], ['bottom-right', 'Bottom right'],
-  ['top-center', 'Top center'], ['bottom-center', 'Bottom center'], ['center', 'Center'],
-];
-const FONT_OPTS      = Object.entries(FONTS).map(([k, f]) => [k, f.label]);
-const INTENSITY_OPTS = [['low', 'Low'], ['medium', 'Med'], ['high', 'High']];
-const SPEED_OPTS     = [[0.5, 'Slow'], [0.75, 'Relaxed'], [1, 'Normal'], [1.5, 'Fast'], [2, 'Very fast']];
-const CARDSIZE_OPTS  = [['compact', 'Compact'], ['roomy', 'Roomy']];
-const ICONSTYLE_OPTS = [['favicon', 'Favicon'], ['custom', 'Custom']];
+// Pick a background from the preset picker: switch the live tab to it and keep
+// it pending so the user can tweak the toolbar (live) and then Save.
+function choosePresetBackground(themeKey) {
+  pendingPresetBg = themeKey;
+  settings.theme = themeKey;
+  Storage.save({ theme: themeKey });
+  recomputeLive();               // pending === active → previews the live toolbar
+  applyLiveToPage(true);
+  refreshSelectionMarks();
+  nav.pickMode = 'select';
+  navigateTo('main');
+  showPanel('advanced');
+}
 
-function nearestSpeedValue(v) {
-  let best = SPEED_OPTS[0][0], bestD = Infinity;
-  for (const [val] of SPEED_OPTS) {
-    const d = Math.abs(val - v);
-    if (d < bestD) { bestD = d; best = val; }
+// Re-open a saved preset for editing: make it active + pending so toolbar tweaks
+// preview live before re-saving.
+function editPreset(themeKey) {
+  pendingPresetBg = themeKey;
+  settings.theme = themeKey;
+  Storage.save({ theme: themeKey });
+  recomputeLive();
+  applyLiveToPage(true);
+  refreshSelectionMarks();
+  buildAdvancedPanel();
+}
+
+// Snapshot the current toolbar settings as this background's preset.
+function savePreset(themeKey) {
+  settings.overrides = settings.overrides || {};
+  settings.overrides[themeKey] = snapshotSettings();
+  savePresets();
+  recomputeLive();
+  buildAdvancedPanel();
+  flashSaved(themeKey);
+}
+
+function deletePreset(themeKey) {
+  if (settings.overrides) delete settings.overrides[themeKey];
+  savePresets();
+  if (pendingPresetBg === themeKey) pendingPresetBg = null;
+  if (settings.theme === themeKey) { recomputeLive(); applyLiveToPage(true); }
+  buildAdvancedPanel();
+}
+
+function buildAdvancedPanel() {
+  const list = document.getElementById('preset-list');
+  if (!list) return;
+  list.innerHTML = '';
+
+  const keys = new Set(Object.keys(settings.overrides || {}));
+  if (pendingPresetBg) keys.add(pendingPresetBg);
+  const arr = [...keys].filter(k => THEME_MAP[k]);
+
+  if (!arr.length) {
+    const empty = document.createElement('div');
+    empty.className = 'preset-empty';
+    empty.textContent = 'No presets yet. Add one to save custom settings for a specific background.';
+    list.appendChild(empty);
+    return;
   }
-  return best;
+  arr.forEach(themeKey => list.appendChild(makePresetCard(themeKey)));
 }
 
-// Whether the edited background currently reads from its override or from global.
-function editSource() {
-  const ov = overrideFor(nav.editKey);
-  return { ov, enabled: !!(ov && ov.enabled) };
+function makePresetCard(themeKey) {
+  const saved    = !!overrideFor(themeKey);
+  const isActive = settings.theme === themeKey;
+
+  const card = document.createElement('div');
+  card.className = 'preset-card' + (isActive ? ' active' : '');
+  card.dataset.theme = themeKey;
+
+  const thumb = document.createElement('button');
+  thumb.type = 'button';
+  thumb.className = 'preset-card-thumb tile-thumb wide';
+  thumb.setAttribute('aria-label', `Edit ${THEME_LABELS[themeKey]} preset`);
+  thumb.appendChild(makeThumbImg(themeKey));
+  if (isActive) thumb.appendChild(makeCheckBadge());
+  thumb.addEventListener('click', () => editPreset(themeKey));
+
+  const name = document.createElement('div');
+  name.className = 'preset-card-name';
+  name.textContent = THEME_LABELS[themeKey];
+
+  const status = document.createElement('div');
+  status.className = 'preset-card-status';
+  status.textContent = saved
+    ? (isActive ? 'Active — showing this preset' : 'Saved preset')
+    : 'Adjust the toolbar, then save';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'preset-save-btn';
+  saveBtn.textContent = 'Save Current Settings';
+  saveBtn.addEventListener('click', () => savePreset(themeKey));
+
+  const delBtn = document.createElement('button');
+  delBtn.type = 'button';
+  delBtn.className = 'preset-delete-btn';
+  delBtn.textContent = 'Delete';
+  delBtn.addEventListener('click', () => askDeletePreset(themeKey));
+
+  card.append(thumb, name, status, saveBtn, delBtn);
+  return card;
 }
 
-function editFieldValue(ovKey, globalKey) {
-  const { ov, enabled } = editSource();
-  return enabled ? ov[ovKey] : settings[globalKey];
+// Brief visual confirmation on a preset's Save button.
+function flashSaved(themeKey) {
+  const btn = document.querySelector(`.preset-card[data-theme="${themeKey}"] .preset-save-btn`);
+  if (!btn) return;
+  const prev = btn.textContent;
+  btn.textContent = 'Saved ✓';
+  btn.classList.add('saved');
+  setTimeout(() => { btn.textContent = prev; btn.classList.remove('saved'); }, 1200);
 }
 
-// Engine opts the preview / live page should show for the edited background:
-// its override values when enabled, otherwise the current global values.
-function editEngineOpts() {
-  const { ov, enabled } = editSource();
-  const intensity = enabled ? ov.intensity  : settings.intensity;
-  const speed     = enabled ? ov.speed       : settings.animSpeed;
-  const staticM   = enabled ? ov.static      : settings.staticMode;
-  return {
-    intensity:  Storage.intensityValue(intensity),
-    quality:    Storage.qualityValue(intensity),
-    speed,
-    staticMode: staticM,
-  };
+// ── Delete-preset confirmation popup ─────────────────────────────────────────
+
+let deleteTarget = null;
+
+function askDeletePreset(themeKey) {
+  deleteTarget = themeKey;
+  document.getElementById('preset-delete-confirm').classList.remove('hidden');
 }
 
-function startEditPreview() {
-  editPreview.show(THEME_MAP[nav.editKey] || StarfieldTheme, editEngineOpts());
-}
-
-function makeEditSelectRow(label, options, current, onChange) {
-  const row = document.createElement('div');
-  row.className = 'edit-row';
-  const lbl = document.createElement('span');
-  lbl.className = 'edit-row-label';
-  lbl.textContent = label;
-  const sel = document.createElement('select');
-  sel.className = 'edit-select';
-  options.forEach(([val, text]) => {
-    const o = document.createElement('option');
-    o.value = String(val);
-    o.textContent = text;
-    sel.appendChild(o);
+function initDeleteConfirm() {
+  const overlay = document.getElementById('preset-delete-confirm');
+  const close = () => { overlay.classList.add('hidden'); deleteTarget = null; };
+  document.getElementById('preset-delete-yes').addEventListener('click', () => {
+    if (deleteTarget) deletePreset(deleteTarget);
+    close();
   });
-  sel.value = String(current);
-  sel.addEventListener('change', () => onChange(sel.value));
-  row.append(lbl, sel);
-  return row;
+  document.getElementById('preset-delete-no').addEventListener('click', close);
 }
 
-function makeEditToggleRow(label, checked, onChange) {
-  const row = document.createElement('label');
-  row.className = 'edit-row';
-  const lbl = document.createElement('span');
-  lbl.className = 'edit-row-label';
-  lbl.textContent = label;
-  const cb = document.createElement('input');
-  cb.type = 'checkbox';
-  cb.checked = !!checked;
-  cb.addEventListener('change', () => onChange(cb.checked));
-  row.append(lbl, cb);
-  return row;
+// ── Adjust-preset popup ──────────────────────────────────────────────────────
+// When the active background is showing a SAVED preset and the user changes a
+// toolbar setting, ask whether that change should be written into the preset.
+// (Not shown while a preset is being set up on the Advanced page — there the
+// toolbar previews live and Save is explicit.)
+
+let adjustOpen = false;
+let adjustFields = null;
+
+function maybeAdjustPreset(fields) {
+  if (adjustOpen || !activeUsesPreset()) return;
+  const ov = overrideFor(settings.theme);
+  // Only ask about fields whose new global value actually differs from the preset.
+  const changed = fields.filter(k => ov[k] !== settings[k]);
+  if (!changed.length) return;
+  adjustFields = changed;
+  adjustOpen = true;
+  document.getElementById('preset-adjust-name').textContent =
+    THEME_LABELS[settings.theme] || 'This background';
+  document.getElementById('preset-adjust-confirm').classList.remove('hidden');
 }
 
-// Write one field into the edited background's override. Auto-enables the
-// preset on first touch, seeding a full copy of global so only this field moves.
-function editField(ovKey, value) {
-  settings.overrides = settings.overrides || {};
-  let ov = settings.overrides[nav.editKey];
-  if (!ov || !ov.enabled) {
-    ov = makeOverrideFromGlobal();          // exact copy of current global
-    settings.overrides[nav.editKey] = ov;
-  }
-  ov[ovKey] = value;
-  ov.enabled = true;
-  saveOverrides();
-
-  if (nav.editKey === settings.theme) {
-    recomputeLive();
-    applyLiveToPage(ovKey === 'intensity');
-    refreshSelectionMarks();
-  }
-  if (ovKey === 'speed') editPreview.setSpeed(editEngineOpts().speed);
-  else if (ovKey === 'intensity' || ovKey === 'static') startEditPreview();
-
-  renderEditPage();
-}
-
-function editToggleEnabled(checked) {
-  settings.overrides = settings.overrides || {};
-  let ov = settings.overrides[nav.editKey];
-  if (checked) {
-    if (!ov) { ov = makeOverrideFromGlobal(); settings.overrides[nav.editKey] = ov; }
-    ov.enabled = true;
-  } else if (ov) {
-    ov.enabled = false;   // keep the object cached so re-enabling restores it
-  }
-  saveOverrides();
-
-  if (nav.editKey === settings.theme) {
-    recomputeLive();
-    applyLiveToPage(true);
-    refreshSelectionMarks();
-  }
-  startEditPreview();     // effective opts may have flipped override↔global
-  renderEditPage();
-}
-
-function renderEditStatus() {
-  const { enabled } = editSource();
-  const statusEl = document.getElementById('editbg-status');
-  statusEl.textContent = enabled ? 'Custom preset active' : 'Using global settings';
-  statusEl.classList.toggle('active', enabled);
-  document.getElementById('editbg-enabled').checked = enabled;
-  document.getElementById('editbg-settings').classList.toggle('edit-inherited', !enabled);
-}
-
-function renderEditRows() {
-  const box = document.getElementById('editbg-settings');
-  box.innerHTML = '';
-  box.append(
-    makeEditSelectRow('Header', HEADER_OPTS, editFieldValue('header', 'layout'),
-      v => editField('header', v)),
-    makeEditToggleRow('Hide text', editFieldValue('hideText', 'hideText'),
-      v => editField('hideText', v)),
-    makeEditToggleRow('Hide search bar', editFieldValue('hideSearch', 'hideSearch'),
-      v => editField('hideSearch', v)),
-    makeEditSelectRow('Logo position', LOGO_POS_OPTS, editFieldValue('logoPosition', 'logoPosition'),
-      v => editField('logoPosition', v)),
-    makeEditSelectRow('Font', FONT_OPTS, editFieldValue('font', 'font'),
-      v => editField('font', v)),
-    makeEditSelectRow('Animation intensity', INTENSITY_OPTS, editFieldValue('intensity', 'intensity'),
-      v => editField('intensity', v)),
-    makeEditSelectRow('Animation speed', SPEED_OPTS, nearestSpeedValue(editFieldValue('speed', 'animSpeed')),
-      v => editField('speed', parseFloat(v))),
-    makeEditToggleRow('Static mode', editFieldValue('static', 'staticMode'),
-      v => editField('static', v)),
-    makeEditSelectRow('Quick link card size', CARDSIZE_OPTS, editFieldValue('cardSize', 'cardSize'),
-      v => editField('cardSize', v)),
-    makeEditSelectRow('Quick link icon style', ICONSTYLE_OPTS, editFieldValue('iconStyle', 'iconStyle'),
-      v => editField('iconStyle', v)),
-    makeEditToggleRow('Open links in new tab', editFieldValue('newTabLinks', 'newTabLinks'),
-      v => editField('newTabLinks', v)),
-  );
-}
-
-function renderEditPage() {
-  renderEditStatus();
-  renderEditRows();
-}
-
-function buildEditBackground(themeKey) {
-  document.getElementById('editbg-title').textContent = THEME_LABELS[themeKey] || '';
-  startEditPreview();
-  renderEditPage();
-}
-
-// ── Global-settings conflict popup ───────────────────────────────────────────
-// Changing a global default while the ACTIVE background has an enabled override
-// asks whether to drop that override. The global change is already applied by
-// the caller; this only decides the override's fate.
-
-let conflictOpen = false;
-
-function maybeConflictPopup() {
-  if (conflictOpen || !activeHasEnabledOverride()) return;
-  conflictOpen = true;
-  document.getElementById('preset-conflict').classList.remove('hidden');
-}
-
-function initConflictPopup() {
-  const overlay = document.getElementById('preset-conflict');
-  const close = () => { overlay.classList.add('hidden'); conflictOpen = false; };
-
-  document.getElementById('preset-conflict-yes').addEventListener('click', () => {
+function initAdjustConfirm() {
+  const overlay = document.getElementById('preset-adjust-confirm');
+  const close = () => { overlay.classList.add('hidden'); adjustOpen = false; adjustFields = null; };
+  document.getElementById('preset-adjust-yes').addEventListener('click', () => {
     const ov = overrideFor(settings.theme);
-    if (ov) {
-      ov.enabled = false;          // revert active background to inherit global
-      saveOverrides();
+    if (ov && adjustFields) {
+      adjustFields.forEach(k => { ov[k] = settings[k]; });   // write the changed field(s) in
+      savePresets();
       recomputeLive();
       applyLiveToPage(true);
     }
     close();
   });
-  document.getElementById('preset-conflict-no').addEventListener('click', close);
+  document.getElementById('preset-adjust-no').addEventListener('click', close);
 }
 
 // ── Settings panel ────────────────────────────────────────────────────────────
@@ -934,20 +1252,22 @@ function initSettings() {
   const panel   = document.getElementById('settings-panel');
 
   livePreview = new ScenePreview.LivePreview(document.getElementById('appearance-preview'));
-  editPreview = new ScenePreview.LivePreview(document.getElementById('editbg-preview'));
   applyNavTransforms(false);
 
   const open = () => {
     overlay.classList.remove('hidden', 'closing');
     overlay.classList.add('open');
     panel.setAttribute('aria-hidden', 'false');
-    showPanel('home');   // always open on the Home tab
+    showPanel('home');   // always open on the Backgrounds tab
     document.querySelector('#view-main .settings-close').focus();
   };
   const close = () => {
     overlay.classList.remove('open');
     overlay.classList.add('closing');
     livePreview.stop();
+    // End any preset-edit session: the active background settles onto its saved
+    // preset (if any) now that we're no longer previewing the toolbar on it.
+    if (pendingPresetBg) { pendingPresetBg = null; recomputeLive(); applyLiveToPage(true); }
     setTimeout(() => {
       overlay.classList.add('hidden');
       overlay.classList.remove('closing');
@@ -962,9 +1282,14 @@ function initSettings() {
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.classList.contains('open')) close(); });
 
-  document.getElementById('back-to-home').addEventListener('click', () => navigateTo('main'));
-  document.getElementById('back-to-backgrounds').addEventListener('click', () => navigateTo('backgrounds', nav.categoryKey));
-  document.getElementById('editbg-enabled').addEventListener('change', e => editToggleEnabled(e.target.checked));
+  // Back from the background grid returns to whichever panel launched it.
+  document.getElementById('back-to-home').addEventListener('click', () => {
+    const toPanel = nav.pickMode === 'preset' ? 'advanced' : 'home';
+    nav.pickMode = 'select';
+    navigateTo('main');
+    showPanel(toPanel);
+  });
+  document.getElementById('add-preset').addEventListener('click', openPresetPicker);
 
   const randAll = document.getElementById('randomize-all-daily');
   randAll.classList.toggle('active', settings.randomizeDaily === 'all');
@@ -977,7 +1302,8 @@ function initSettings() {
   buildQuickLinksEditor();
   buildAnimationSettings();
   initRailNav();
-  initConflictPopup();
+  initDeleteConfirm();
+  initAdjustConfirm();
 }
 
 // Logo position picker — corner + center-column dots over a mini new-tab rect.
@@ -992,7 +1318,7 @@ function buildLogoPositionPicker() {
       recomputeLive();
       applyLogoPosition();
       refresh();
-      maybeConflictPopup();
+      maybeAdjustPreset(['logoPosition']);
     });
   });
 }
@@ -1014,6 +1340,7 @@ function buildLogoScaleSlider() {
     applyLogoScale();
     setLabel(v);
   });
+  slider.addEventListener('change', () => maybeAdjustPreset(['logoScale']));
 }
 
 // Left icon rail: only the active section's panel is shown. The Home panel
@@ -1031,9 +1358,10 @@ function initRailNav() {
     });
     panels.forEach(p => p.classList.toggle('active', p.dataset.panel === panel));
 
-    // The live scene preview only belongs to the Home panel.
+    // The live scene preview only belongs to the Backgrounds (home) panel.
     if (panel === 'home') renderAppearance();
     else livePreview.stop();
+    if (panel === 'advanced') buildAdvancedPanel();
   };
 
   railBtns.forEach(btn => btn.addEventListener('click', () => showPanel(btn.dataset.panel)));
@@ -1057,7 +1385,7 @@ function buildFontSettings() {
       recomputeLive();
       applyFont();
       document.querySelectorAll('.font-option').forEach(b => b.classList.toggle('active', b === btn));
-      maybeConflictPopup();
+      maybeAdjustPreset(['font']);
     });
     container.appendChild(btn);
   }
@@ -1075,6 +1403,7 @@ function buildDisplaySettings() {
   const hideTextEl  = document.getElementById('setting-hide-text');
   const hideSearchEl= document.getElementById('setting-hide-search');
   const brandEl     = document.getElementById('setting-brand-colors');
+  const iconOnlyEl  = document.getElementById('setting-icon-only');
 
   const updateSubSections = () => {
     timeSubEl.hidden = settings.layout !== 'time';
@@ -1089,6 +1418,7 @@ function buildDisplaySettings() {
   hideTextEl.checked  = settings.hideText;
   hideSearchEl.checked= settings.hideSearch;
   brandEl.checked     = settings.brandColors;
+  iconOnlyEl.checked  = settings.iconOnly;
   updateSubSections();
 
   layoutBtns.forEach(btn => {
@@ -1100,7 +1430,7 @@ function buildDisplaySettings() {
       recomputeLive();
       renderHeader();
       tickClock();
-      maybeConflictPopup();
+      maybeAdjustPreset(['layout']);
     });
   });
 
@@ -1109,12 +1439,14 @@ function buildDisplaySettings() {
     Storage.save({ clockFormat: settings.clockFormat });
     recomputeLive();
     tickClock();
+    maybeAdjustPreset(['clockFormat']);
   });
   secsEl.addEventListener('change', () => {
     settings.showSeconds = secsEl.checked;
     Storage.save({ showSeconds: secsEl.checked });
     recomputeLive();
     tickClock();
+    maybeAdjustPreset(['showSeconds']);
   });
   dateEl.addEventListener('change', () => {
     settings.showDate = dateEl.checked;
@@ -1122,6 +1454,7 @@ function buildDisplaySettings() {
     recomputeLive();
     renderHeader();
     tickClock();
+    maybeAdjustPreset(['showDate']);
   });
   timeDateEl.addEventListener('change', () => {
     settings.showTimeInDate = timeDateEl.checked;
@@ -1129,25 +1462,32 @@ function buildDisplaySettings() {
     recomputeLive();
     renderHeader();
     tickClock();
+    maybeAdjustPreset(['showTimeInDate']);
   });
   hideTextEl.addEventListener('change', () => {
     settings.hideText = hideTextEl.checked;
     Storage.save({ hideText: hideTextEl.checked });
     recomputeLive();
     renderHeader();
-    maybeConflictPopup();
+    maybeAdjustPreset(['hideText']);
   });
   hideSearchEl.addEventListener('change', () => {
     settings.hideSearch = hideSearchEl.checked;
     Storage.save({ hideSearch: hideSearchEl.checked });
     recomputeLive();
     renderSearch();
-    maybeConflictPopup();
+    maybeAdjustPreset(['hideSearch']);
   });
   brandEl.addEventListener('change', () => {
     settings.brandColors = brandEl.checked;
     Storage.save({ brandColors: brandEl.checked });
     recomputeLive();
+    renderQuickLinks();
+    maybeAdjustPreset(['brandColors']);
+  });
+  iconOnlyEl.addEventListener('change', () => {
+    settings.iconOnly = iconOnlyEl.checked;
+    Storage.save({ iconOnly: iconOnlyEl.checked });
     renderQuickLinks();
   });
 }
@@ -1176,10 +1516,15 @@ function buildQuickLinksEditor() {
       `;
       row.querySelector('.ql-label').addEventListener('input', e => { settings.quickLinks[i].label = e.target.value; persist(); });
       row.querySelector('.ql-url').addEventListener('input',   e => { settings.quickLinks[i].url   = e.target.value; persist(); });
-      row.querySelector('.ql-remove').addEventListener('click', () => { settings.quickLinks.splice(i, 1); persist(true); });
+      row.querySelector('.ql-remove').addEventListener('click', () => {
+        const removed = settings.quickLinks.splice(i, 1)[0];
+        if (removed && settings.quickLinkGrid) delete settings.quickLinkGrid[removed.id];
+        Storage.save({ quickLinkGrid: settings.quickLinkGrid || {} });
+        persist(true);
+      });
       container.appendChild(row);
     });
-    addBtn.disabled = links.length >= 6;
+    addBtn.disabled = links.length >= QL_MAX;
   };
 
   const persist = (rebuildEditor = false) => {
@@ -1189,11 +1534,13 @@ function buildQuickLinksEditor() {
   };
 
   addBtn.addEventListener('click', () => {
-    if ((settings.quickLinks || []).length >= 6) return;
-    settings.quickLinks.push({ label: '', url: '' });
+    if ((settings.quickLinks || []).length >= QL_MAX) return;
+    settings.quickLinks.push({ id: 'ql_' + Math.random().toString(36).slice(2, 9), label: '', url: '' });
     renderEditor();
   });
 
+  // Let the on-page delete badge refresh this editor when it's open.
+  rebuildQuickLinksEditor = renderEditor;
   renderEditor();
 }
 
@@ -1217,11 +1564,11 @@ function buildAnimationSettings() {
       Storage.save({ intensity: btn.dataset.value });
       btns.forEach(b => b.classList.toggle('active', b === btn));
       recomputeLive();
-      // When the active background masks intensity with its own preset, `live`
-      // is unchanged — re-init nothing; otherwise apply + re-init the scene.
-      applyLiveEngine(!activeHasEnabledOverride());
+      // When the active background is showing a frozen preset, a global change
+      // doesn't alter `live` — skip the scene re-init; otherwise apply it.
+      applyLiveEngine(!activeUsesPreset());
       startAppearancePreview();
-      maybeConflictPopup();
+      maybeAdjustPreset(['intensity']);
     });
   });
 
@@ -1235,7 +1582,7 @@ function buildAnimationSettings() {
     const display = Number.isInteger(v) ? v + '' : v.toFixed(2).replace(/0+$/, '');
     speedLbl.textContent = display + '×';
   });
-  speedEl.addEventListener('change', () => maybeConflictPopup());
+  speedEl.addEventListener('change', () => maybeAdjustPreset(['animSpeed']));
 
   staticEl.addEventListener('change', () => {
     settings.staticMode = staticEl.checked;
@@ -1243,7 +1590,7 @@ function buildAnimationSettings() {
     recomputeLive();
     engine.setOptions({ staticMode: live.staticMode });
     startAppearancePreview();
-    maybeConflictPopup();
+    maybeAdjustPreset(['staticMode']);
   });
 }
 

@@ -46,9 +46,11 @@
       >
     </div>
 
-    <div id="quick-links" role="list" aria-label="Quick links"></div>
+    <div id="quick-links" aria-label="Quick links"></div>
 
   </main>
+
+  <button id="ql-done" class="hidden" type="button">Done</button>
 
 
   <button id="settings-btn" aria-label="Open settings" title="Settings">
@@ -95,11 +97,18 @@
               <path d="M6 4.4v11.2a.6.6 0 0 0 .92.5l8.7-5.6a.6.6 0 0 0 0-1L6.92 3.9A.6.6 0 0 0 6 4.4z"/>
             </svg>
           </button>
+          <button class="rail-btn" type="button" data-panel="advanced" role="tab" aria-selected="false" aria-label="Advanced Customization">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+              <path d="M3 6h9M15 6h2"/><circle cx="13.5" cy="6" r="1.8" fill="currentColor" stroke="none"/>
+              <path d="M3 14h2M8 14h9"/><circle cx="6.5" cy="14" r="1.8" fill="currentColor" stroke="none"/>
+            </svg>
+          </button>
         </nav>
 
         <div class="settings-panels">
 
-          <section class="settings-panel-section active" data-panel="home" role="tabpanel" aria-label="Home">
+          <section class="settings-panel-section active" data-panel="home" role="tabpanel" aria-label="Backgrounds">
+            <h2 class="panel-subheader">Backgrounds</h2>
             <div id="appearance-preview" class="appearance-preview"></div>
             <div id="appearance-name" class="appearance-name"></div>
             <button class="theme-option randomize-daily-btn" id="randomize-all-daily" data-pool="all" type="button">
@@ -108,7 +117,8 @@
             <div id="home-category-grid" class="category-grid"></div>
           </section>
 
-          <section class="settings-panel-section" data-panel="font" role="tabpanel" aria-label="Font">
+          <section class="settings-panel-section" data-panel="font" role="tabpanel" aria-label="Display">
+            <h2 class="panel-subheader">Display</h2>
             <div class="panel-block">
               <span class="panel-label">Logo</span>
               <div class="logo-pos-picker" role="group" aria-label="Logo position">
@@ -170,17 +180,23 @@
             </div>
           </section>
 
-          <section class="settings-panel-section" data-panel="quicklinks" role="tabpanel" aria-label="Quick Links">
+          <section class="settings-panel-section" data-panel="quicklinks" role="tabpanel" aria-label="Widgets">
+            <h2 class="panel-subheader">Widgets</h2>
+            <label class="setting-row">
+              <span>Icon only</span>
+              <input type="checkbox" id="setting-icon-only">
+            </label>
             <label class="setting-row ql-brand-toggle">
               <span>Use Theme Color</span>
               <input type="checkbox" id="setting-brand-colors">
             </label>
-            <div class="panel-label ql-editor-label">Links <span class="settings-hint">(up to 6)</span></div>
+            <div class="panel-label ql-editor-label">Links <span class="settings-hint">(up to 24 · press &amp; hold a tile to rearrange)</span></div>
             <div id="quick-links-editor"></div>
             <button id="add-quick-link" type="button" class="add-btn">+ Add link</button>
           </section>
 
-          <section class="settings-panel-section" data-panel="animation" role="tabpanel" aria-label="Animation">
+          <section class="settings-panel-section" data-panel="animation" role="tabpanel" aria-label="Animations">
+            <h2 class="panel-subheader">Animations</h2>
             <div class="setting-row">
               <span>Intensity &amp; Quality</span>
               <div class="button-group" role="group" aria-label="Animation intensity and render quality">
@@ -200,6 +216,13 @@
               <span>Static mode <span class="settings-hint">(no animation)</span></span>
               <input type="checkbox" id="setting-static">
             </label>
+          </section>
+
+          <section class="settings-panel-section" data-panel="advanced" role="tabpanel" aria-label="Advanced Customization">
+            <h2 class="panel-subheader">Advanced Customization</h2>
+            <p class="panel-intro">Save the current toolbar settings as a preset for a specific background. When that background is active, it uses its preset instead of your global settings.</p>
+            <button id="add-preset" type="button" class="add-btn add-preset-btn">+ Add New Preset</button>
+            <div id="preset-list" class="preset-list"></div>
           </section>
 
         </div>
@@ -223,40 +246,27 @@
         </div>
       </div>
 
-      <div class="settings-view" id="view-editbg" data-view="editbg" aria-hidden="true">
-        <div class="settings-header">
-          <button class="back-btn" id="back-to-backgrounds" type="button" aria-label="Back to backgrounds">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          <span class="settings-title">Edit background</span>
-          <button class="settings-close" type="button" aria-label="Close settings">✕</button>
-        </div>
-        <div class="settings-body view-grid-body">
-          <div id="editbg-preview" class="appearance-preview"></div>
-          <div class="editbg-titlerow">
-            <span id="editbg-title" class="editbg-name"></span>
-            <span id="editbg-status" class="edit-status">Using global settings</span>
-          </div>
-          <div id="editbg-settings" class="editbg-settings"></div>
-          <label class="setting-row editbg-enable-row">
-            <span>Advanced Custom Preset</span>
-            <input type="checkbox" id="editbg-enabled">
-          </label>
-        </div>
-      </div>
-
     </div>
   </div>
 
-  <div id="preset-conflict" class="preset-conflict-overlay hidden" role="dialog" aria-modal="true" aria-label="Turn off Advanced Custom Preset">
+  <div id="preset-adjust-confirm" class="preset-conflict-overlay hidden" role="dialog" aria-modal="true" aria-label="Adjust preset">
     <div class="preset-conflict-dialog">
-      <p class="preset-conflict-title">Turn off Advanced Custom Preset?</p>
-      <p class="preset-conflict-sub">This background is using its own custom preset. Changing global settings won’t affect it unless you turn its preset off.</p>
+      <p class="preset-conflict-title">Save change to preset?</p>
+      <p class="preset-conflict-sub"><span id="preset-adjust-name">This background</span> has a saved preset. Save this change into its preset, or keep it only in your global settings?</p>
       <div class="preset-conflict-actions">
-        <button id="preset-conflict-no" class="preset-conflict-btn" type="button">No</button>
-        <button id="preset-conflict-yes" class="preset-conflict-btn primary" type="button">Yes</button>
+        <button id="preset-adjust-no" class="preset-conflict-btn" type="button">Global only</button>
+        <button id="preset-adjust-yes" class="preset-conflict-btn primary" type="button">Save to preset</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="preset-delete-confirm" class="preset-conflict-overlay hidden" role="dialog" aria-modal="true" aria-label="Delete preset">
+    <div class="preset-conflict-dialog">
+      <p class="preset-conflict-title">Delete this preset?</p>
+      <p class="preset-conflict-sub">This background will go back to using your global toolbar settings. This can’t be undone.</p>
+      <div class="preset-conflict-actions">
+        <button id="preset-delete-no" class="preset-conflict-btn" type="button">Cancel</button>
+        <button id="preset-delete-yes" class="preset-conflict-btn primary" type="button">Delete</button>
       </div>
     </div>
   </div>
