@@ -1361,6 +1361,168 @@ body[data-logo-position="bottom-right"] #date-line { justify-content: flex-end; 
   background: rgba(100,160,255,0.08);
 }
 .preset-card-thumb { cursor: pointer; }
+
+/* A true miniature of the new-tab drawn over a preset thumbnail: the real
+   header / search / quick-link markup rendered at full window size, then
+   CSS-scaled (via JS) to cover the tile — so it's the live look shrunk, not a
+   redrawn approximation. Rules below mirror the live #header / #search /
+   #quick-links styling, scoped to the preview stage. */
+.preset-preview-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+  color: #fff;
+}
+.preset-card-thumb .tile-check { z-index: 3; }
+
+/* Live animated scene behind a preset card (sits under the miniature overlay). */
+.preset-live { position: absolute; inset: 0; background: #000; }
+.preset-live canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ppv-stage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.2);
+  transform-origin: center center;
+  visibility: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+/* Header — mirrors #header + the logo-position rules. */
+.ppv-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: -0.2rem;
+  user-select: none;
+}
+.ppv-header.has-subline { margin-bottom: 1.2rem; }
+.ppv-stage[data-logo-position="top-left"]      .ppv-header,
+.ppv-stage[data-logo-position="top-center"]    .ppv-header,
+.ppv-stage[data-logo-position="top-right"]     .ppv-header,
+.ppv-stage[data-logo-position="bottom-left"]   .ppv-header,
+.ppv-stage[data-logo-position="bottom-center"] .ppv-header,
+.ppv-stage[data-logo-position="bottom-right"]  .ppv-header { position: absolute; margin: 0; }
+.ppv-stage[data-logo-position="top-left"]      .ppv-header { top: 2.2rem; left: 2.4rem;  align-items: flex-start; }
+.ppv-stage[data-logo-position="top-right"]     .ppv-header { top: 2.2rem; right: 2.4rem; align-items: flex-end; }
+.ppv-stage[data-logo-position="bottom-left"]   .ppv-header { bottom: 2.2rem; left: 2.4rem;  align-items: flex-start; }
+.ppv-stage[data-logo-position="bottom-right"]  .ppv-header { bottom: 2.2rem; right: 2.4rem; align-items: flex-end; }
+.ppv-stage[data-logo-position="top-center"]    .ppv-header { top: 2.2rem; left: 50%; transform: translateX(-50%); align-items: center; }
+.ppv-stage[data-logo-position="bottom-center"] .ppv-header { bottom: 2.2rem; left: 50%; transform: translateX(-50%); align-items: center; }
+
+.ppv-header .wordmark {
+  font-family: var(--ui-font);
+  font-size: calc(clamp(4rem, 13vw, 8rem) * var(--logo-scale, 1));
+  font-weight: 300;
+  letter-spacing: 0.05em;
+  color: rgba(255,255,255,0.92);
+  text-shadow: 0 2px 20px rgba(0,0,0,0.4);
+  line-height: 1;
+}
+.ppv-header .time-row { display: flex; align-items: baseline; line-height: 1; }
+.ppv-clock-hm {
+  font-family: var(--ui-font);
+  font-size: calc(clamp(3.5rem, 9vw, 6.5rem) * var(--logo-scale, 1));
+  font-weight: 200;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 40px rgba(255,255,255,0.18), 0 2px 8px rgba(0,0,0,0.6);
+}
+.ppv-header .clock-sub {
+  font-family: var(--ui-font);
+  font-size: calc(clamp(1.2rem, 2.8vw, 2.2rem) * var(--logo-scale, 1));
+  font-weight: 200;
+  opacity: 0.65;
+  margin-left: 0.08em;
+  align-self: flex-end;
+  margin-bottom: 0.2em;
+  text-shadow: 0 0 20px rgba(255,255,255,0.12);
+}
+.ppv-clock-date-line {
+  margin-top: 0.4rem;
+  font-size: calc(clamp(0.72rem, 1.4vw, 0.9rem) * var(--logo-scale, 1));
+  font-weight: 300;
+  letter-spacing: 0.1em;
+  opacity: 0.5;
+  text-transform: uppercase;
+}
+.ppv-date-weekday {
+  font-family: var(--ui-font);
+  font-size: calc(clamp(2.8rem, 9vw, 6rem) * var(--logo-scale, 1));
+  font-weight: 200;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 40px rgba(255,255,255,0.18), 0 2px 8px rgba(0,0,0,0.6);
+  line-height: 1;
+}
+.ppv-date-line { margin-top: 0.3rem; display: flex; align-items: center; gap: 0.45em; }
+.ppv-date-sub {
+  font-size: calc(clamp(0.8rem, 1.6vw, 1rem) * var(--logo-scale, 1));
+  font-weight: 300;
+  letter-spacing: 0.1em;
+  opacity: 0.55;
+  text-transform: uppercase;
+}
+
+/* Search — mirrors #search-container / #search-input. */
+.ppv-search { width: min(540px, 88vw); margin-bottom: 1.2rem; }
+.ppv-search-input {
+  padding: 0.7rem 1.3rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255,255,255,0.22);
+  background: rgba(255,255,255,0.10);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  color: rgba(255,255,255,0.42);
+  font-size: 1rem;
+  font-family: var(--ui-font);
+  font-weight: 300;
+}
+
+/* Quick links — mirrors the #quick-links container-scoped pill / icon rules. */
+.ppv-links { position: absolute; inset: 0; }
+.ppv-links .ql-tile { pointer-events: none; }
+.ppv-links .ql-del { display: none; }
+.ppv-links:not(.icon-only) .ql-body {
+  gap: 0.5rem;
+  padding: 0.42rem 0.95rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.22);
+}
+.ppv-links:not(.icon-only) .ql-icon-box {
+  width: 15px; height: 15px; border-radius: 3px; font-size: 0.7rem;
+  background: none; border: none;
+}
+.ppv-links:not(.icon-only) .ql-tile-label { font-size: 0.85rem; font-weight: 500; }
+.ppv-links:not(.icon-only) .ql-logo-mask { width: 100%; height: 100%; }
+.ppv-links:not(.icon-only) .ql-body.branded {
+  background: var(--ql-bg);
+  border-color: color-mix(in srgb, var(--ql-fg) 40%, transparent);
+}
+.ppv-links:not(.icon-only) .ql-body.branded .ql-tile-label { color: var(--ql-fg); }
+.ppv-links.icon-only .ql-body { flex-direction: column; }
+.ppv-links.icon-only .ql-icon-box {
+  width: 60px; height: 60px; border-radius: 16px; font-size: 1.6rem;
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.32);
+}
+.ppv-links.icon-only .ql-body.branded .ql-icon-box { background: var(--ql-bg); }
 .preset-card-name {
   font-size: 0.92rem;
   font-weight: 600;

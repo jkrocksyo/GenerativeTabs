@@ -107,6 +107,9 @@ const PRESET_FIELDS = [
   'clockFormat', 'showSeconds', 'showDate', 'showTimeInDate',
   'brandColors', 'cardSize', 'iconStyle', 'newTabLinks',
   'intensity', 'animSpeed', 'staticMode',
+  // The exact quick-link arrangement (linkId → {row,col}) is part of a preset,
+  // so a background restores its own layout of the links whenever it's shown.
+  'quickLinkGrid',
 ];
 
 // The background being set up / edited on the Advanced page. While it's pending
@@ -116,7 +119,12 @@ let pendingPresetBg = null;
 
 function snapshotSettings() {
   const s = {};
-  PRESET_FIELDS.forEach(k => { s[k] = settings[k]; });
+  PRESET_FIELDS.forEach(k => {
+    const v = settings[k];
+    // Deep-clone object fields (e.g. quickLinkGrid) so the saved snapshot is
+    // independent of later edits to the global settings.
+    s[k] = (v && typeof v === 'object') ? JSON.parse(JSON.stringify(v)) : v;
+  });
   return s;
 }
 
@@ -405,7 +413,9 @@ function qlFirstFreeCell(g, taken) {
 }
 
 function qlPlacements(links, g) {
-  const map = settings.quickLinkGrid || {};
+  // Read the ACTIVE background's grid: its preset's saved arrangement when a
+  // preset is showing, otherwise the global grid.
+  const map = live.quickLinkGrid || {};
   const taken = new Set();
   const placed = [], rest = [];
   links.forEach(link => {
@@ -425,9 +435,19 @@ function qlPlacements(links, g) {
   return placed;
 }
 
+// Persist the quick-link arrangement to whichever store the active background
+// uses: directly into its preset when one is showing (so rearranging on that
+// background edits its saved layout), otherwise the global grid.
 function qlSaveGrid(map) {
-  settings.quickLinkGrid = map;
-  Storage.save({ quickLinkGrid: map });
+  if (activeUsesPreset()) {
+    const ov = overrideFor(settings.theme);
+    ov.quickLinkGrid = map;
+    savePresets();
+  } else {
+    settings.quickLinkGrid = map;
+    Storage.save({ quickLinkGrid: map });
+  }
+  recomputeLive();
 }
 
 function qlPersistFromDom() {
@@ -854,6 +874,7 @@ function navigateTo(view, arg = null, animate = true) {
     renderAppearance();
   } else if (view === 'backgrounds') {
     livePreview.stop();
+    stopPresetPreviews();
     buildBackgroundGrid(nav.categoryKey);
   }
   applyNavTransforms(animate);
@@ -1116,9 +1137,18 @@ function deletePreset(themeKey) {
   buildAdvancedPanel();
 }
 
+// One live animated scene runs behind each preset card; they're tracked here so
+// they can all be torn down when the Advanced panel is rebuilt or hidden.
+let presetPreviews = [];
+function stopPresetPreviews() {
+  presetPreviews.forEach(p => { try { p.stop(); } catch (e) { /* ignore */ } });
+  presetPreviews = [];
+}
+
 function buildAdvancedPanel() {
   const list = document.getElementById('preset-list');
   if (!list) return;
+  stopPresetPreviews();
   list.innerHTML = '';
 
   const keys = new Set(Object.keys(settings.overrides || {}));
@@ -1147,7 +1177,23 @@ function makePresetCard(themeKey) {
   thumb.type = 'button';
   thumb.className = 'preset-card-thumb tile-thumb wide';
   thumb.setAttribute('aria-label', `Edit ${THEME_LABELS[themeKey]} preset`);
-  thumb.appendChild(makeThumbImg(themeKey));
+
+  // Live animated scene behind the card, running with this preset's own
+  // intensity / speed / static settings.
+  const sceneEl = document.createElement('div');
+  sceneEl.className = 'preset-live';
+  thumb.appendChild(sceneEl);
+  const eff = effectiveFor(themeKey);
+  const preview = new ScenePreview.LivePreview(sceneEl);
+  preview.show(THEME_MAP[themeKey] || StarfieldTheme, {
+    intensity:  Storage.intensityValue(eff.intensity),
+    quality:    Storage.qualityValue(eff.intensity),
+    speed:      eff.animSpeed,
+    staticMode: eff.staticMode,
+  });
+  presetPreviews.push(preview);
+
+  thumb.appendChild(makePresetPreviewOverlay(themeKey));
   if (isActive) thumb.appendChild(makeCheckBadge());
   thumb.addEventListener('click', () => editPreset(themeKey));
 
@@ -1175,6 +1221,160 @@ function makePresetCard(themeKey) {
 
   card.append(thumb, name, status, saveBtn, delBtn);
   return card;
+}
+
+// Effective settings a background renders with: its saved preset merged over
+// the global toolbar (an unsaved/pending background just uses global).
+function effectiveFor(themeKey) {
+  return Object.assign({}, settings, overrideFor(themeKey) || {});
+}
+
+// Grid geometry for a given quick-link mode at the current window size — the
+// same math as qlGeom() but without the live-page protected-rect, so a preview
+// can map each saved {row,col} to a fraction of the screen.
+function qlGeomFor(iconOnly) {
+  const { w, h } = iconOnly ? { w: 80, h: 90 } : { w: 184, h: 58 };
+  const cols = Math.max(1, Math.floor((window.innerWidth  - QL_EDGE * 2) / w));
+  const rows = Math.max(1, Math.floor((window.innerHeight - QL_EDGE * 2) / h));
+  const ox = Math.round((window.innerWidth  - cols * w) / 2);
+  const oy = Math.round((window.innerHeight - rows * h) / 2);
+  return { w, h, cols, rows, ox, oy };
+}
+
+// A faithful, static miniature of the real new-tab drawn over a preset's scene
+// thumbnail — the actual header/search/quick-link markup and classes rendered
+// at full window size, then CSS-scaled down to cover the tile. Because the
+// stage is exactly window-sized, the live page's vw/rem-based sizing lands
+// identically, so it's the real look shrunk, not a redrawn approximation.
+function makePresetPreviewOverlay(themeKey) {
+  const eff = effectiveFor(themeKey);
+  const overlay = document.createElement('div');
+  overlay.className = 'preset-preview-overlay';
+
+  const vpW = window.innerWidth, vpH = window.innerHeight;
+  const stage = document.createElement('div');
+  stage.className = 'ppv-stage';
+  stage.dataset.logoPosition = eff.logoPosition || 'center';
+  stage.style.width  = vpW + 'px';
+  stage.style.height = vpH + 'px';
+  stage.style.setProperty('--logo-scale', eff.logoScale || 1);
+  stage.style.setProperty('--ui-font', (FONTS[eff.font] || FONTS.system).stack);
+
+  if (!eff.hideText) stage.appendChild(previewHeader(eff));
+
+  if (!eff.hideSearch) {
+    const search = document.createElement('div');
+    search.className = 'ppv-search';
+    const input = document.createElement('div');
+    input.className = 'ppv-search-input';
+    input.textContent = 'Search…';
+    search.appendChild(input);
+    stage.appendChild(search);
+  }
+
+  const links = document.createElement('div');
+  links.className = 'ppv-links' + (eff.iconOnly ? ' icon-only' : '');
+  const g = qlGeomFor(!!eff.iconOnly);
+  const grid = eff.quickLinkGrid || {};
+  qlLinks().forEach(link => {
+    const p = grid[link.id];
+    if (!p || !Number.isInteger(p.row) || !Number.isInteger(p.col)) return;
+    links.appendChild(makePreviewTile(link, p.row, p.col, g, !!eff.iconOnly));
+  });
+  stage.appendChild(links);
+
+  overlay.appendChild(stage);
+
+  // Scale the full-size stage to cover the tile once the tile has a measured
+  // size (same crop behaviour as the scene image's object-fit: cover).
+  requestAnimationFrame(() => {
+    const tw = overlay.clientWidth, th = overlay.clientHeight;
+    if (tw && th) {
+      const s = Math.max(tw / vpW, th / vpH);
+      stage.style.transform = `translate(-50%, -50%) scale(${s})`;
+    }
+    stage.style.visibility = 'visible';
+  });
+
+  return overlay;
+}
+
+// A non-interactive clone of a quick-link tile (no delete badge / drag / jiggle),
+// using the real .ql-tile markup so it inherits the live pill / icon styling.
+function makePreviewTile(link, row, col, g, iconOnly) {
+  const label = link.label || BrandColors.siteName(link.url);
+  const tile = document.createElement('div');
+  tile.className = 'ql-tile';
+  tile.style.width  = g.w + 'px';
+  tile.style.height = g.h + 'px';
+  tile.style.left = (g.ox + col * g.w) + 'px';
+  tile.style.top  = (g.oy + row * g.h) + 'px';
+
+  const body = document.createElement('div');
+  body.className = 'ql-body';
+  const box = document.createElement('div');
+  box.className = 'ql-icon-box';
+  body.appendChild(box);
+  decorateQuickTile(box, link.url, label);
+
+  if (!iconOnly) {
+    const lbl = document.createElement('span');
+    lbl.className = 'ql-tile-label';
+    lbl.textContent = label;
+    body.appendChild(lbl);
+  }
+  tile.appendChild(body);
+  return tile;
+}
+
+// The header block (logo / clock / date) for a preview, mirroring renderHeader +
+// tickClock and reusing the live classes so it renders identically.
+function previewHeader(eff) {
+  const now = new Date();
+  const is12 = eff.clockFormat === '12h';
+  const ampm = now.getHours() >= 12 ? 'PM' : 'AM';
+  let h = now.getHours();
+  if (is12) h = h % 12 || 12;
+  const m = pad(now.getMinutes());
+
+  const header = document.createElement('div');
+  header.className = 'ppv-header';
+  const layout = eff.layout || 'logo';
+
+  if (layout === 'time') {
+    header.classList.toggle('has-subline', !!eff.showDate);
+    const row = document.createElement('div');
+    row.className = 'time-row';
+    row.appendChild(ppvEl('span', 'ppv-clock-hm', `${h}:${m}`));
+    if (eff.showSeconds) row.appendChild(ppvEl('span', 'clock-sub', `:${pad(now.getSeconds())}`));
+    if (is12) row.appendChild(ppvEl('span', 'clock-sub', ` ${ampm}`));
+    header.appendChild(row);
+    if (eff.showDate) {
+      header.appendChild(ppvEl('div', 'ppv-clock-date-line',
+        now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })));
+    }
+  } else if (layout === 'date') {
+    header.classList.add('has-subline');
+    header.appendChild(ppvEl('div', 'ppv-date-weekday', now.toLocaleDateString('en-US', { weekday: 'long' })));
+    const line = document.createElement('div');
+    line.className = 'ppv-date-line';
+    if (eff.showTimeInDate) {
+      line.appendChild(ppvEl('span', 'ppv-date-sub', `${h}:${m}${is12 ? ' ' + ampm : ''}`));
+      line.appendChild(ppvEl('span', 'ppv-date-sub', '·'));
+    }
+    line.appendChild(ppvEl('span', 'ppv-date-sub', now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })));
+    header.appendChild(line);
+  } else {
+    header.appendChild(ppvEl('div', 'wordmark', 'LIV'));
+  }
+  return header;
+}
+
+function ppvEl(tag, cls, text) {
+  const el = document.createElement(tag);
+  el.className = cls;
+  el.textContent = text;
+  return el;
 }
 
 // Brief visual confirmation on a preset's Save button.
@@ -1265,6 +1465,7 @@ function initSettings() {
     overlay.classList.remove('open');
     overlay.classList.add('closing');
     livePreview.stop();
+    stopPresetPreviews();
     // End any preset-edit session: the active background settles onto its saved
     // preset (if any) now that we're no longer previewing the toolbar on it.
     if (pendingPresetBg) { pendingPresetBg = null; recomputeLive(); applyLiveToPage(true); }
@@ -1361,7 +1562,9 @@ function initRailNav() {
     // The live scene preview only belongs to the Backgrounds (home) panel.
     if (panel === 'home') renderAppearance();
     else livePreview.stop();
+    // Preset cards animate only while the Advanced panel is showing.
     if (panel === 'advanced') buildAdvancedPanel();
+    else stopPresetPreviews();
   };
 
   railBtns.forEach(btn => btn.addEventListener('click', () => showPanel(btn.dataset.panel)));
