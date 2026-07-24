@@ -1137,12 +1137,25 @@ function deletePreset(themeKey) {
   buildAdvancedPanel();
 }
 
-// One live animated scene runs behind each preset card; they're tracked here so
-// they can all be torn down when the Advanced panel is rebuilt or hidden.
+// A live animated scene can run behind each preset card, but the total load is
+// bounded so it stays light even if every background (22) has a preset: at most
+// PRESET_ANIM_MAX cards animate at once, at a render resolution that shrinks as
+// more of them run; any beyond the cap fall back to the static snapshot image
+// (no animation loop, no held WebGL context). Active previews are tracked here
+// so they can all be torn down when the panel is rebuilt or hidden.
+const PRESET_ANIM_MAX = 4;
 let presetPreviews = [];
+
 function stopPresetPreviews() {
   presetPreviews.forEach(p => { try { p.stop(); } catch (e) { /* ignore */ } });
   presetPreviews = [];
+}
+
+// dpr cap for the animating cards — lower as more run so total fill cost is flat.
+function presetAnimQuality(animatingCount) {
+  if (animatingCount <= 2) return 1.0;
+  if (animatingCount <= 3) return 0.6;
+  return 0.45;
 }
 
 function buildAdvancedPanel() {
@@ -1162,10 +1175,12 @@ function buildAdvancedPanel() {
     list.appendChild(empty);
     return;
   }
-  arr.forEach(themeKey => list.appendChild(makePresetCard(themeKey)));
+  const animatingCount = Math.min(arr.length, PRESET_ANIM_MAX);
+  const quality = presetAnimQuality(animatingCount);
+  arr.forEach((themeKey, i) => list.appendChild(makePresetCard(themeKey, i < PRESET_ANIM_MAX, quality)));
 }
 
-function makePresetCard(themeKey) {
+function makePresetCard(themeKey, animate, animQuality) {
   const saved    = !!overrideFor(themeKey);
   const isActive = settings.theme === themeKey;
 
@@ -1178,20 +1193,25 @@ function makePresetCard(themeKey) {
   thumb.className = 'preset-card-thumb tile-thumb wide';
   thumb.setAttribute('aria-label', `Edit ${THEME_LABELS[themeKey]} preset`);
 
-  // Live animated scene behind the card, running with this preset's own
-  // intensity / speed / static settings.
-  const sceneEl = document.createElement('div');
-  sceneEl.className = 'preset-live';
-  thumb.appendChild(sceneEl);
+  // Within the animation budget, run a live scene with this preset's own
+  // intensity / speed / static settings (resolution capped by animQuality).
+  // Otherwise fall back to the static snapshot so extra cards cost nothing.
   const eff = effectiveFor(themeKey);
-  const preview = new ScenePreview.LivePreview(sceneEl);
-  preview.show(THEME_MAP[themeKey] || StarfieldTheme, {
-    intensity:  Storage.intensityValue(eff.intensity),
-    quality:    Storage.qualityValue(eff.intensity),
-    speed:      eff.animSpeed,
-    staticMode: eff.staticMode,
-  });
-  presetPreviews.push(preview);
+  if (animate) {
+    const sceneEl = document.createElement('div');
+    sceneEl.className = 'preset-live';
+    thumb.appendChild(sceneEl);
+    const preview = new ScenePreview.LivePreview(sceneEl);
+    preview.show(THEME_MAP[themeKey] || StarfieldTheme, {
+      intensity:  Storage.intensityValue(eff.intensity),
+      quality:    Math.min(Storage.qualityValue(eff.intensity), animQuality),
+      speed:      eff.animSpeed,
+      staticMode: eff.staticMode,
+    });
+    presetPreviews.push(preview);
+  } else {
+    thumb.appendChild(makeThumbImg(themeKey));
+  }
 
   thumb.appendChild(makePresetPreviewOverlay(themeKey));
   if (isActive) thumb.appendChild(makeCheckBadge());
