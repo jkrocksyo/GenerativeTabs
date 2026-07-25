@@ -11,8 +11,7 @@
       this.canvas  = canvas;
       this.ctx     = ctx || canvas.getContext('2d');
       this.speed   = (opts && opts.speed) || 1;
-      const intMap = { low: 10, medium: 24, high: 40 };
-      this._leafCount = intMap[(opts && opts.intensity) || 'medium'] || 24;
+      this._leafCount = Math.round(24 * ((opts && opts.intensity) || 1));
       this._t      = 0;
       this._lastTs = null;
       this._cW     = canvas.width;

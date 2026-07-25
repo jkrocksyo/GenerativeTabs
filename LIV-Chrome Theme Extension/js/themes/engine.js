@@ -35,7 +35,11 @@ class ThemeEngine {
   }
 
   _sizeCanvas(canvas) {
-    this._dpr = Math.min(window.devicePixelRatio || 1, this.options.quality || 2);
+    // Quality is the render pixel-ratio directly (not capped by the display's
+    // own devicePixelRatio) so the whole slider is meaningful everywhere: below
+    // the display ratio it downscales for speed; above it supersamples for extra
+    // sharpness on strong machines. Hard-capped so it can't run away.
+    this._dpr = Math.min(this.options.quality || 1.5, 3);
     canvas.width = Math.floor(window.innerWidth * this._dpr);
     canvas.height = Math.floor(window.innerHeight * this._dpr);
     canvas.style.width = '100vw';

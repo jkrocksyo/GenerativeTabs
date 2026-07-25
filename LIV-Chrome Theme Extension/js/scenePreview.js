@@ -101,7 +101,7 @@ const ScenePreview = (() => {
       // frame (starfield, galaxy, …) otherwise drift much faster in a small
       // preview canvas than they do full-screen; matching the resolution makes
       // the preview a true scaled-down mirror moving at the same on-screen speed.
-      const dpr = Math.min(window.devicePixelRatio || 1, opts.quality || 2);
+      const dpr = Math.min(opts.quality || 1.5, 3);
       const canvas = document.createElement('canvas');
       canvas.width = Math.max(1, Math.floor(window.innerWidth * dpr));
       canvas.height = Math.max(1, Math.floor(window.innerHeight * dpr));

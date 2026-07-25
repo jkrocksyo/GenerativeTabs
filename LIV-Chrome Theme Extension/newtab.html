@@ -198,11 +198,17 @@
           <section class="settings-panel-section" data-panel="animation" role="tabpanel" aria-label="Animations">
             <h2 class="panel-subheader">Animations</h2>
             <div class="setting-row">
-              <span>Intensity &amp; Quality</span>
-              <div class="button-group" role="group" aria-label="Animation intensity and render quality">
-                <button class="intensity-btn" data-value="low"    type="button">Low</button>
-                <button class="intensity-btn" data-value="medium" type="button">Medium</button>
-                <button class="intensity-btn" data-value="high"   type="button">High</button>
+              <span>Intensity <span class="settings-hint">(amount of effect)</span></span>
+              <div class="speed-control">
+                <input type="range" id="setting-intensity" class="liv-slider" min="0.2" max="2" step="0.05" value="1" aria-label="Effect intensity">
+                <span id="intensity-label" class="speed-label">100%</span>
+              </div>
+            </div>
+            <div class="setting-row">
+              <span>Quality <span class="settings-hint">(higher needs a faster computer)</span></span>
+              <div class="speed-control">
+                <input type="range" id="setting-quality" class="liv-slider" min="0.75" max="3" step="0.25" value="1.5" aria-label="Render quality">
+                <span id="quality-label" class="speed-label">1.5×</span>
               </div>
             </div>
             <div class="setting-row">

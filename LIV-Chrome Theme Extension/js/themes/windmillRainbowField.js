@@ -68,8 +68,7 @@
       this.canvas  = canvas;
       this.ctx     = ctx || canvas.getContext('2d');
       this.speed   = (opts && opts.speed) || 1;
-      const intMap = { low: 1, medium: 3, high: 5 };
-      const subRows = intMap[(opts && opts.intensity) || 'medium'] || 3;
+      const subRows = Math.max(1, Math.round(3 * ((opts && opts.intensity) || 1)));
       this._t      = 0;   // main time (flower sway, birds, sun)
       this._sails  = 0;   // sail angle — frozen in reduced-motion
       this._lastTs = null;

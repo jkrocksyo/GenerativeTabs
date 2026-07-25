@@ -102,9 +102,8 @@ void main(){
       this.canvas = canvas;
       this.opts = options || {};
       this.speed = (options && options.speed) || 1.0;
-      const intMap = { low: 0.55, medium: 1.0, high: 1.5 };
-      this._intensity = intMap[(options && options.intensity) || 'medium'] || 1.0;
-      this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+      this._intensity = (options && options.intensity) || 1.0;
+      this.dpr = Math.min((options && options.quality) || 2, 3);
       this._lastTs = null;
       this._scaledTime = 0;
       const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');

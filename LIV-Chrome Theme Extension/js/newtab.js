@@ -106,11 +106,13 @@ const PRESET_FIELDS = [
   'layout', 'hideText', 'hideSearch', 'logoPosition', 'logoScale', 'font',
   'clockFormat', 'showSeconds', 'showDate', 'showTimeInDate',
   'brandColors', 'cardSize', 'iconStyle', 'newTabLinks',
-  'intensity', 'animSpeed', 'staticMode',
-  // The exact quick-link arrangement (linkId → {row,col}) is part of a preset,
-  // so a background restores its own layout of the links whenever it's shown.
-  'quickLinkGrid',
+  'intensity', 'quality', 'animSpeed', 'staticMode',
 ];
+// The quick-link arrangement (linkId → {row,col}) is per-background too, but it
+// is NOT a snapshot field: it's arranged directly on the page and kept live in
+// the background's own store (its preset when it has one, else the global grid).
+// Snapshotting it here would clobber the dragged layout on Save, so it's handled
+// separately by activeGrid() / qlSaveGrid / savePreset.
 
 // The background being set up / edited on the Advanced page. While it's pending
 // it previews the live global toolbar (so toolbar tweaks are visible), even if
@@ -144,9 +146,21 @@ function activeUsesPreset() {
   return !!overrideFor(settings.theme) && settings.theme !== pendingPresetBg;
 }
 
+// The quick-link arrangement for the active background: its preset's grid when
+// the preset exists (even while it's being edited), otherwise the global grid.
+// Independent of pending/preview state because links are arranged directly on
+// the page, not previewed-from-global like the toolbar fields.
+function activeGrid() {
+  const ov = overrideFor(settings.theme);
+  return (ov ? ov.quickLinkGrid : settings.quickLinkGrid) || {};
+}
+
 function computeLive() {
-  if (activeUsesPreset()) return Object.assign({}, settings, overrideFor(settings.theme));
-  return Object.assign({}, settings);
+  const s = activeUsesPreset()
+    ? Object.assign({}, settings, overrideFor(settings.theme))
+    : Object.assign({}, settings);
+  s.quickLinkGrid = activeGrid();
+  return s;
 }
 
 function recomputeLive() { live = computeLive(); }
@@ -164,12 +178,30 @@ function migrateOldPresets() {
   if (changed) Storage.save({ overrides: ov });
 }
 
+// Intensity used to be a single 'low'|'medium'|'high' tier driving both the
+// effect amount and the render resolution. Split it into the numeric
+// intensity + quality pair, for the global settings and every saved preset.
+function migrateIntensityQuality() {
+  const changed = {};
+  if (Storage.normalizeTier(settings)) {
+    changed.intensity = settings.intensity;
+    changed.quality   = settings.quality;
+  }
+  const ov = settings.overrides || {};
+  let ovChanged = false;
+  for (const key of Object.keys(ov)) {
+    if (Storage.normalizeTier(ov[key])) ovChanged = true;
+  }
+  if (ovChanged) changed.overrides = ov;
+  if (Object.keys(changed).length) Storage.save(changed);
+}
+
 // Push the engine options in `live` to the running background. Only re-inits
 // the theme when asked (intensity/quality changes need a fresh init).
 function applyLiveEngine(reinit = false) {
   engine.setOptions({
     intensity:  Storage.intensityValue(live.intensity),
-    quality:    Storage.qualityValue(live.intensity),
+    quality:    Storage.qualityValue(live.quality),
     speed:      live.animSpeed,
     staticMode: live.staticMode,
   });
@@ -192,13 +224,14 @@ function applyLiveToPage(reinit = false) {
 (async () => {
   settings = await Storage.load();
   migrateOldPresets();
+  migrateIntensityQuality();
   checkDailyRandomize();
   recomputeLive();
 
   engine = new ThemeEngine(document.getElementById('canvas-container'));
   engine.setOptions({
     intensity:  Storage.intensityValue(live.intensity),
-    quality:    Storage.qualityValue(live.intensity),
+    quality:    Storage.qualityValue(live.quality),
     speed:      live.animSpeed,
     staticMode: live.staticMode,
   });
@@ -215,10 +248,17 @@ function applyLiveToPage(reinit = false) {
   document.getElementById('ql-done').addEventListener('click', exitQlEdit);
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && qlEditing) exitQlEdit(); });
   let qlResizeTimer;
-  window.addEventListener('resize', () => {
+  const reflowLinks = (delay) => {
     clearTimeout(qlResizeTimer);
-    qlResizeTimer = setTimeout(() => { if (!qlEditing) renderQuickLinks(); }, 200);
-  });
+    qlResizeTimer = setTimeout(() => { if (!qlEditing) renderQuickLinks(); }, delay);
+  };
+  window.addEventListener('resize', () => reflowLinks(200));
+  // Reflow the grid around the centre UI whenever the header or search box
+  // changes size (logo text-size slider, layout, show/hide, font…). The pill
+  // cells keep their size — only their arrangement adjusts to the new clearance.
+  const centreObserver = new ResizeObserver(() => reflowLinks(120));
+  centreObserver.observe(document.getElementById('header'));
+  centreObserver.observe(document.getElementById('search-container'));
   initSettings();
 
   requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -357,7 +397,18 @@ let qlGeomCache = null;
 let rebuildQuickLinksEditor = null;    // set by the settings editor
 
 function qlIconOnly() { return !!settings.iconOnly; }
-function qlCellSize() { return qlIconOnly() ? { w: 80, h: 90 } : { w: 184, h: 58 }; }
+// Oval cells are as wide as the widest pill (measured from the tiles already in
+// the DOM) so no label is ever truncated and every cell/slot is the same width;
+// icon cells stay fixed. QL_OVAL_GAP is the breathing room around the pill.
+const QL_OVAL_H = 42;
+const QL_OVAL_GAP = 8;    // small clear space around each pill — never overlapping
+function qlCellSize() {
+  if (qlIconOnly()) return { w: 80, h: 90 };
+  const container = document.getElementById('quick-links');
+  let maxW = 0;
+  container.querySelectorAll('.ql-tile .ql-body').forEach(b => { maxW = Math.max(maxW, b.offsetWidth); });
+  return { w: (maxW ? Math.ceil(maxW) : 120) + QL_OVAL_GAP, h: QL_OVAL_H };
+}
 
 function qlLinks() {
   return (settings.quickLinks || []).filter(l => l.url && (l.label || BrandColors.siteName(l.url)));
@@ -371,22 +422,26 @@ function ensureLinkIds() {
   if (changed) Storage.save({ quickLinks: settings.quickLinks });
 }
 
-// The centre region (logo/clock + search) the grid must leave clear.
-function qlProtectedRect() {
-  let rect = null;
-  ['header', 'search-container'].forEach(id => {
+// The centre elements the grid must leave clear, as separate rects (not one
+// merged box) so links can tuck into the space beside the narrow logo without
+// being pushed out by the much wider search bar. The header gets no margin so
+// links can sit right up against the logo text; the search bar keeps a small
+// keep-clear gap.
+const QL_PROT_MARGIN = { header: 1, 'search-container': 10 };   // ~1px clear around the logo
+function qlProtectedRects() {
+  const rects = [];
+  for (const id of ['header', 'search-container']) {
     const el = document.getElementById(id);
-    if (!el || el.hidden) return;
+    if (!el || el.hidden) continue;
     const r = el.getBoundingClientRect();
-    if (r.width < 2 || r.height < 2) return;
-    if (!rect) rect = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
-    else {
-      rect.left = Math.min(rect.left, r.left); rect.top = Math.min(rect.top, r.top);
-      rect.right = Math.max(rect.right, r.right); rect.bottom = Math.max(rect.bottom, r.bottom);
-    }
-  });
-  if (rect) { const m = 24; rect.left -= m; rect.top -= m; rect.right += m; rect.bottom += m; }
-  return rect;
+    if (r.width < 2 || r.height < 2) continue;
+    const m = QL_PROT_MARGIN[id];
+    // A text element's box includes line-height whitespace above/below the
+    // glyphs; trim it so links hug the visible text rather than the empty box.
+    const vi = id === 'header' ? Math.min(r.height * 0.15, 26) : 0;
+    rects.push({ left: r.left - m, top: r.top + vi - m, right: r.right + m, bottom: r.bottom - vi + m });
+  }
+  return rects;
 }
 
 // Full-viewport grid geometry (centred, with edge margins) + protected rect.
@@ -396,13 +451,14 @@ function qlGeom() {
   const rows = Math.max(1, Math.floor((window.innerHeight - QL_EDGE * 2) / h));
   const ox = Math.round((window.innerWidth  - cols * w) / 2);
   const oy = Math.round((window.innerHeight - rows * h) / 2);
-  return { w, h, cols, rows, ox, oy, prot: qlProtectedRect() };
+  return { w, h, cols, rows, ox, oy, prot: qlProtectedRects() };
 }
 
 function qlCellBlocked(g, row, col) {
-  if (!g.prot) return false;
+  if (!g.prot || !g.prot.length) return false;
   const x = g.ox + col * g.w, y = g.oy + row * g.h;
-  return !(x + g.w <= g.prot.left || x >= g.prot.right || y + g.h <= g.prot.top || y >= g.prot.bottom);
+  return g.prot.some(p =>
+    !(x + g.w <= p.left || x >= p.right || y + g.h <= p.top || y >= p.bottom));
 }
 
 function qlFirstFreeCell(g, taken) {
@@ -435,12 +491,13 @@ function qlPlacements(links, g) {
   return placed;
 }
 
-// Persist the quick-link arrangement to whichever store the active background
-// uses: directly into its preset when one is showing (so rearranging on that
-// background edits its saved layout), otherwise the global grid.
+// Persist the quick-link arrangement to the active background's own store: its
+// preset when it has one (so rearranging edits that background's saved layout),
+// otherwise the global grid. Keyed on whether the preset exists — not on
+// preview/pending state — so a drag always lands where the page reads from.
 function qlSaveGrid(map) {
-  if (activeUsesPreset()) {
-    const ov = overrideFor(settings.theme);
+  const ov = overrideFor(settings.theme);
+  if (ov) {
     ov.quickLinkGrid = map;
     savePresets();
   } else {
@@ -465,15 +522,47 @@ function renderQuickLinks() {
   container.classList.toggle('editing', qlEditing);
   container.classList.toggle('icon-only', qlIconOnly());
 
+  const links = qlLinks();
+  // Build every tile first (unsized) so oval pills can be measured at their
+  // natural, untruncated width before the cell size is chosen.
+  const tileById = {};
+  links.forEach(link => {
+    const t = makeQuickLinkTile(link);
+    tileById[link.id] = t;
+    container.appendChild(t);
+  });
+
   const g = qlGeomCache = qlGeom();
-  const placed = qlPlacements(qlLinks(), g);
+  const placed = qlPlacements(links, g);
 
   const map = {};
   placed.forEach(p => { map[p.link.id] = { row: p.row, col: p.col }; });
   qlSaveGrid(map);
 
-  placed.forEach(p => container.appendChild(makeQuickLinkTile(p.link, p.row, p.col, g)));
+  const placedIds = new Set();
+  placed.forEach(p => {
+    placedIds.add(p.link.id);
+    const tile = tileById[p.link.id];
+    tile.style.width  = g.w + 'px';
+    tile.style.height = g.h + 'px';
+    qlPositionTile(tile, p.row, p.col, g);
+  });
+  // Drop any link that didn't fit anywhere so it isn't left stacked at 0,0.
+  links.forEach(l => { if (!placedIds.has(l.id)) tileById[l.id].remove(); });
+
   qlRenderCells();
+
+  // Safety net: if a pill ends up wider than the cell we sized (a stray late
+  // metric), grow the cell and re-place once so pills can never overlap.
+  if (!qlIconOnly() && !qlEditing) {
+    requestAnimationFrame(() => {
+      if (qlEditing) return;
+      let need = 0;
+      document.querySelectorAll('#quick-links .ql-tile .ql-body')
+        .forEach(b => { need = Math.max(need, b.offsetWidth); });
+      if (need && Math.ceil(need) + QL_OVAL_GAP > g.w + 0.5) renderQuickLinks();
+    });
+  }
 }
 
 // Dashed empty slots for every free, non-protected cell (edit mode only).
@@ -482,13 +571,6 @@ function qlRenderCells() {
   container.querySelectorAll('.ql-cell').forEach(c => c.remove());
   if (!qlEditing) return;
   const g = qlGeomCache || (qlGeomCache = qlGeom());
-
-  // Oval slots hug the widest actual pill rather than filling the whole cell.
-  if (!qlIconOnly()) {
-    let maxW = 0;
-    container.querySelectorAll('.ql-tile .ql-body').forEach(b => { maxW = Math.max(maxW, b.offsetWidth); });
-    container.style.setProperty('--ql-slot-w', (maxW ? maxW + 8 : 168) + 'px');
-  }
 
   for (let r = 0; r < g.rows; r++) for (let c = 0; c < g.cols; c++) {
     if (qlCellBlocked(g, r, c)) continue;
@@ -512,7 +594,9 @@ function qlPositionTile(tile, row, col, g) {
   tile.dataset.col = col;
 }
 
-function makeQuickLinkTile(link, row, col, g) {
+// Builds a tile's markup only — sizing and grid placement happen in
+// renderQuickLinks after the pills have been measured.
+function makeQuickLinkTile(link) {
   const label = link.label || BrandColors.siteName(link.url);
   const tile = document.createElement('div');
   tile.className = 'ql-tile';
@@ -521,9 +605,6 @@ function makeQuickLinkTile(link, row, col, g) {
   tile.setAttribute('role', 'link');
   tile.setAttribute('aria-label', label);
   tile.title = label;
-  tile.style.width  = g.w + 'px';
-  tile.style.height = g.h + 'px';
-  qlPositionTile(tile, row, col, g);
   tile.style.setProperty('--jiggle-delay', Math.floor(Math.random() * 150) + 'ms');
   tile.addEventListener('keydown', e => {
     if ((e.key === 'Enter' || e.key === ' ') && !qlEditing) { e.preventDefault(); openQuickLink(link); }
@@ -547,7 +628,7 @@ function makeQuickLinkTile(link, row, col, g) {
   const box = document.createElement('div');
   box.className = 'ql-icon-box';
   body.appendChild(box);
-  decorateQuickTile(box, link.url, label);
+  decorateQuickTile(box, link.url, label, qlIconOnly());
 
   if (!qlIconOnly()) {
     const lbl = document.createElement('span');
@@ -557,7 +638,7 @@ function makeQuickLinkTile(link, row, col, g) {
   }
   tile.appendChild(body);
 
-  attachTilePointer(tile, link);
+  attachTilePointer(tile, body, link);
   return tile;
 }
 
@@ -580,10 +661,19 @@ function removeQuickLink(id) {
 // When "Use Theme Color" is on the whole tile goes branded: --ql-bg fills the
 // pill / icon box (the app's outer shell, e.g. Spotify black) and --ql-fg tints
 // the text and the masked logo mark (the app's accent, e.g. Spotify green).
-function decorateQuickTile(box, url, label) {
+function decorateQuickTile(box, url, label, iconOnly) {
   const body = box.parentElement;
   const domain = BrandColors.domainOf(url);
   const letter = () => { box.classList.add('ql-letter'); box.textContent = (label || '?').charAt(0).toUpperCase(); };
+  const favicon = () => {
+    const img = document.createElement('img');
+    img.className = 'ql-fav';
+    img.src = BrandColors.faviconUrl(url, 64);
+    img.alt = '';
+    img.decoding = 'async';
+    img.addEventListener('error', () => { img.remove(); letter(); });
+    box.appendChild(img);
+  };
   if (!domain) { letter(); return; }
 
   const override = BrandColors.lookup(domain);
@@ -591,27 +681,26 @@ function decorateQuickTile(box, url, label) {
   const colors   = override || cached;
   if (settings.brandColors && colors) applyBrandColors(body, colors);
 
-  const logoDomain = BrandColors.logoDomain(domain);
-  if (logoDomain) {
-    const logo = document.createElement('span');
-    logo.className = 'ql-logo-mask';
-    logo.style.setProperty('--ql-logo-src', `url("${BrandColors.logoUrl(logoDomain)}")`);
-    box.appendChild(logo);
+  // Netflix / Prime: text-only pill in oval mode. Icon-only shows the real app
+  // icon (favicon) when the browser has it, else the bundled brand mark, else a
+  // letter — so it always renders.
+  if (BrandColors.NO_OVAL_LOGO.has(domain)) {
+    if (!iconOnly) { box.remove(); return; }
+    const ld = BrandColors.logoDomain(domain);
+    BrandColors.analyze(url).then(({ blank }) => {
+      if (!blank) favicon();
+      else if (ld) addLogoMask(box, ld);
+      else letter();
+    });
     return;
   }
 
+  const logoDomain = BrandColors.logoDomain(domain);
+  if (logoDomain) { addLogoMask(box, logoDomain); return; }
+
   BrandColors.analyze(url).then(({ blank, colors: found }) => {
-    if (!blank) {
-      const img = document.createElement('img');
-      img.className = 'ql-fav';
-      img.src = BrandColors.faviconUrl(url, 64);
-      img.alt = '';
-      img.decoding = 'async';
-      img.addEventListener('error', () => { img.remove(); letter(); });
-      box.appendChild(img);
-    } else {
-      letter();
-    }
+    if (!blank) favicon();
+    else letter();
     if (found && !colors) {
       settings.brandColorCache = settings.brandColorCache || {};
       settings.brandColorCache[domain] = found;
@@ -619,6 +708,14 @@ function decorateQuickTile(box, url, label) {
       if (settings.brandColors) applyBrandColors(body, found);
     }
   });
+}
+
+// Append a bundled brand mark (masked so it takes the accent colour) to a box.
+function addLogoMask(box, logoDomain) {
+  const logo = document.createElement('span');
+  logo.className = 'ql-logo-mask';
+  logo.style.setProperty('--ql-logo-src', `url("${BrandColors.logoUrl(logoDomain)}")`);
+  box.appendChild(logo);
 }
 
 // Flag a tile as brand-coloured; CSS reads --ql-bg / --ql-fg per display mode.
@@ -632,11 +729,14 @@ function applyBrandColors(body, colors) {
 
 function clearHold() { if (qlHoldTimer) { clearTimeout(qlHoldTimer); qlHoldTimer = null; } }
 
-function attachTilePointer(tile, link) {
-  tile.addEventListener('pointerdown', e => {
+// `hit` is the visible pill / icon (.ql-body) — the only clickable surface, so
+// the dead margin around it inside the grid cell doesn't register taps. `tile`
+// stays the positioned cell we move while dragging.
+function attachTilePointer(tile, hit, link) {
+  hit.addEventListener('pointerdown', e => {
     if (e.button && e.button !== 0) return;
     const state = { link, tile, x0: e.clientX, y0: e.clientY, pid: e.pointerId, moved: false, dragging: false };
-    try { tile.setPointerCapture(e.pointerId); } catch (_) {}
+    try { hit.setPointerCapture(e.pointerId); } catch (_) {}
 
     const onMove = ev => {
       if (!state.dragging) {
@@ -657,15 +757,15 @@ function attachTilePointer(tile, link) {
       cleanup();
     };
     const cleanup = () => {
-      try { tile.releasePointerCapture(state.pid); } catch (_) {}
-      tile.removeEventListener('pointermove', onMove);
-      tile.removeEventListener('pointerup', onUp);
-      tile.removeEventListener('pointercancel', onUp);
+      try { hit.releasePointerCapture(state.pid); } catch (_) {}
+      hit.removeEventListener('pointermove', onMove);
+      hit.removeEventListener('pointerup', onUp);
+      hit.removeEventListener('pointercancel', onUp);
     };
 
-    tile.addEventListener('pointermove', onMove);
-    tile.addEventListener('pointerup', onUp);
-    tile.addEventListener('pointercancel', onUp);
+    hit.addEventListener('pointermove', onMove);
+    hit.addEventListener('pointerup', onUp);
+    hit.addEventListener('pointercancel', onUp);
 
     if (!qlEditing) {
       clearHold();
@@ -907,7 +1007,7 @@ function startAppearancePreview() {
   if (!overlay.classList.contains('open') || nav.view !== 'main' || activePanel !== 'home') return;
   livePreview.show(THEME_MAP[settings.theme] || StarfieldTheme, {
     intensity:  Storage.intensityValue(live.intensity),
-    quality:    Storage.qualityValue(live.intensity),
+    quality:    Storage.qualityValue(live.quality),
     speed:      live.animSpeed,
     staticMode: live.staticMode,
   });
@@ -1122,7 +1222,15 @@ function editPreset(themeKey) {
 // Snapshot the current toolbar settings as this background's preset.
 function savePreset(themeKey) {
   settings.overrides = settings.overrides || {};
-  settings.overrides[themeKey] = snapshotSettings();
+  const prev = settings.overrides[themeKey];
+  const snap = snapshotSettings();
+  // Keep the background's own quick-link arrangement: an existing preset already
+  // holds the layout dragged onto it; a brand-new one inherits whatever's shown
+  // now (the global grid). Snapshotting global here would move the links.
+  snap.quickLinkGrid = (prev && prev.quickLinkGrid)
+    ? prev.quickLinkGrid
+    : JSON.parse(JSON.stringify(settings.quickLinkGrid || {}));
+  settings.overrides[themeKey] = snap;
   savePresets();
   recomputeLive();
   buildAdvancedPanel();
@@ -1204,7 +1312,7 @@ function makePresetCard(themeKey, animate, animQuality) {
     const preview = new ScenePreview.LivePreview(sceneEl);
     preview.show(THEME_MAP[themeKey] || StarfieldTheme, {
       intensity:  Storage.intensityValue(eff.intensity),
-      quality:    Math.min(Storage.qualityValue(eff.intensity), animQuality),
+      quality:    Math.min(Storage.qualityValue(eff.quality), animQuality),
       speed:      eff.animSpeed,
       staticMode: eff.staticMode,
     });
@@ -1249,16 +1357,29 @@ function effectiveFor(themeKey) {
   return Object.assign({}, settings, overrideFor(themeKey) || {});
 }
 
-// Grid geometry for a given quick-link mode at the current window size — the
-// same math as qlGeom() but without the live-page protected-rect, so a preview
-// can map each saved {row,col} to a fraction of the screen.
-function qlGeomFor(iconOnly) {
-  const { w, h } = iconOnly ? { w: 80, h: 90 } : { w: 184, h: 58 };
+// Size + place a preview's quick-link tiles with the same geometry the live
+// page uses (oval cells hug the widest pill), reading saved row/col off each
+// tile's dataset. offsetWidth is unaffected by the stage's CSS scale, so this
+// stays correct even after the miniature is scaled.
+function layoutPreviewTiles(tiles, iconOnly) {
+  let w, h;
+  if (iconOnly) { w = 80; h = 90; }
+  else {
+    let maxW = 0;
+    tiles.forEach(t => { const b = t.querySelector('.ql-body'); if (b) maxW = Math.max(maxW, b.offsetWidth); });
+    w = (maxW ? Math.ceil(maxW) : 120) + QL_OVAL_GAP;
+    h = QL_OVAL_H;
+  }
   const cols = Math.max(1, Math.floor((window.innerWidth  - QL_EDGE * 2) / w));
   const rows = Math.max(1, Math.floor((window.innerHeight - QL_EDGE * 2) / h));
   const ox = Math.round((window.innerWidth  - cols * w) / 2);
   const oy = Math.round((window.innerHeight - rows * h) / 2);
-  return { w, h, cols, rows, ox, oy };
+  tiles.forEach(t => {
+    t.style.width  = w + 'px';
+    t.style.height = h + 'px';
+    t.style.left = (ox + (+t.dataset.col) * w) + 'px';
+    t.style.top  = (oy + (+t.dataset.row) * h) + 'px';
+  });
 }
 
 // A faithful, static miniature of the real new-tab drawn over a preset's scene
@@ -1294,20 +1415,25 @@ function makePresetPreviewOverlay(themeKey) {
 
   const links = document.createElement('div');
   links.className = 'ppv-links' + (eff.iconOnly ? ' icon-only' : '');
-  const g = qlGeomFor(!!eff.iconOnly);
   const grid = eff.quickLinkGrid || {};
+  const previewTiles = [];
   qlLinks().forEach(link => {
     const p = grid[link.id];
     if (!p || !Number.isInteger(p.row) || !Number.isInteger(p.col)) return;
-    links.appendChild(makePreviewTile(link, p.row, p.col, g, !!eff.iconOnly));
+    const t = makePreviewTile(link, !!eff.iconOnly);
+    t.dataset.row = p.row;
+    t.dataset.col = p.col;
+    previewTiles.push(t);
+    links.appendChild(t);
   });
   stage.appendChild(links);
 
   overlay.appendChild(stage);
 
-  // Scale the full-size stage to cover the tile once the tile has a measured
-  // size (same crop behaviour as the scene image's object-fit: cover).
+  // Once laid out: size/place the pills (needs measurement), then scale the
+  // full-size stage to cover the tile (same crop as the scene's object-fit).
   requestAnimationFrame(() => {
+    layoutPreviewTiles(previewTiles, !!eff.iconOnly);
     const tw = overlay.clientWidth, th = overlay.clientHeight;
     if (tw && th) {
       const s = Math.max(tw / vpW, th / vpH);
@@ -1321,21 +1447,18 @@ function makePresetPreviewOverlay(themeKey) {
 
 // A non-interactive clone of a quick-link tile (no delete badge / drag / jiggle),
 // using the real .ql-tile markup so it inherits the live pill / icon styling.
-function makePreviewTile(link, row, col, g, iconOnly) {
+// Sizing / placement is applied later by layoutPreviewTiles.
+function makePreviewTile(link, iconOnly) {
   const label = link.label || BrandColors.siteName(link.url);
   const tile = document.createElement('div');
   tile.className = 'ql-tile';
-  tile.style.width  = g.w + 'px';
-  tile.style.height = g.h + 'px';
-  tile.style.left = (g.ox + col * g.w) + 'px';
-  tile.style.top  = (g.oy + row * g.h) + 'px';
 
   const body = document.createElement('div');
   body.className = 'ql-body';
   const box = document.createElement('div');
   box.className = 'ql-icon-box';
   body.appendChild(box);
-  decorateQuickTile(box, link.url, label);
+  decorateQuickTile(box, link.url, label, iconOnly);
 
   if (!iconOnly) {
     const lbl = document.createElement('span');
@@ -1607,6 +1730,7 @@ function buildFontSettings() {
       Storage.save({ font: key });
       recomputeLive();
       applyFont();
+      if (!qlEditing) renderQuickLinks();   // pill widths depend on the font
       document.querySelectorAll('.font-option').forEach(b => b.classList.toggle('active', b === btn));
       maybeAdjustPreset(['font']);
     });
@@ -1769,30 +1893,63 @@ function buildQuickLinksEditor() {
 
 // Animation settings
 function buildAnimationSettings() {
-  const btns     = document.querySelectorAll('.intensity-btn');
+  const intensityEl  = document.getElementById('setting-intensity');
+  const intensityLbl = document.getElementById('intensity-label');
+  const qualityEl    = document.getElementById('setting-quality');
+  const qualityLbl   = document.getElementById('quality-label');
   const staticEl = document.getElementById('setting-static');
   const speedEl  = document.getElementById('setting-speed');
   const speedLbl = document.getElementById('speed-label');
 
-  btns.forEach(b => b.classList.toggle('active', b.dataset.value === settings.intensity));
+  const intensityText = v => Math.round(v * 100) + '%';
+  const qualityText   = v => (Number.isInteger(v) ? v + '' : v.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')) + '×';
+
+  const intens = Storage.intensityValue(settings.intensity);
+  intensityEl.value = intens;
+  intensityLbl.textContent = intensityText(intens);
+
+  const qual = Storage.qualityValue(settings.quality);
+  qualityEl.value = qual;
+  qualityLbl.textContent = qualityText(qual);
+
   staticEl.checked = settings.staticMode;
 
   const spd = settings.animSpeed || 1.0;
   speedEl.value = spd;
   speedLbl.textContent = spd.toFixed(2).replace(/\.?0+$/, '') + '×';
 
-  btns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      settings.intensity = btn.dataset.value;
-      Storage.save({ intensity: btn.dataset.value });
-      btns.forEach(b => b.classList.toggle('active', b === btn));
-      recomputeLive();
-      // When the active background is showing a frozen preset, a global change
-      // doesn't alter `live` — skip the scene re-init; otherwise apply it.
-      applyLiveEngine(!activeUsesPreset());
-      startAppearancePreview();
-      maybeAdjustPreset(['intensity']);
-    });
+  // Intensity (effect amount) and Quality (render resolution) both need a fresh
+  // scene init to take effect, so re-init on release (change), not every input.
+  intensityEl.addEventListener('input', () => {
+    const v = parseFloat(intensityEl.value);
+    settings.intensity = v;
+    intensityLbl.textContent = intensityText(v);
+  });
+  intensityEl.addEventListener('change', () => {
+    const v = parseFloat(intensityEl.value);
+    settings.intensity = v;
+    Storage.save({ intensity: v });
+    recomputeLive();
+    // When the active background is showing a frozen preset, a global change
+    // doesn't alter `live` — skip the scene re-init; otherwise apply it.
+    applyLiveEngine(!activeUsesPreset());
+    startAppearancePreview();
+    maybeAdjustPreset(['intensity']);
+  });
+
+  qualityEl.addEventListener('input', () => {
+    const v = parseFloat(qualityEl.value);
+    settings.quality = v;
+    qualityLbl.textContent = qualityText(v);
+  });
+  qualityEl.addEventListener('change', () => {
+    const v = parseFloat(qualityEl.value);
+    settings.quality = v;
+    Storage.save({ quality: v });
+    recomputeLive();
+    applyLiveEngine(!activeUsesPreset());
+    startAppearancePreview();
+    maybeAdjustPreset(['quality']);
   });
 
   speedEl.addEventListener('input', () => {

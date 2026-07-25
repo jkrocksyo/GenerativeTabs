@@ -184,11 +184,12 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: auto;
+  /* The cell is only for layout/positioning — clicks land on the visible pill /
+     icon (.ql-body) so the empty margin around it doesn't register taps. */
+  pointer-events: none;
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
-  touch-action: none;
   transition: left 0.22s cubic-bezier(0.2,0.8,0.3,1), top 0.22s cubic-bezier(0.2,0.8,0.3,1);
 }
 .ql-tile:focus-visible { outline: none; }
@@ -199,9 +200,12 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  max-width: 100%;
+  /* No max-width and no shrink — the pill keeps its full-text width (never
+     clipped); the grid cell is sized to the widest pill so nothing overlaps. */
+  flex-shrink: 0;
   transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
+#quick-links .ql-body { pointer-events: auto; touch-action: none; }
 
 /* Icon box: favicon / masked brand logo / first-letter fallback */
 .ql-icon-box {
@@ -225,9 +229,7 @@ html, body {
 }
 
 .ql-tile-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: nowrap;      /* full label on one line, never truncated */
   color: rgba(255,255,255,0.9);
   font-family: var(--ui-font);
 }
@@ -249,7 +251,7 @@ html, body {
 }
 #quick-links:not(.icon-only) .ql-tile-label { font-size: 0.85rem; font-weight: 500; }
 #quick-links:not(.icon-only) .ql-logo-mask { width: 100%; height: 100%; }   /* fill the frameless box */
-#quick-links:not(.icon-only) .ql-tile:not(.dragging):hover .ql-body {
+#quick-links:not(.icon-only) .ql-tile:not(.dragging) .ql-body:hover {
   background: rgba(255,255,255,0.15);
   box-shadow: 0 4px 14px rgba(0,0,0,0.3);
 }
@@ -260,7 +262,7 @@ html, body {
   border-color: color-mix(in srgb, var(--ql-fg) 40%, transparent);
 }
 #quick-links:not(.icon-only) .ql-body.branded .ql-tile-label { color: var(--ql-fg); }
-#quick-links:not(.icon-only) .ql-tile:not(.dragging):hover .ql-body.branded {
+#quick-links:not(.icon-only) .ql-tile:not(.dragging) .ql-body.branded:hover {
   background: var(--ql-bg);
   border-color: color-mix(in srgb, var(--ql-fg) 65%, transparent);
 }
@@ -273,7 +275,8 @@ html, body {
   box-shadow: 0 4px 14px rgba(0,0,0,0.32);
 }
 #quick-links.icon-only .ql-body.branded .ql-icon-box { background: var(--ql-bg); }
-#quick-links.icon-only .ql-tile:not(.dragging):hover .ql-icon-box {
+#quick-links.icon-only .ql-logo-mask { width: 74%; height: 74%; }   /* larger, more legible marks */
+#quick-links.icon-only .ql-tile:not(.dragging) .ql-body:hover .ql-icon-box {
   box-shadow: 0 7px 20px rgba(0,0,0,0.45);
 }
 
@@ -295,9 +298,7 @@ html, body {
   border: 1.5px dashed rgba(255,255,255,0.2);
 }
 #quick-links:not(.icon-only) .ql-cell::before {
-  top: 8px; bottom: 8px;
-  left: 50%; transform: translateX(-50%);
-  width: var(--ql-slot-w, 168px);        /* hug the widest pill, centred in the cell */
+  inset: 2px;                            /* fill the cell so slots read as contiguous */
   border-radius: 9999px;                 /* oval slots */
 }
 #quick-links.icon-only .ql-cell::before {
@@ -805,7 +806,7 @@ button.tile-thumb:hover { border-color: rgba(255,255,255,0.38); }
   overflow: hidden;
   border: 1px solid rgba(255,255,255,0.13);
 }
-.layout-btn, .intensity-btn {
+.layout-btn {
   background: rgba(255,255,255,0.03);
   border: none;
   border-right: 1px solid rgba(255,255,255,0.1);
@@ -816,9 +817,9 @@ button.tile-thumb:hover { border-color: rgba(255,255,255,0.38); }
   cursor: pointer;
   transition: background 0.14s, color 0.14s;
 }
-.layout-btn:last-child, .intensity-btn:last-child { border-right: none; }
-.layout-btn:hover, .intensity-btn:hover { background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.88); }
-.layout-btn.active, .intensity-btn.active { background: rgba(100,160,255,0.2); color: #fff; }
+.layout-btn:last-child { border-right: none; }
+.layout-btn:hover { background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.88); }
+.layout-btn.active { background: rgba(100,160,255,0.2); color: #fff; }
 
 /* Speed slider */
 .speed-control {

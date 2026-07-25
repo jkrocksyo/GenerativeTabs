@@ -68,17 +68,13 @@ void main(){
 
     init(canvas, _ctx, opts) {
       this.canvas  = canvas;
-      this.dpr     = Math.min(window.devicePixelRatio || 1, 2);
+      this.dpr     = Math.min((opts && opts.quality) || 2, 3);
       this.speed   = (opts && opts.speed) || 1.0;
-      const intMap = {
-        low:    { back:  80, mid:  48, front: 16 },
-        medium: { back: 200, mid: 120, front: 40 },
-        high:   { back: 320, mid: 192, front: 64 },
-      };
-      const ic = intMap[(opts && opts.intensity) || 'medium'] || intMap.medium;
-      this._backCount  = ic.back;
-      this._midCount   = ic.mid;
-      this._frontCount = ic.front;
+      // Intensity is a plain multiplier; medium (1.0) is the baseline population.
+      const mult = (opts && opts.intensity) || 1;
+      this._backCount  = Math.round(200 * mult);
+      this._midCount   = Math.round(120 * mult);
+      this._frontCount = Math.round(40  * mult);
       this._totalQuads = this._backCount + this._midCount + this._frontCount * 2;
       this._lastTs = null;
       this._scaledTime = 0;

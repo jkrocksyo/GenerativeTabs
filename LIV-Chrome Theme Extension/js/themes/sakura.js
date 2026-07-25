@@ -62,7 +62,7 @@ void main(){
 
     init(canvas, _ctx, opts) {
       this.canvas = canvas;
-      this.dpr    = Math.min(window.devicePixelRatio || 1, 2);
+      this.dpr    = Math.min((opts && opts.quality) || 2, 3);
       this.speed  = (opts && opts.speed) || 1.0;
       this._lastTs= null;
       this._scaledTime = 0;

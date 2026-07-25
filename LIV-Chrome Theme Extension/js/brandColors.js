@@ -128,7 +128,13 @@ const BrandColors = (() => {
   // Brands whose mark is just a bare letter/monogram (Netflix N, Facebook f,
   // Medium M, X, Tumblr t, Quora Q, Google G) are intentionally left out — a
   // lone letter adds nothing over the text label, so those pills stay text-only.
+  // Brands whose small logo mark reads poorly beside a text label (a bare
+  // letter / wordmark): the oval pill is text-only, but icon-only tiles still
+  // show their official mark (bundled) or favicon.
+  const NO_OVAL_LOGO = new Set(['netflix.com', 'primevideo.com']);
+
   const BRAND_LOGOS = new Set([
+    'netflix.com', 'primevideo.com',
     'airbnb.com', 'aliexpress.com', 'amazon.com', 'apple.com', 'atlassian.com', 'bandcamp.com',
     'bbc.com', 'binance.com', 'booking.com', 'bsky.app', 'calendar.google.com', 'chatgpt.com',
     'claude.ai', 'cnn.com', 'codepen.io', 'coinbase.com', 'crunchyroll.com', 'discord.com',
@@ -331,5 +337,5 @@ const BrandColors = (() => {
     return core.charAt(0).toUpperCase() + core.slice(1);
   }
 
-  return { OVERRIDES, domainOf, lookup, analyze, faviconUrl, logoDomain, logoUrl, siteName };
+  return { OVERRIDES, NO_OVAL_LOGO, domainOf, lookup, analyze, faviconUrl, logoDomain, logoUrl, siteName };
 })();

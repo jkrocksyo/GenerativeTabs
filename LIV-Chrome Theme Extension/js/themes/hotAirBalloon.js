@@ -15,9 +15,9 @@
       this.canvas  = canvas;
       this.ctx     = ctx || canvas.getContext('2d');
       this.speed   = (opts && opts.speed) || 1;
-      const intMap = { low: 1, medium: 3, high: 5 };
-      this._birdCount  = intMap[(opts && opts.intensity) || 'medium'] || 3;
-      this._cloudCount = { low: 1, medium: 2, high: 3 }[(opts && opts.intensity) || 'medium'] || 2;
+      const mult = (opts && opts.intensity) || 1;
+      this._birdCount  = Math.max(1, Math.round(3 * mult));
+      this._cloudCount = Math.max(1, Math.round(2 * mult));
       this._t      = 0;
       this._lastTs = null;
       this._cW     = canvas.width;

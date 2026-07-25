@@ -61,10 +61,9 @@ void main(){
 
     init(canvas, _ctx, opts) {
       this.canvas  = canvas;
-      this.dpr     = Math.min(window.devicePixelRatio || 1, 2);
+      this.dpr     = Math.min((opts && opts.quality) || 2, 3);
       this.speed   = (opts && opts.speed) || 1.0;
-      const intMap = { low: 26, medium: 65, high: 104 };
-      this._count  = intMap[(opts && opts.intensity) || 'medium'] || 65;
+      this._count  = Math.round(65 * ((opts && opts.intensity) || 1));
       this._lastTs = null;
       this._scaledTime = 0;
       this.W = 1; this.H = 1;
