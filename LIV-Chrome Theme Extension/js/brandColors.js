@@ -131,7 +131,7 @@ const BrandColors = (() => {
   // Brands whose small logo mark reads poorly beside a text label (a bare
   // letter / wordmark): the oval pill is text-only, but icon-only tiles still
   // show their official mark (bundled) or favicon.
-  const NO_OVAL_LOGO = new Set(['netflix.com', 'primevideo.com']);
+  const NO_OVAL_LOGO = new Set();
 
   const BRAND_LOGOS = new Set([
     'netflix.com', 'primevideo.com',

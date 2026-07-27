@@ -12,7 +12,8 @@ class ThemeEngine {
     this._webglFailed = false;
     this._dpr = 1;
 
-    this.options = { intensity: 1.0, staticMode: false, speed: 1.0, quality: 2 };
+    this.options = { intensity: 1.0, staticMode: false, speed: 1.0, quality: 2, fps: 60 };
+    this.frameCount = 0;   // total frames actually drawn (for the live-FPS readout)
 
     this._prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -110,9 +111,10 @@ class ThemeEngine {
       this.rafId = requestAnimationFrame(loop);
       if (!this.lastTimestamp) { this.lastTimestamp = ts; return; }
       const delta = ts - this.lastTimestamp;
-      if (delta < 16) return; // cap at ~60fps
+      const interval = 1000 / (this.options.fps || 60);
+      if (delta < interval - 1) return; // frame-rate cap (30 / 60 / 120)
       this.lastTimestamp = ts;
-      if (this.currentTheme) this.currentTheme.draw(ts);
+      if (this.currentTheme) { this.currentTheme.draw(ts); this.frameCount++; }  // actual drawn frames
     };
     this.rafId = requestAnimationFrame(loop);
   }

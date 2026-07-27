@@ -72,35 +72,38 @@
       <div class="settings-nav-layout">
 
         <nav class="settings-rail" role="tablist" aria-label="Settings sections">
-          <button class="rail-btn active" type="button" data-panel="home" role="tab" aria-selected="true" aria-label="Home">
+          <button class="rail-btn active" type="button" data-panel="home" role="tab" aria-selected="true" aria-label="Backgrounds">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
-              <path d="M3.5 9.4 10 4l6.5 5.4"/>
-              <path d="M5 8.3v8h10v-8"/>
-              <path d="M8.2 16.3v-4.1h3.6v4.1"/>
+              <rect x="3" y="4.5" width="14" height="11" rx="1.6"/>
+              <circle cx="7.3" cy="8.4" r="1.25"/>
+              <path d="M4 13.6l3.4-3.1 2.4 2.1 3-2.7 4 3.6" stroke-linecap="round"/>
             </svg>
           </button>
-          <button class="rail-btn" type="button" data-panel="font" role="tab" aria-selected="false" aria-label="Font">
+          <button class="rail-btn" type="button" data-panel="font" role="tab" aria-selected="false" aria-label="Display">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M4 6V4.6h12V6"/>
-              <path d="M10 4.6V15.4"/>
-              <path d="M7.8 15.4h4.4"/>
+              <rect x="3" y="4.3" width="14" height="9" rx="1.4"/>
+              <path d="M6.6 8h6.8M6.6 10.3h4"/>
+              <path d="M7.5 16.3h5M10 13.3v3"/>
             </svg>
           </button>
-          <button class="rail-btn" type="button" data-panel="quicklinks" role="tab" aria-selected="false" aria-label="Quick Links">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
-              <path d="M8.4 11.6a3 3 0 0 0 4.24 0l2.3-2.3a3 3 0 1 0-4.24-4.24l-1 1"/>
-              <path d="M11.6 8.4a3 3 0 0 0-4.24 0l-2.3 2.3a3 3 0 1 0 4.24 4.24l1-1"/>
+          <button class="rail-btn" type="button" data-panel="quicklinks" role="tab" aria-selected="false" aria-label="Widgets">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3.4" y="3.4" width="5.6" height="5.6" rx="1.3"/>
+              <rect x="11" y="3.4" width="5.6" height="5.6" rx="1.3"/>
+              <rect x="3.4" y="11" width="5.6" height="5.6" rx="1.3"/>
+              <rect x="11" y="11" width="5.6" height="5.6" rx="1.3"/>
             </svg>
           </button>
-          <button class="rail-btn" type="button" data-panel="animation" role="tab" aria-selected="false" aria-label="Animation">
-            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path d="M6 4.4v11.2a.6.6 0 0 0 .92.5l8.7-5.6a.6.6 0 0 0 0-1L6.92 3.9A.6.6 0 0 0 6 4.4z"/>
-            </svg>
-          </button>
-          <button class="rail-btn" type="button" data-panel="advanced" role="tab" aria-selected="false" aria-label="Advanced Customization">
+          <button class="rail-btn" type="button" data-panel="animation" role="tab" aria-selected="false" aria-label="Animations">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
               <path d="M3 6h9M15 6h2"/><circle cx="13.5" cy="6" r="1.8" fill="currentColor" stroke="none"/>
               <path d="M3 14h2M8 14h9"/><circle cx="6.5" cy="14" r="1.8" fill="currentColor" stroke="none"/>
+            </svg>
+          </button>
+          <button class="rail-btn" type="button" data-panel="advanced" role="tab" aria-selected="false" aria-label="Advanced Customization">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
+              <path d="M10 2.6l1.1.2.5 1.7 1 .4 1.5-.9 1.6 1.6-.9 1.5.4 1 1.7.5.2 1.1-.2 1.1-1.7.5-.4 1 .9 1.5-1.6 1.6-1.5-.9-1 .4-.5 1.7-1.1.2-1.1-.2-.5-1.7-1-.4-1.5.9-1.6-1.6.9-1.5-.4-1-1.7-.5L2.6 10l.2-1.1 1.7-.5.4-1-.9-1.5 1.6-1.6 1.5.9 1-.4.5-1.7z"/>
+              <circle cx="10" cy="10" r="2.6"/>
             </svg>
           </button>
         </nav>
@@ -186,30 +189,62 @@
               <span>Icon only</span>
               <input type="checkbox" id="setting-icon-only">
             </label>
-            <label class="setting-row ql-brand-toggle">
+            <label class="setting-row">
+              <span>Text only</span>
+              <input type="checkbox" id="setting-text-only">
+            </label>
+            <label class="setting-row">
               <span>Use Theme Color</span>
               <input type="checkbox" id="setting-brand-colors">
             </label>
-            <div class="panel-label ql-editor-label">Links <span class="settings-hint">(up to 24 · press &amp; hold a tile to rearrange)</span></div>
+            <label class="setting-row">
+              <span>Open links in new tab</span>
+              <input type="checkbox" id="setting-new-tab-links">
+            </label>
+            <div class="panel-label ql-editor-label">Links <span class="settings-hint">(press &amp; hold a tile to rearrange)</span></div>
             <div id="quick-links-editor"></div>
             <button id="add-quick-link" type="button" class="add-btn">+ Add link</button>
           </section>
 
           <section class="settings-panel-section" data-panel="animation" role="tabpanel" aria-label="Animations">
             <h2 class="panel-subheader">Animations</h2>
+            <span class="panel-subsection">Greeting</span>
+            <p class="panel-intro">A particle greeting that plays on the first new tab each time you open your browser.</p>
+            <label class="setting-row">
+              <span>Activate greeting</span>
+              <input type="checkbox" id="setting-greeting">
+            </label>
+            <div class="setting-row greeting-name-row" id="greeting-name-row" hidden>
+              <span>Greet</span>
+              <input type="text" id="setting-greeting-name" class="greeting-name-input" placeholder="Your name" maxlength="24" aria-label="Name to greet">
+            </div>
+
+            <span class="panel-subsection mt">Animation settings</span>
             <div class="setting-row">
-              <span>Intensity <span class="settings-hint">(amount of effect)</span></span>
+              <span>Intensity</span>
               <div class="speed-control">
                 <input type="range" id="setting-intensity" class="liv-slider" min="0.2" max="2" step="0.05" value="1" aria-label="Effect intensity">
                 <span id="intensity-label" class="speed-label">100%</span>
               </div>
             </div>
             <div class="setting-row">
-              <span>Quality <span class="settings-hint">(higher needs a faster computer)</span></span>
+              <span>Quality</span>
               <div class="speed-control">
                 <input type="range" id="setting-quality" class="liv-slider" min="0.75" max="3" step="0.25" value="1.5" aria-label="Render quality">
                 <span id="quality-label" class="speed-label">1.5×</span>
               </div>
+            </div>
+            <div class="setting-row">
+              <span>Frame rate</span>
+              <div class="button-group" role="group" aria-label="Animation frame-rate cap">
+                <button class="fps-btn" data-value="30"  type="button">30</button>
+                <button class="fps-btn" data-value="60"  type="button">60</button>
+                <button class="fps-btn" data-value="120" type="button">120</button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <span>Live FPS <span class="settings-hint">(actual rate)</span></span>
+              <span id="fps-live" class="speed-label">– fps</span>
             </div>
             <div class="setting-row">
               <span>Speed</span>
@@ -226,7 +261,7 @@
 
           <section class="settings-panel-section" data-panel="advanced" role="tabpanel" aria-label="Advanced Customization">
             <h2 class="panel-subheader">Advanced Customization</h2>
-            <p class="panel-intro">Save the current toolbar settings as a preset for a specific background. When that background is active, it uses its preset instead of your global settings.</p>
+            <p class="panel-intro">Add a preset and click Save Current Settings when satisfied with widget location and settings.</p>
             <button id="add-preset" type="button" class="add-btn add-preset-btn">+ Add New Preset</button>
             <div id="preset-list" class="preset-list"></div>
           </section>
@@ -258,10 +293,10 @@
   <div id="preset-adjust-confirm" class="preset-conflict-overlay hidden" role="dialog" aria-modal="true" aria-label="Adjust preset">
     <div class="preset-conflict-dialog">
       <p class="preset-conflict-title">Save change to preset?</p>
-      <p class="preset-conflict-sub"><span id="preset-adjust-name">This background</span> has a saved preset. Save this change into its preset, or keep it only in your global settings?</p>
+      <p class="preset-conflict-sub"><span id="preset-adjust-name">This background</span> is a saved preset. Would you like to save this setting to your preset?</p>
       <div class="preset-conflict-actions">
-        <button id="preset-adjust-no" class="preset-conflict-btn" type="button">Global only</button>
-        <button id="preset-adjust-yes" class="preset-conflict-btn primary" type="button">Save to preset</button>
+        <button id="preset-adjust-no" class="preset-conflict-btn" type="button">No, leave it</button>
+        <button id="preset-adjust-yes" class="preset-conflict-btn primary" type="button">Save to Preset</button>
       </div>
     </div>
   </div>
@@ -278,6 +313,7 @@
   </div>
 
   <script src="js/storage.js"></script>
+  <script src="js/greeting.js"></script>
   <script src="js/brandColors.js"></script>
   <script src="js/scenePreview.js"></script>
   <script src="js/themes/engine.js"></script>

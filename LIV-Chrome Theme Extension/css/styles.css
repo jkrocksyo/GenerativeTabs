@@ -55,6 +55,13 @@ html, body {
 }
 #main-ui > * { pointer-events: auto; }
 
+/* ── Greeting intro: hide the UI while the particle greeting plays, then
+      cross-fade it in as the header particles settle. ───────────────────────── */
+body.greeting-playing #header,
+body.greeting-playing #search-container { opacity: 0; }
+body.greeting-reveal #header,
+body.greeting-reveal #search-container { transition: opacity 0.55s ease; }
+
 /* ── Header ───────────────────────────────────────────────────────────────── */
 #header {
   display: flex;
@@ -754,11 +761,6 @@ button.tile-thumb:hover { border-color: rgba(255,255,255,0.38); }
   cursor: pointer;
 }
 .setting-row > span:first-child { flex: 1; }
-.ql-brand-toggle {
-  gap: 1.1rem;
-  padding: 0.55rem 0;
-  margin-bottom: 0.65rem;
-}
 
 /* Toggle */
 .setting-row input[type="checkbox"] {
@@ -806,7 +808,7 @@ button.tile-thumb:hover { border-color: rgba(255,255,255,0.38); }
   overflow: hidden;
   border: 1px solid rgba(255,255,255,0.13);
 }
-.layout-btn {
+.layout-btn, .fps-btn {
   background: rgba(255,255,255,0.03);
   border: none;
   border-right: 1px solid rgba(255,255,255,0.1);
@@ -817,9 +819,9 @@ button.tile-thumb:hover { border-color: rgba(255,255,255,0.38); }
   cursor: pointer;
   transition: background 0.14s, color 0.14s;
 }
-.layout-btn:last-child { border-right: none; }
-.layout-btn:hover { background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.88); }
-.layout-btn.active { background: rgba(100,160,255,0.2); color: #fff; }
+.layout-btn:last-child, .fps-btn:last-child { border-right: none; }
+.layout-btn:hover, .fps-btn:hover { background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.88); }
+.layout-btn.active, .fps-btn.active { background: rgba(100,160,255,0.2); color: #fff; }
 
 /* Speed slider */
 .speed-control {
@@ -909,6 +911,20 @@ button.tile-thumb:hover { border-color: rgba(255,255,255,0.38); }
   transition: border-color 0.14s;
 }
 .ql-label:focus, .ql-url:focus { border-color: rgba(255,255,255,0.3); }
+
+.greeting-name-input {
+  width: 150px; max-width: 55%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 5px;
+  color: rgba(255,255,255,0.82);
+  font-family: var(--ui-font);
+  font-size: 0.8rem;
+  padding: 0.28rem 0.48rem;
+  outline: none;
+  transition: border-color 0.14s;
+}
+.greeting-name-input:focus { border-color: rgba(255,255,255,0.3); }
 .ql-remove {
   background: none; border: none;
   color: rgba(255,255,255,0.32);
@@ -1071,6 +1087,18 @@ button.tile-thumb:hover { border-color: rgba(255,255,255,0.38); }
   margin-bottom: 0.5rem;
 }
 .ql-editor-label { margin-top: 0.9rem; }
+
+/* Sub-section header within a panel (e.g. Greeting / Animation settings). */
+.panel-subsection {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+  margin: 0 0 0.6rem;
+}
+.panel-subsection.mt { margin-top: 1.5rem; }
 
 /* Inline category grid under Change Background (Home panel) */
 #home-category-grid { margin-top: 1rem; }

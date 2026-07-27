@@ -105,8 +105,8 @@ let live;       // effective settings for the ACTIVE background (global or its p
 const PRESET_FIELDS = [
   'layout', 'hideText', 'hideSearch', 'logoPosition', 'logoScale', 'font',
   'clockFormat', 'showSeconds', 'showDate', 'showTimeInDate',
-  'brandColors', 'cardSize', 'iconStyle', 'newTabLinks',
-  'intensity', 'quality', 'animSpeed', 'staticMode',
+  'brandColors', 'iconOnly', 'textOnly', 'cardSize', 'iconStyle', 'newTabLinks',
+  'intensity', 'quality', 'fps', 'animSpeed', 'staticMode',
 ];
 // The quick-link arrangement (linkId → {row,col}) is per-background too, but it
 // is NOT a snapshot field: it's arranged directly on the page and kept live in
@@ -118,6 +118,11 @@ const PRESET_FIELDS = [
 // it previews the live global toolbar (so toolbar tweaks are visible), even if
 // it already has a saved preset. null the rest of the time.
 let pendingPresetBg = null;
+
+// While the "save to preset?" prompt is open on a preset background, the pending
+// change is previewed live by overlaying it here (field → new value), so the
+// user sees the effect before deciding. Cleared when they answer the prompt.
+let presetPreview = null;
 
 function snapshotSettings() {
   const s = {};
@@ -159,6 +164,7 @@ function computeLive() {
   const s = activeUsesPreset()
     ? Object.assign({}, settings, overrideFor(settings.theme))
     : Object.assign({}, settings);
+  if (presetPreview) Object.assign(s, presetPreview);   // live preview of a pending change
   s.quickLinkGrid = activeGrid();
   return s;
 }
@@ -202,6 +208,7 @@ function applyLiveEngine(reinit = false) {
   engine.setOptions({
     intensity:  Storage.intensityValue(live.intensity),
     quality:    Storage.qualityValue(live.quality),
+    fps:        live.fps,
     speed:      live.animSpeed,
     staticMode: live.staticMode,
   });
@@ -232,6 +239,7 @@ function applyLiveToPage(reinit = false) {
   engine.setOptions({
     intensity:  Storage.intensityValue(live.intensity),
     quality:    Storage.qualityValue(live.quality),
+    fps:        live.fps,
     speed:      live.animSpeed,
     staticMode: live.staticMode,
   });
@@ -261,11 +269,24 @@ function applyLiveToPage(reinit = false) {
   centreObserver.observe(document.getElementById('search-container'));
   initSettings();
 
-  requestAnimationFrame(() => requestAnimationFrame(() => {
+  const fadeOut = () => requestAnimationFrame(() => requestAnimationFrame(() => {
     const overlay = document.getElementById('fade-overlay');
-    overlay.style.opacity = '0';
-    setTimeout(() => overlay.remove(), 600);
+    if (overlay) { overlay.style.opacity = '0'; setTimeout(() => overlay.remove(), 600); }
   }));
+
+  // Particle greeting: only on the first tab of a browser session, and only
+  // once we know it's the first (so the header doesn't flash before it plays).
+  if (settings.greeting && Greeting.canPlay() && await Greeting.firstThisSession()) {
+    document.body.classList.add('greeting-playing');
+    fadeOut();
+    Greeting.play(Greeting.textFor(settings.greetingName), () => {
+      document.body.classList.add('greeting-reveal');
+      document.body.classList.remove('greeting-playing');
+      setTimeout(() => document.body.classList.remove('greeting-reveal'), 700);
+    });
+  } else {
+    fadeOut();
+  }
 })();
 
 // ── Font ──────────────────────────────────────────────────────────────────────
@@ -319,7 +340,8 @@ function tickClock() {
   const m = now.getMinutes();
   const s = now.getSeconds();
 
-  const is12 = settings.clockFormat === '12h';
+  const cfg = live || settings;   // active background's settings (preset-aware)
+  const is12 = cfg.clockFormat === '12h';
   const ampm = is12 ? (h >= 12 ? 'PM' : 'AM') : '';
   if (is12) h = h % 12 || 12;
 
@@ -327,14 +349,14 @@ function tickClock() {
 
   const secEl = document.getElementById('clock-s');
   secEl.textContent = `:${pad(s)}`;
-  secEl.hidden = !settings.showSeconds;
+  secEl.hidden = !cfg.showSeconds;
 
   const ampmEl = document.getElementById('clock-ampm');
   ampmEl.textContent = ` ${ampm}`;
   ampmEl.hidden = !is12;
 
   const dateLine = document.getElementById('clock-date-line');
-  if (settings.showDate) {
+  if (cfg.showDate) {
     dateLine.textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     dateLine.hidden = false;
   } else {
@@ -346,7 +368,7 @@ function tickClock() {
 
   const timeSmall = document.getElementById('date-time-small');
   const dateSep   = document.getElementById('date-separator');
-  if (settings.showTimeInDate) {
+  if (cfg.showTimeInDate) {
     timeSmall.textContent = `${h}:${pad(m)}${is12 ? ' ' + ampm : ''}`;
     timeSmall.hidden = false;
     dateSep.hidden   = false;
@@ -386,7 +408,6 @@ function initSearch() {
 // enters edit mode (jiggle + pointer-drag rearrange); positions persist to
 // settings.quickLinkGrid { linkId: {row,col} }.
 
-const QL_MAX = 24;
 const QL_HOLD_MS = 500;
 const QL_MOVE_THRESHOLD = 8;
 const QL_EDGE = 30;                    // keep-clear margin from the screen edges
@@ -396,7 +417,9 @@ let qlHoldTimer = null;
 let qlGeomCache = null;
 let rebuildQuickLinksEditor = null;    // set by the settings editor
 
-function qlIconOnly() { return !!settings.iconOnly; }
+function qlTextOnly() { return !!((live || settings).textOnly); }
+// Text-only wins if both are somehow set, so the two never fight over a tile.
+function qlIconOnly() { return !!((live || settings).iconOnly) && !qlTextOnly(); }
 // Oval cells are as wide as the widest pill (measured from the tiles already in
 // the DOM) so no label is ever truncated and every cell/slot is the same width;
 // icon cells stay fixed. QL_OVAL_GAP is the breathing room around the pill.
@@ -521,6 +544,7 @@ function renderQuickLinks() {
   container.innerHTML = '';
   container.classList.toggle('editing', qlEditing);
   container.classList.toggle('icon-only', qlIconOnly());
+  container.classList.toggle('text-only', qlTextOnly());
 
   const links = qlLinks();
   // Build every tile first (unsized) so oval pills can be measured at their
@@ -623,12 +647,16 @@ function makeQuickLinkTile(link) {
   del.addEventListener('click', e => { e.stopPropagation(); removeQuickLink(link.id); });
   body.appendChild(del);
 
-  // Both modes show the app icon (brand logo → favicon → letter), tinted by the
-  // theme colour when enabled. Oval mode adds the text label beside it.
-  const box = document.createElement('div');
-  box.className = 'ql-icon-box';
-  body.appendChild(box);
-  decorateQuickTile(box, link.url, label, qlIconOnly());
+  // Three modes: oval (icon + label), icon-only (icon), text-only (label). The
+  // icon appears unless text-only; the label appears unless icon-only.
+  if (!qlTextOnly()) {
+    const box = document.createElement('div');
+    box.className = 'ql-icon-box';
+    body.appendChild(box);
+    decorateQuickTile(box, link.url, label, qlIconOnly(), !!(live || settings).brandColors);
+  } else if (!!(live || settings).brandColors) {
+    applyBrandToBody(body, link.url);   // text-only still honours Theme Color
+  }
 
   if (!qlIconOnly()) {
     const lbl = document.createElement('span');
@@ -661,7 +689,7 @@ function removeQuickLink(id) {
 // When "Use Theme Color" is on the whole tile goes branded: --ql-bg fills the
 // pill / icon box (the app's outer shell, e.g. Spotify black) and --ql-fg tints
 // the text and the masked logo mark (the app's accent, e.g. Spotify green).
-function decorateQuickTile(box, url, label, iconOnly) {
+function decorateQuickTile(box, url, label, iconOnly, brand) {
   const body = box.parentElement;
   const domain = BrandColors.domainOf(url);
   const letter = () => { box.classList.add('ql-letter'); box.textContent = (label || '?').charAt(0).toUpperCase(); };
@@ -679,24 +707,16 @@ function decorateQuickTile(box, url, label, iconOnly) {
   const override = BrandColors.lookup(domain);
   const cached   = (settings.brandColorCache || {})[domain];
   const colors   = override || cached;
-  if (settings.brandColors && colors) applyBrandColors(body, colors);
-
-  // Netflix / Prime: text-only pill in oval mode. Icon-only shows the real app
-  // icon (favicon) when the browser has it, else the bundled brand mark, else a
-  // letter — so it always renders.
-  if (BrandColors.NO_OVAL_LOGO.has(domain)) {
-    if (!iconOnly) { box.remove(); return; }
-    const ld = BrandColors.logoDomain(domain);
-    BrandColors.analyze(url).then(({ blank }) => {
-      if (!blank) favicon();
-      else if (ld) addLogoMask(box, ld);
-      else letter();
-    });
-    return;
-  }
+  if (brand && colors) applyBrandColors(body, colors);
 
   const logoDomain = BrandColors.logoDomain(domain);
-  if (logoDomain) { addLogoMask(box, logoDomain); return; }
+  if (logoDomain) {
+    // Prime's full stacked wordmark is illegible in a small oval pill, so the
+    // pill uses the official smile arrow alone; icon-only tiles keep the full mark.
+    const asset = (!iconOnly && logoDomain === 'primevideo.com') ? 'primevideo-arrow' : logoDomain;
+    addLogoMask(box, asset);
+    return;
+  }
 
   BrandColors.analyze(url).then(({ blank, colors: found }) => {
     if (!blank) favicon();
@@ -705,7 +725,7 @@ function decorateQuickTile(box, url, label, iconOnly) {
       settings.brandColorCache = settings.brandColorCache || {};
       settings.brandColorCache[domain] = found;
       Storage.save({ brandColorCache: settings.brandColorCache });
-      if (settings.brandColors) applyBrandColors(body, found);
+      if (brand) applyBrandColors(body, found);
     }
   });
 }
@@ -723,6 +743,22 @@ function applyBrandColors(body, colors) {
   body.style.setProperty('--ql-bg', colors.bg);
   body.style.setProperty('--ql-fg', colors.fg);
   body.classList.add('branded');
+}
+
+// Tint a tile body with its brand colours without touching an icon — used by
+// text-only pills, which have no icon box for decorateQuickTile to fill.
+function applyBrandToBody(body, url) {
+  const domain = BrandColors.domainOf(url);
+  if (!domain) return;
+  const colors = BrandColors.lookup(domain) || (settings.brandColorCache || {})[domain];
+  if (colors) { applyBrandColors(body, colors); return; }
+  BrandColors.analyze(url).then(({ colors: found }) => {
+    if (!found) return;
+    settings.brandColorCache = settings.brandColorCache || {};
+    settings.brandColorCache[domain] = found;
+    Storage.save({ brandColorCache: settings.brandColorCache });
+    applyBrandColors(body, found);
+  });
 }
 
 // ── Grid interaction: press-hold, jiggle edit mode, pointer drag ─────────────
@@ -1008,6 +1044,7 @@ function startAppearancePreview() {
   livePreview.show(THEME_MAP[settings.theme] || StarfieldTheme, {
     intensity:  Storage.intensityValue(live.intensity),
     quality:    Storage.qualityValue(live.quality),
+    fps:        live.fps,
     speed:      live.animSpeed,
     staticMode: live.staticMode,
   });
@@ -1313,6 +1350,7 @@ function makePresetCard(themeKey, animate, animQuality) {
     preview.show(THEME_MAP[themeKey] || StarfieldTheme, {
       intensity:  Storage.intensityValue(eff.intensity),
       quality:    Math.min(Storage.qualityValue(eff.quality), animQuality),
+      fps:        eff.fps,
       speed:      eff.animSpeed,
       staticMode: eff.staticMode,
     });
@@ -1420,7 +1458,7 @@ function makePresetPreviewOverlay(themeKey) {
   qlLinks().forEach(link => {
     const p = grid[link.id];
     if (!p || !Number.isInteger(p.row) || !Number.isInteger(p.col)) return;
-    const t = makePreviewTile(link, !!eff.iconOnly);
+    const t = makePreviewTile(link, !!eff.iconOnly, !!eff.brandColors);
     t.dataset.row = p.row;
     t.dataset.col = p.col;
     previewTiles.push(t);
@@ -1448,7 +1486,7 @@ function makePresetPreviewOverlay(themeKey) {
 // A non-interactive clone of a quick-link tile (no delete badge / drag / jiggle),
 // using the real .ql-tile markup so it inherits the live pill / icon styling.
 // Sizing / placement is applied later by layoutPreviewTiles.
-function makePreviewTile(link, iconOnly) {
+function makePreviewTile(link, iconOnly, brand) {
   const label = link.label || BrandColors.siteName(link.url);
   const tile = document.createElement('div');
   tile.className = 'ql-tile';
@@ -1458,7 +1496,7 @@ function makePreviewTile(link, iconOnly) {
   const box = document.createElement('div');
   box.className = 'ql-icon-box';
   body.appendChild(box);
-  decorateQuickTile(box, link.url, label, iconOnly);
+  decorateQuickTile(box, link.url, label, iconOnly, brand);
 
   if (!iconOnly) {
     const lbl = document.createElement('span');
@@ -1558,6 +1596,13 @@ function initDeleteConfirm() {
 let adjustOpen = false;
 let adjustFields = null;
 
+// Fields that only take effect on a fresh scene init (read once in theme.init),
+// so previewing / applying / reverting them needs a re-init rather than a live
+// option tweak.
+function adjustNeedsReinit(fields) {
+  return fields.some(k => k === 'intensity' || k === 'quality');
+}
+
 function maybeAdjustPreset(fields) {
   if (adjustOpen || !activeUsesPreset()) return;
   const ov = overrideFor(settings.theme);
@@ -1566,6 +1611,12 @@ function maybeAdjustPreset(fields) {
   if (!changed.length) return;
   adjustFields = changed;
   adjustOpen = true;
+  // Preview the change on the active preset background so the user sees the
+  // effect while the prompt is open.
+  presetPreview = presetPreview || {};
+  changed.forEach(k => { presetPreview[k] = settings[k]; });
+  recomputeLive();
+  applyLiveToPage(adjustNeedsReinit(changed));
   document.getElementById('preset-adjust-name').textContent =
     THEME_LABELS[settings.theme] || 'This background';
   document.getElementById('preset-adjust-confirm').classList.remove('hidden');
@@ -1573,18 +1624,26 @@ function maybeAdjustPreset(fields) {
 
 function initAdjustConfirm() {
   const overlay = document.getElementById('preset-adjust-confirm');
-  const close = () => { overlay.classList.add('hidden'); adjustOpen = false; adjustFields = null; };
+  // Drop the preview overlay and re-render: on "Save" the value now lives in the
+  // preset (so it stays); on "No" the background reverts to the preset's value.
+  const finish = () => {
+    const reinit = adjustFields ? adjustNeedsReinit(adjustFields) : true;
+    presetPreview = null;
+    recomputeLive();
+    applyLiveToPage(reinit);
+    overlay.classList.add('hidden');
+    adjustOpen = false;
+    adjustFields = null;
+  };
   document.getElementById('preset-adjust-yes').addEventListener('click', () => {
     const ov = overrideFor(settings.theme);
     if (ov && adjustFields) {
       adjustFields.forEach(k => { ov[k] = settings[k]; });   // write the changed field(s) in
       savePresets();
-      recomputeLive();
-      applyLiveToPage(true);
     }
-    close();
+    finish();
   });
-  document.getElementById('preset-adjust-no').addEventListener('click', close);
+  document.getElementById('preset-adjust-no').addEventListener('click', finish);
 }
 
 // ── Settings panel ────────────────────────────────────────────────────────────
@@ -1609,6 +1668,7 @@ function initSettings() {
     overlay.classList.add('closing');
     livePreview.stop();
     stopPresetPreviews();
+    FpsMeter.stop();
     // End any preset-edit session: the active background settles onto its saved
     // preset (if any) now that we're no longer previewing the toolbar on it.
     if (pendingPresetBg) { pendingPresetBg = null; recomputeLive(); applyLiveToPage(true); }
@@ -1689,6 +1749,31 @@ function buildLogoScaleSlider() {
 
 // Left icon rail: only the active section's panel is shown. The Home panel
 // (background preview + Change Background) is the default.
+// Live FPS readout under the Animation settings: the frames the scene is
+// actually drawing per second — reflecting the frame-rate cap you set and any
+// slowdown when the machine can't keep up. Reads the engine's real draw counter
+// (not the display's rAF rate). There's no per-tab CPU/GPU% available to
+// extensions; the true rendered frame rate is the honest signal.
+const FpsMeter = (() => {
+  let timer = 0, lastCount = 0, lastTime = 0;
+  function tick() {
+    const now = performance.now();
+    const c = engine ? engine.frameCount : 0;
+    const fps = lastTime ? Math.round((c - lastCount) * 1000 / (now - lastTime)) : 0;
+    const lbl = document.getElementById('fps-live');
+    if (lbl) lbl.textContent = Math.max(0, fps) + ' fps';
+    lastCount = c; lastTime = now;
+  }
+  function start() {
+    if (timer) return;
+    lastCount = engine ? engine.frameCount : 0;
+    lastTime = performance.now();
+    timer = setInterval(tick, 500);
+  }
+  function stop() { if (timer) { clearInterval(timer); timer = 0; } }
+  return { start, stop };
+})();
+
 function initRailNav() {
   const railBtns = document.querySelectorAll('.rail-btn');
   const panels   = document.querySelectorAll('.settings-panel-section');
@@ -1708,6 +1793,9 @@ function initRailNav() {
     // Preset cards animate only while the Advanced panel is showing.
     if (panel === 'advanced') buildAdvancedPanel();
     else stopPresetPreviews();
+    // The live FPS readout samples only while the Animation panel is visible.
+    if (panel === 'animation') FpsMeter.start();
+    else FpsMeter.stop();
   };
 
   railBtns.forEach(btn => btn.addEventListener('click', () => showPanel(btn.dataset.panel)));
@@ -1751,6 +1839,8 @@ function buildDisplaySettings() {
   const hideSearchEl= document.getElementById('setting-hide-search');
   const brandEl     = document.getElementById('setting-brand-colors');
   const iconOnlyEl  = document.getElementById('setting-icon-only');
+  const textOnlyEl  = document.getElementById('setting-text-only');
+  const newTabEl    = document.getElementById('setting-new-tab-links');
 
   const updateSubSections = () => {
     timeSubEl.hidden = settings.layout !== 'time';
@@ -1766,6 +1856,8 @@ function buildDisplaySettings() {
   hideSearchEl.checked= settings.hideSearch;
   brandEl.checked     = settings.brandColors;
   iconOnlyEl.checked  = settings.iconOnly;
+  textOnlyEl.checked  = settings.textOnly;
+  newTabEl.checked    = settings.newTabLinks;
   updateSubSections();
 
   layoutBtns.forEach(btn => {
@@ -1834,8 +1926,25 @@ function buildDisplaySettings() {
   });
   iconOnlyEl.addEventListener('change', () => {
     settings.iconOnly = iconOnlyEl.checked;
-    Storage.save({ iconOnly: iconOnlyEl.checked });
+    if (iconOnlyEl.checked) { settings.textOnly = false; textOnlyEl.checked = false; }  // exclusive
+    Storage.save({ iconOnly: settings.iconOnly, textOnly: settings.textOnly });
+    recomputeLive();
     renderQuickLinks();
+    maybeAdjustPreset(['iconOnly', 'textOnly']);
+  });
+  textOnlyEl.addEventListener('change', () => {
+    settings.textOnly = textOnlyEl.checked;
+    if (textOnlyEl.checked) { settings.iconOnly = false; iconOnlyEl.checked = false; }  // exclusive
+    Storage.save({ textOnly: settings.textOnly, iconOnly: settings.iconOnly });
+    recomputeLive();
+    renderQuickLinks();
+    maybeAdjustPreset(['textOnly', 'iconOnly']);
+  });
+  newTabEl.addEventListener('change', () => {
+    settings.newTabLinks = newTabEl.checked;
+    Storage.save({ newTabLinks: newTabEl.checked });
+    recomputeLive();   // click handler reads live.newTabLinks
+    maybeAdjustPreset(['newTabLinks']);
   });
 }
 
@@ -1871,7 +1980,6 @@ function buildQuickLinksEditor() {
       });
       container.appendChild(row);
     });
-    addBtn.disabled = links.length >= QL_MAX;
   };
 
   const persist = (rebuildEditor = false) => {
@@ -1881,7 +1989,6 @@ function buildQuickLinksEditor() {
   };
 
   addBtn.addEventListener('click', () => {
-    if ((settings.quickLinks || []).length >= QL_MAX) return;
     settings.quickLinks.push({ id: 'ql_' + Math.random().toString(36).slice(2, 9), label: '', url: '' });
     renderEditor();
   });
@@ -1897,6 +2004,7 @@ function buildAnimationSettings() {
   const intensityLbl = document.getElementById('intensity-label');
   const qualityEl    = document.getElementById('setting-quality');
   const qualityLbl   = document.getElementById('quality-label');
+  const fpsBtns  = document.querySelectorAll('.fps-btn');
   const staticEl = document.getElementById('setting-static');
   const speedEl  = document.getElementById('setting-speed');
   const speedLbl = document.getElementById('speed-label');
@@ -1914,9 +2022,24 @@ function buildAnimationSettings() {
 
   staticEl.checked = settings.staticMode;
 
+  const curFps = settings.fps || 60;
+  fpsBtns.forEach(b => b.classList.toggle('active', +b.dataset.value === curFps));
+
   const spd = settings.animSpeed || 1.0;
   speedEl.value = spd;
   speedLbl.textContent = spd.toFixed(2).replace(/\.?0+$/, '') + '×';
+
+  fpsBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const v = parseInt(btn.dataset.value, 10);
+      settings.fps = v;
+      Storage.save({ fps: v });
+      fpsBtns.forEach(b => b.classList.toggle('active', b === btn));
+      recomputeLive();
+      engine.setOptions({ fps: live.fps });   // takes effect immediately, no re-init
+      maybeAdjustPreset(['fps']);
+    });
+  });
 
   // Intensity (effect amount) and Quality (render resolution) both need a fresh
   // scene init to take effect, so re-init on release (change), not every input.
@@ -1971,6 +2094,23 @@ function buildAnimationSettings() {
     engine.setOptions({ staticMode: live.staticMode });
     startAppearancePreview();
     maybeAdjustPreset(['staticMode']);
+  });
+
+  const greetingEl  = document.getElementById('setting-greeting');
+  const greetNameRow= document.getElementById('greeting-name-row');
+  const greetNameEl = document.getElementById('setting-greeting-name');
+  greetingEl.checked  = settings.greeting;
+  greetNameRow.hidden = !settings.greeting;
+  greetNameEl.value   = settings.greetingName || '';
+  greetingEl.addEventListener('change', () => {
+    settings.greeting = greetingEl.checked;
+    Storage.save({ greeting: greetingEl.checked });
+    greetNameRow.hidden = !greetingEl.checked;
+    if (greetingEl.checked) Greeting.resetSession();   // so the next tab previews it
+  });
+  greetNameEl.addEventListener('input', () => {
+    settings.greetingName = greetNameEl.value;
+    Storage.save({ greetingName: greetNameEl.value });
   });
 }
 

@@ -11,6 +11,8 @@ const Storage = (() => {
     showTimeInDate:     false,      // show time below when layout=date
     collapsedSections:  {},
     hideText:           false,
+    greeting:           true,       // particle greeting on the first tab per session
+    greetingName:       '',         // who to greet
     hideSearch:         false,
     // corners + center column: 'center' keeps the classic centered stack
     logoPosition:       'center',
@@ -18,10 +20,12 @@ const Storage = (() => {
     quickLinks:         [],
     quickLinkGrid:      {},         // { linkId: {row,col} } — grid positions
     iconOnly:           false,      // quick links: icon-only tiles vs oval pills
+    textOnly:           false,      // quick links: text-only pills (no icon)
     brandColors:        false,      // colour quick-link pills to match each site
     brandColorCache:    {},         // { domain: {bg,fg} } cached favicon colours
     intensity:          1.0,        // effect "amount" multiplier (particles/density)
     quality:            1.5,        // render resolution cap (device-pixel ratio)
+    fps:                60,         // animation frame-rate cap: 30 | 60 | 120
     animSpeed:          1.0,
     staticMode:         false,
     cardSize:           'roomy',    // quick-link card size: 'compact' | 'roomy'
