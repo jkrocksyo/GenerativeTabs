@@ -28,8 +28,6 @@ const Storage = (() => {
     fps:                60,         // animation frame-rate cap: 30 | 60 | 120
     animSpeed:          1.0,
     staticMode:         false,
-    cardSize:           'roomy',    // quick-link card size: 'compact' | 'roomy'
-    iconStyle:          'favicon',  // quick-link icon: 'favicon' | 'custom'
     newTabLinks:        false,      // open quick links in a new tab
     favorites:          [],
     randomizeDaily:     null,

@@ -152,15 +152,19 @@ const Greeting = (() => {
     // top (half-leading), so the glyphs sit where the browser draws them — for
     // any logo position (centre, corners, bottom-right…).
     const ht = headerTarget();
-    const lsDev = ht.letterSpacing ? (ht.letterSpacing * dpr) + 'px' : null;
-    const hsData = sample(ht.text, ht.fontPx * dpr, ht.family, ht.weight, lsDev, 1200);
-    const rx = ht.left * dpr, ry = ht.top * dpr, rh = ht.height * dpr;
-    const vOff = (rh - (hsData.fba + hsData.fbd)) / 2 - PAD;
-    const hp = hsData.pts.map(([px, py]) => {
-      const tx = rx + (px - PAD), ty = ry + vOff + py;
-      const a = Math.random() * Math.PI * 2, r = (40 + Math.random() * 90) * dpr;
-      return { tx, ty, sx: tx + Math.cos(a) * r, sy: ty + Math.sin(a) * r, delay: Math.random() * 0.3 };
-    });
+    const hasHeader = ht.width > 1 && ht.height > 1;   // skip when the header is hidden
+    let hp = [];
+    if (hasHeader) {
+      const lsDev = ht.letterSpacing ? (ht.letterSpacing * dpr) + 'px' : null;
+      const hsData = sample(ht.text, ht.fontPx * dpr, ht.family, ht.weight, lsDev, 1200);
+      const rx = ht.left * dpr, ry = ht.top * dpr, rh = ht.height * dpr;
+      const vOff = (rh - (hsData.fba + hsData.fbd)) / 2 - PAD;
+      hp = hsData.pts.map(([px, py]) => {
+        const tx = rx + (px - PAD), ty = ry + vOff + py;
+        const a = Math.random() * Math.PI * 2, r = (40 + Math.random() * 90) * dpr;
+        return { tx, ty, sx: tx + Math.cos(a) * r, sy: ty + Math.sin(a) * r, delay: Math.random() * 0.3 };
+      });
+    }
 
     const dot = 1.7 * dpr;
     const GROW = 1.08;
@@ -169,7 +173,7 @@ const Greeting = (() => {
     const Hn  = 2000;   // solid greeting holds (with a gentle swell)
     const D   = 1600;   // word breaks apart into particles that drift and fade
     const Hdr = 2000;   // header particles gather into place
-    const tB = B, tH = tB + Hn, tD = tH + D, tEnd = tD + Hdr;
+    const tB = B, tH = tB + Hn, tD = tH + D, tEnd = tD + (hasHeader ? Hdr : 0);
     let start = 0, raf = 0, revealed = false;
 
     const clamp = t => Math.min(1, Math.max(0, t));

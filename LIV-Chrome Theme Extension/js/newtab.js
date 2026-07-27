@@ -105,7 +105,7 @@ let live;       // effective settings for the ACTIVE background (global or its p
 const PRESET_FIELDS = [
   'layout', 'hideText', 'hideSearch', 'logoPosition', 'logoScale', 'font',
   'clockFormat', 'showSeconds', 'showDate', 'showTimeInDate',
-  'brandColors', 'iconOnly', 'textOnly', 'cardSize', 'iconStyle', 'newTabLinks',
+  'brandColors', 'iconOnly', 'textOnly', 'newTabLinks',
   'intensity', 'quality', 'fps', 'animSpeed', 'staticMode',
 ];
 // The quick-link arrangement (linkId → {row,col}) is per-background too, but it
