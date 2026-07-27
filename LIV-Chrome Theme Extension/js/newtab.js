@@ -985,7 +985,7 @@ function toggleFavorite(themeKey) {
 
 const VIEW_INDEX = { main: 0, backgrounds: 1 };
 // pickMode: 'select' (tap a tile to use it) | 'preset' (tap a tile to attach a
-// preset to it). categoryKey 'all' shows every background grouped by category.
+// preset to it). categoryKey 'categories' shows the category tiles (preset flow).
 const nav = { view: 'main', categoryKey: null, pickMode: 'select' };
 let activePanel = 'home';   // which rail section is showing on the main view
 let showPanel;              // set by initRailNav; switches the active rail section
@@ -1025,7 +1025,7 @@ function openBackgroundBrowse(categoryKey) {
 // Enter the background grid (all backgrounds) to attach a new preset.
 function openPresetPicker() {
   nav.pickMode = 'preset';
-  navigateTo('backgrounds', 'all');
+  navigateTo('backgrounds', 'categories');   // category tiles first, then backgrounds
 }
 
 // ── Screen 1: Appearance ─────────────────────────────────────────────────────
@@ -1070,7 +1070,7 @@ function makeThumbImg(themeKey) {
   return img;
 }
 
-function buildCategoryGrid(gridId = 'category-grid') {
+function buildCategoryGrid(gridId = 'category-grid', onPick = openBackgroundBrowse) {
   const grid = document.getElementById(gridId);
   grid.innerHTML = '';
 
@@ -1105,7 +1105,7 @@ function buildCategoryGrid(gridId = 'category-grid') {
     label.textContent = cat.label;
 
     btn.append(thumb, label);
-    btn.addEventListener('click', () => openBackgroundBrowse(cat.key));
+    btn.addEventListener('click', () => onPick(cat.key));
     grid.appendChild(btn);
   });
 }
@@ -1118,18 +1118,14 @@ function buildBackgroundGrid(categoryKey) {
   const grid = document.getElementById('background-grid');
   randWrap.innerHTML = '';
   grid.innerHTML = '';
+  grid.classList.remove('as-categories');
 
-  // 'all' shows every background grouped by category (used by the preset picker).
-  if (categoryKey === 'all') {
-    document.getElementById('backgrounds-title').textContent =
-      preset ? 'Choose a Background' : 'All Backgrounds';
-    THEME_GROUPS.forEach(group => {
-      const heading = document.createElement('div');
-      heading.className = 'bg-section-label';
-      heading.textContent = group.label;
-      grid.appendChild(heading);
-      group.themes.forEach(themeKey => grid.appendChild(makeBackgroundTile(themeKey)));
-    });
+  // Preset flow, step 1: the same category tiles as the main background page
+  // (Favorites first). Tapping one opens that category's backgrounds below.
+  if (categoryKey === 'categories') {
+    document.getElementById('backgrounds-title').textContent = 'Choose a Category';
+    grid.classList.add('as-categories');
+    buildCategoryGrid('background-grid', key => navigateTo('backgrounds', key));
     return;
   }
 
@@ -1688,6 +1684,12 @@ function initSettings() {
 
   // Back from the background grid returns to whichever panel launched it.
   document.getElementById('back-to-home').addEventListener('click', () => {
+    // In the preset flow, a category's backgrounds steps back to the category
+    // tiles first; the tiles (or a normal browse) step back to the panel.
+    if (nav.pickMode === 'preset' && nav.categoryKey !== 'categories') {
+      navigateTo('backgrounds', 'categories');
+      return;
+    }
     const toPanel = nav.pickMode === 'preset' ? 'advanced' : 'home';
     nav.pickMode = 'select';
     navigateTo('main');
@@ -2011,14 +2013,25 @@ function buildAnimationSettings() {
 
   const intensityText = v => Math.round(v * 100) + '%';
   const qualityText   = v => (Number.isInteger(v) ? v + '' : v.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')) + '×';
+  // Tint the readout red at the slider's extremes (min = may look sparse/soft,
+  // max = heaviest on the machine) so the trade-off is obvious.
+  const R = Storage.RANGES;
+  const setIntensity = v => {
+    intensityLbl.textContent = intensityText(v);
+    intensityLbl.classList.toggle('extreme', v <= R.intensity.min || v >= R.intensity.max);
+  };
+  const setQuality = v => {
+    qualityLbl.textContent = qualityText(v);
+    qualityLbl.classList.toggle('extreme', v <= R.quality.min || v >= R.quality.max);
+  };
 
   const intens = Storage.intensityValue(settings.intensity);
   intensityEl.value = intens;
-  intensityLbl.textContent = intensityText(intens);
+  setIntensity(intens);
 
   const qual = Storage.qualityValue(settings.quality);
   qualityEl.value = qual;
-  qualityLbl.textContent = qualityText(qual);
+  setQuality(qual);
 
   staticEl.checked = settings.staticMode;
 
@@ -2046,7 +2059,7 @@ function buildAnimationSettings() {
   intensityEl.addEventListener('input', () => {
     const v = parseFloat(intensityEl.value);
     settings.intensity = v;
-    intensityLbl.textContent = intensityText(v);
+    setIntensity(v);
   });
   intensityEl.addEventListener('change', () => {
     const v = parseFloat(intensityEl.value);
@@ -2063,7 +2076,7 @@ function buildAnimationSettings() {
   qualityEl.addEventListener('input', () => {
     const v = parseFloat(qualityEl.value);
     settings.quality = v;
-    qualityLbl.textContent = qualityText(v);
+    setQuality(v);
   });
   qualityEl.addEventListener('change', () => {
     const v = parseFloat(qualityEl.value);

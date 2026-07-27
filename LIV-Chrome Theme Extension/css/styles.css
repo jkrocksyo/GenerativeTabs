@@ -631,6 +631,11 @@ body.greeting-reveal #search-container { transition: opacity 0.55s ease; }
   gap: 1.1rem;
   margin-top: 0.7rem;
 }
+/* Preset flow: the background grid showing category tiles (3 across). */
+.background-grid.as-categories {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.8rem 0.6rem;
+}
 .more-coming-soon {
   text-align: center;
   margin-top: 1.1rem;
@@ -835,7 +840,10 @@ button.tile-thumb:hover { border-color: rgba(255,255,255,0.38); }
   color: rgba(255,255,255,0.5);
   min-width: 2.4em;
   text-align: right;
+  transition: color 0.15s;
 }
+/* Slider readout at its min/max — nudge red to flag the extreme. */
+.speed-label.extreme { color: #ff8f8f; }
 .liv-slider {
   -webkit-appearance: none;
   appearance: none;
