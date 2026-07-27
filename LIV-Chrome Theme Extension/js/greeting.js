@@ -111,8 +111,11 @@ const Greeting = (() => {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const canvas = document.createElement('canvas');
     canvas.id = 'greeting-canvas';
+    // z-index 99: above the header/background and the fading black overlay, but
+    // below the settings panel (z-index 100) so the particles never sit over the
+    // toolbar when it's opened (e.g. a right-aligned header behind the panel).
     canvas.style.cssText =
-      'position:fixed;inset:0;z-index:100;pointer-events:none;transition:opacity .35s ease;';
+      'position:fixed;inset:0;z-index:99;pointer-events:none;transition:opacity .35s ease;';
     document.body.appendChild(canvas);
     const g = canvas.getContext('2d');
     const W = canvas.width  = Math.floor(window.innerWidth  * dpr);
@@ -124,7 +127,7 @@ const Greeting = (() => {
       .getPropertyValue('--ui-font').trim() || 'sans-serif';
 
     // Greeting geometry — centred, sized to the viewport (and shrunk to fit width).
-    let greetPx = Math.min(window.innerWidth * 0.072, 58) * dpr;
+    let greetPx = Math.min(window.innerWidth * 0.088, 72) * dpr;
     {
       const probe = document.createElement('canvas').getContext('2d');
       probe.font = `600 ${greetPx}px ${uiFamily}`;
@@ -132,7 +135,7 @@ const Greeting = (() => {
       const maxW = W * 0.86;
       if (tw > maxW) greetPx *= maxW / tw;
     }
-    const gcx = W / 2, gcy = H * 0.44;
+    const gcx = W / 2, gcy = H * 0.5;
     // Greeting particles centred on (gcx,gcy) by the text's bounding-box centre;
     // drawSolid() draws the solid word from the matching origin so it overlays.
     const gs = sample(text, greetPx, uiFamily, 600, null, 1800);
