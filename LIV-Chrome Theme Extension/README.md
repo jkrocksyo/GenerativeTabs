@@ -1,10 +1,12 @@
-# Liv — Animated New Tab
+# LIV — Animated New Tab
 
-A Chrome extension (Manifest V3) that replaces the new tab page with a high-quality animated background.
+A Chrome extension (Manifest V3) that replaces the new tab page with a high-quality
+animated background — a live "home screen" for your browser. Live wallpaper, app-style
+shortcuts, a search bar, and a particle greeting, all configurable per background.
 
-**Five themes** — Deep Space · Nebula Drift · Galaxy Spiral · Aurora Borealis · Drift
+**22 backgrounds** across **Space**, **Nature**, and **Passing By** — more coming soon.
 
-Zero network requests. Only `storage` permission required.
+Zero network requests. Only `storage`, `search`, and `favicon` permissions.
 
 ---
 
@@ -13,7 +15,8 @@ Zero network requests. Only `storage` permission required.
 1. Open Chrome and go to `chrome://extensions`
 2. Toggle on **Developer mode** (top-right switch)
 3. Click **Load unpacked**
-4. Select the `animated-newtab` folder
+4. Select the `LIV-Chrome Theme Extension` folder
+   (or unzip `LIV - Animated New Tab.zip` first and select that folder)
 5. Open a new tab — the extension is live
 
 To also darken the browser chrome (tab strip / toolbar), load the companion theme:
@@ -21,44 +24,53 @@ see `companion-dark-theme/README.md`.
 
 ---
 
-## Usage
+## The new tab
 
-| Feature | How |
-|---------|-----|
-| Switch theme | Gear icon → **Appearance** → **Change background** → pick a category, then a scene |
-| Search | Type in the search box, press **Enter** |
-| Settings | Gear icon, bottom-right corner |
-| Quick links | Settings → **Quick Links** → Add link |
-| Animation intensity | Settings → **Animation** → Low / Medium / High |
-| Pause animation | Settings → **Static mode** |
+Every new tab works like a phone home screen:
+
+- **Live wallpaper** — one of 22 animated scenes behind everything.
+- **Quick Links** — app-style shortcut tiles; click to open, press & hold to drag and rearrange on a grid.
+- **Greeting** — an optional particle animation ("Good morning, _name_") on the first tab of each browser session.
+- **Search** — type in the box and press **Enter**.
+- **Gear icon** (bottom-right) — opens all settings.
 
 ---
 
-## Themes
+## Settings
 
-| Name | Key | Technique |
-|------|-----|-----------|
-| Deep Space | `starfield` | Three-layer parallax star field with twinkling, bloom, and shooting stars |
-| Nebula Drift | `nebula` | WebGL FBM domain-warped shader (Canvas 2D fallback if WebGL unavailable) |
-| Galaxy Spiral | `galaxy` | Logarithmic spiral particle system with differential rotation |
-| Aurora Borealis | `aurora` | Sine-wave curtains with additive gradients over a static star field |
-| Drift | `particles` | Floating orbs with proximity connection lines |
+Open the gear (bottom-right). Five sections:
+
+| Section | What it does |
+|---------|--------------|
+| **Backgrounds** | Change background — pick a **category** first, then a scene. Mark favorites. |
+| **Display** | Header content (logo / clock / date), position (7-point picker), font, and text size. |
+| **Widgets** | Quick Links: *Icon only*, *Text only*, *Use Theme Color*, *Open links in new tab*, and **+ Add link**. Press & hold a tile to rearrange. |
+| **Animations** | Particle **greeting** (toggle + name), **Intensity** (density), **Quality** (render sharpness), **FPS** cap (30/60/120), **Speed**, and **Static mode**. |
+| **Advanced Customization** | **Presets** — arrange widgets and toolbar for a background, then **Save Current Settings**. Each background can carry its own saved layout. |
+
+---
+
+## Backgrounds
+
+| Category | Scenes |
+|----------|--------|
+| **Space** | Deep Space · Nebula Drift · Galaxy Spiral · Drift · Hyperspace · Meteor · Black Hole |
+| **Nature** | Sakura · Fireflies · Bokeh · Snow · Ocean Light · Golden Hour · Windmill Field · Rainy Window · Lanterns · Fireside |
+| **Passing By** | Bike Ride · Dog Walk · City Drive · Hot Air Balloon · Night Train |
+
+Scenes use a mix of Canvas 2D and WebGL (FBM / domain-warped shaders, particle systems,
+parallax layers) with Canvas fallbacks where WebGL is unavailable.
 
 ---
 
 ## Performance notes
 
-- One `requestAnimationFrame` loop at all times; pauses when the tab is hidden.
-- `devicePixelRatio` capped at 2× — retina without huge canvas cost.
-- Respects `prefers-reduced-motion` and the in-app **Static mode** toggle.
-- Resize is debounced; particle buffers are rebuilt cleanly.
-
----
-
-## Icons
-
-The placeholder icons (star motif on dark background) were generated programmatically.
-Replace `icons/icon16.png`, `icons/icon48.png`, `icons/icon128.png` with your own art when ready.
+- One `requestAnimationFrame` loop; pauses when the tab is hidden.
+- **Quality** controls render pixel-ratio — downscale for a smooth framerate on weaker
+  machines, supersample for extra sharpness on strong ones.
+- **Intensity** scales particle density; **FPS** caps the frame rate.
+- Respects `prefers-reduced-motion`; **Static mode** freezes animation entirely.
+- Resize is debounced; particle buffers rebuild cleanly.
 
 ---
 
@@ -66,6 +78,8 @@ Replace `icons/icon16.png`, `icons/icon48.png`, `icons/icon128.png` with your ow
 
 | Permission | Why |
 |------------|-----|
-| `storage` | Save theme choice, clock settings, quick links, etc. |
+| `storage` | Save background choice, display/animation settings, quick links, presets. |
+| `search`  | Route the search box through your default search engine. |
+| `favicon` | Show each Quick Link's site icon. |
 
 No host permissions. No content scripts. No background service worker.
