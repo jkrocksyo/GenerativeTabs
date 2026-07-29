@@ -23,6 +23,17 @@ const THEME_MAP = {
   oceanLight:     OceanLightTheme,
   goldenHour:           GoldenHourTheme,
   windmillRainbowField: WindmillRainbowFieldTheme,
+  waveSurface:          WaveSurfaceTheme,
+  torusWave:            TorusWaveTheme,
+  harmonicSphere:       HarmonicSphereTheme,
+  doublePendulum:       DoublePendulumTheme,
+  newtonsCradle:        NewtonsCradleTheme,
+  harmonicSurface:      HarmonicSurfaceTheme,
+  maurerRose:           MaurerRoseTheme,
+  mobius:               MobiusStripTheme,
+  pointSphere:          PointSphereTheme,
+  geometricTiles:       GeometricTilesTheme,
+  lensIllusion:         LensIllusionTheme,
 };
 
 const THEME_LABELS = {
@@ -48,12 +59,26 @@ const THEME_LABELS = {
   oceanLight:     'Ocean Light',
   goldenHour:           'Golden Hour',
   windmillRainbowField: 'Rainbow Fields',
+  waveSurface:          'Wave Surface',
+  torusWave:            'Torus Wave',
+  harmonicSphere:       'Harmonic Sphere',
+  doublePendulum:       'Double Pendulum',
+  newtonsCradle:        "Newton's Cradle",
+  harmonicSurface:      'Harmonic Surface',
+  maurerRose:           'Maurer Rose',
+  mobius:               'Möbius Strip',
+  pointSphere:          'Point Sphere',
+  geometricTiles:       'Geometric Tiles',
+  lensIllusion:         'Lens Illusion',
 };
 
 const THEME_GROUPS = [
   { key: 'space',      label: 'Space',      themes: ['starfield','nebula','galaxy','particles','hyperspace','meteor','blackhole'] },
   { key: 'nature',     label: 'Nature',     themes: ['sakura','fireflies','bokeh','snow','oceanLight','goldenHour','windmillRainbowField','rainyWindow','lanterns','fireside'] },
   { key: 'passingby',  label: 'Passing By', themes: ['bikeRide','dogWalk','cityDrive','hotAirBalloon','nightTrain'] },
+  { key: 'math',       label: 'Graphs',     themes: ['waveSurface','torusWave','harmonicSphere','harmonicSurface','maurerRose','mobius'] },
+  { key: 'science',    label: 'Science',    themes: ['doublePendulum','newtonsCradle'] },
+  { key: 'interactive',label: 'Interactive',themes: ['pointSphere','geometricTiles','lensIllusion'] },
 ];
 
 // Pre-rendered thumbnail images (themeKey -> URL). None exist yet; when a
