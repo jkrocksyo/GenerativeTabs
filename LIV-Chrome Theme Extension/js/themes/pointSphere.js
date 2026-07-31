@@ -52,9 +52,13 @@ class PointSphereTheme {
     this.h = canvas.height;
     this.speed = opts.speed || 1.0;
     this.intensity = opts.intensity || 1.0;
+    this._palette = interactivePalette(opts.scenePalette);
     this._build();
     if (!this._reduced) this._attach();
   }
+
+  // Switch colour palette live (from the picker), no rebuild needed.
+  setPreset(name) { this._palette = interactivePalette(name); }
 
   _attach() {
     const canvas = this.canvas;
@@ -111,7 +115,8 @@ class PointSphereTheme {
     this.angle += p.ROT_SPEED * dt * this.speed;
     const angle = this.angle;
 
-    ctx.fillStyle = '#000000';
+    const pal = this._palette;
+    ctx.fillStyle = pal.bg;
     ctx.fillRect(0, 0, W, H);
 
     const n = this.count;
@@ -148,7 +153,11 @@ class PointSphereTheme {
       path.rect(cx + nx - half, cy + ny - half, dot, dot);
     }
 
-    ctx.fillStyle = '#ffffff';
+    // Grade the cloud from the primary colour to its accent across the frame.
+    const grad = ctx.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, pal.dot);
+    grad.addColorStop(1, pal.accent);
+    ctx.fillStyle = grad;
     ctx.fill(path);
   }
 

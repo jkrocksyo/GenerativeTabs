@@ -32,7 +32,7 @@ const THEME_MAP = {
   maurerRose:           MaurerRoseTheme,
   mobius:               MobiusStripTheme,
   pointSphere:          PointSphereTheme,
-  geometricTiles:       GeometricTilesTheme,
+  liquidOrb:            LiquidOrbTheme,
   lensIllusion:         LensIllusionTheme,
 };
 
@@ -68,7 +68,7 @@ const THEME_LABELS = {
   maurerRose:           'Maurer Rose',
   mobius:               'Möbius Strip',
   pointSphere:          'Point Sphere',
-  geometricTiles:       'Geometric Tiles',
+  liquidOrb:            'Liquid Orb',
   lensIllusion:         'Lens Illusion',
 };
 
@@ -78,7 +78,7 @@ const THEME_GROUPS = [
   { key: 'passingby',  label: 'Passing By', themes: ['bikeRide','dogWalk','cityDrive','hotAirBalloon','nightTrain'] },
   { key: 'math',       label: 'Graphs',     themes: ['waveSurface','torusWave','harmonicSphere','harmonicSurface','maurerRose','mobius'] },
   { key: 'science',    label: 'Science',    themes: ['doublePendulum','newtonsCradle'] },
-  { key: 'interactive',label: 'Interactive',themes: ['pointSphere','geometricTiles','lensIllusion'] },
+  { key: 'interactive',label: 'Interactive',themes: ['pointSphere','liquidOrb','lensIllusion'] },
 ];
 
 // Pre-rendered thumbnail images (themeKey -> URL). None exist yet; when a
@@ -236,6 +236,7 @@ function applyLiveEngine(reinit = false) {
     fps:        live.fps,
     speed:      live.animSpeed,
     staticMode: live.staticMode,
+    scenePalette: paletteFor(settings.theme),
   });
   if (reinit) engine.switchTheme(THEME_MAP[settings.theme] || StarfieldTheme);
 }
@@ -267,6 +268,7 @@ function applyLiveToPage(reinit = false) {
     fps:        live.fps,
     speed:      live.animSpeed,
     staticMode: live.staticMode,
+    scenePalette: paletteFor(settings.theme),
   });
   engine.switchTheme(THEME_MAP[settings.theme] || StarfieldTheme);
 
@@ -1208,8 +1210,62 @@ function makeBackgroundTile(themeKey) {
   name.textContent = THEME_LABELS[themeKey];
 
   row.append(name);
+
+  // Interactive scenes carry a colour-palette picker to the right of the caption:
+  // preset swatches that recolour the scene live (and repaint it if active).
+  if (PALETTE_THEMES.has(themeKey)) row.append(makePaletteSwatchRow(themeKey));
+
   tile.append(thumbBtn, row);
+
   return tile;
+}
+
+// Interactive backgrounds that expose the shared 7-swatch colour picker.
+const PALETTE_THEMES = new Set(['pointSphere', 'liquidOrb', 'lensIllusion']);
+
+// The colour preset chosen for a scene (defaults to Aurora). Global per scene,
+// independent of the per-background toolbar presets.
+function paletteFor(themeKey) {
+  return (settings.palettes || {})[themeKey] || 'Aurora';
+}
+
+// A row of palette swatches for one Interactive scene. Clicking one applies that
+// colour preset to the scene and, when it's the live background, recolours it
+// instantly (no scene reload).
+function makePaletteSwatchRow(themeKey) {
+  const palettes = window.INTERACTIVE_PALETTES || [];
+  const current = paletteFor(themeKey);
+  const wrap = document.createElement('div');
+  wrap.className = 'scene-swatches';
+
+  palettes.forEach(p => {
+    const sw = document.createElement('button');
+    sw.type = 'button';
+    sw.className = 'scene-swatch' + (current === p.name ? ' active' : '');
+    sw.dataset.preset = p.name;
+    sw.title = p.name;
+    sw.setAttribute('aria-label', `${p.name} colour`);
+    sw.style.background = `linear-gradient(135deg, ${p.swatch[0]}, ${p.swatch[1]})`;
+    sw.addEventListener('click', e => {
+      e.stopPropagation();
+      setScenePalette(themeKey, p.name);
+      wrap.querySelectorAll('.scene-swatch').forEach(el =>
+        el.classList.toggle('active', el.dataset.preset === p.name));
+    });
+    wrap.appendChild(sw);
+  });
+  return wrap;
+}
+
+function setScenePalette(themeKey, name) {
+  settings.palettes = settings.palettes || {};
+  settings.palettes[themeKey] = name;
+  Storage.save({ palettes: settings.palettes });
+  // Recolour the live scene in place when it's the active background.
+  const theme = engine && engine.currentTheme;
+  if (settings.theme === themeKey && theme && typeof theme.setPreset === 'function') {
+    theme.setPreset(name);
+  }
 }
 
 // Applying stays on the grid (Chrome behavior): swap the live background and

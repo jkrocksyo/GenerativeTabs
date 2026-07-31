@@ -44,8 +44,12 @@ class LensIllusionTheme {
     this.h = canvas.height;
     this.speed = opts.speed || 1.0;
     this.intensity = opts.intensity || 1.0;
+    this._palette = interactivePalette(opts.scenePalette);
     if (!this._reduced) this._attach();
   }
+
+  // Switch colour palette live (from the picker).
+  setPreset(name) { this._palette = interactivePalette(name); }
 
   _attach() {
     const canvas = this.canvas;
@@ -72,7 +76,8 @@ class LensIllusionTheme {
     const { ctx, w: W, h: H } = this;
     const t = this.t;
 
-    ctx.fillStyle = '#000000';
+    const pal = this._palette;
+    ctx.fillStyle = pal.bg;
     ctx.fillRect(0, 0, W, H);
 
     const spacing = Math.min(W / p.LCOLS, H / p.LROWS);
@@ -112,7 +117,11 @@ class LensIllusionTheme {
       }
     }
 
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    // Grade the dot field from the primary colour to its accent across the frame.
+    const grad = ctx.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, pal.dot);
+    grad.addColorStop(1, pal.accent);
+    ctx.fillStyle = grad;
     ctx.fill(path);
   }
 

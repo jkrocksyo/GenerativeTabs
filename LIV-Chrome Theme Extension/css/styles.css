@@ -715,6 +715,29 @@ button.tile-thumb:hover { border-color: rgba(255,255,255,0.38); }
 }
 .background-tile .tile-label { text-align: left; }
 
+/* ── Interactive scene palette swatches ───────────────────────────────────── */
+.scene-swatches {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.32rem;
+  margin-left: auto;   /* right side of the caption row */
+}
+.scene-swatch {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.25);
+  cursor: pointer;
+  box-shadow: inset 0 0 3px rgba(0,0,0,0.35);
+  transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+.scene-swatch:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.6); }
+.scene-swatch.active {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.85), inset 0 0 3px rgba(0,0,0,0.35);
+}
+
 #backgrounds-randomize .randomize-daily-btn,
 #backgrounds-randomize .favorites-empty { width: 100%; justify-content: center; }
 

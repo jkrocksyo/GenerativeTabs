@@ -29,6 +29,7 @@ const Storage = (() => {
     animSpeed:          1.0,
     staticMode:         false,
     newTabLinks:        false,      // open quick links in a new tab
+    palettes:           {},         // { themeKey: presetName } colour palettes for Interactive scenes
     favorites:          [],
     randomizeDaily:     null,
     randomizeDailyDate: '',

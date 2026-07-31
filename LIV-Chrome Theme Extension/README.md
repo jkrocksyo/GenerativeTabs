@@ -59,7 +59,7 @@ Open the gear (bottom-right). Five sections:
 | **Passing By** | Bike Ride · Dog Walk · City Drive · Hot Air Balloon · Night Train |
 | **Math** | Wave Surface · Torus Wave · Harmonic Sphere · Harmonic Surface · Maurer Rose · Möbius Strip |
 | **Science** | Double Pendulum |
-| **Interactive** | Point Sphere · Geometric Tiles · Lens Illusion |
+| **Interactive** | Point Sphere · Liquid Orb · Lens Illusion |
 
 Scenes use a mix of Canvas 2D and WebGL (FBM / domain-warped shaders, particle systems,
 parallax layers) with Canvas fallbacks where WebGL is unavailable.
