@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atom</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #010204; user-select: none; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<!-- ── Scene (inlined from js/themes/atom.js) ─────────────────────────────── -->
+<script>
+'use strict';
+
+// Atom — the classic Bohr / Rutherford "planetary" atom, natively reimplemented
+// in Canvas 2D (no Three.js). Three identical rings share one radius and a 68°
+// inclination, spun 120° apart around a common axis, so the silhouette reads as
+// "an atom" at a glance. Six electrons (two per ring) ride along those rings; a
+// tightly packed nucleus of six red protons + six blue neutrons jitters at the
+// centre inside a soft binding-energy glow. The whole rigid assembly turns
+// slowly so the 3-D structure of the rings reveals itself.
+//
+// This is deliberately the pre-1920s planetary model (electrons as balls on
+// fixed tracks), not how atoms actually work (real electrons are probability
+// clouds) — a stylistic choice, not an error.
+//
+// Everything is one perspective projection: a point is rotated about Y by a
+// slow camera yaw, tilted about X by a fixed angle, then perspective-divided.
+// Rings, electrons, nucleons and the glow are collected into one primitive list
+// and painted far-to-near so transparent rings interleave correctly with the
+// nucleus (the render-order pitfall from the original spec).
+
+// ── Tunable parameters ───────────────────────────────────────────────────────
+const ATOM_PARAMS = {
+  RING_R:        2.7,                 // ring radius (world units)
+  INCLINATION:   68 * Math.PI / 180,  // shared ring inclination
+  N_RINGS:       3,
+  ELECTRONS_PER_RING: 2,
+  ORBIT_SPEED:   0.9,                 // electron angular speed (rad/s @ speed 1)
+  RING_SEG:      120,                 // polyline segments per ring
+  PROTONS:       6,
+  NEUTRONS:      6,
+  NUCLEON_R:     0.16,                // world radius of a nucleon sphere
+  ELECTRON_R:    0.13,                // world radius of an electron sphere
+  GLOW_R:        0.9,                 // nucleus glow-shell radius
+  NUCLEUS_DRIFT: 0.06,                // shared slow wander of the cluster centre
+  CAM_YAW_SPEED: 0.13,                // slow rigid rotation of the whole atom
+  CAM_TILT:      0.42,                // fixed viewing tilt (rad)
+  PERSP_K:       0.16,                // perspective strength
+  FIT_FRAC:      0.46,                // ring radius vs min(w, h)
+};
+
+const ATOM_COLORS = {
+  ring:     [154, 160, 166],  // 0x9aa0a6 neutral grey
+  electron: [255, 224, 102],  // 0xffe066
+  proton:   [255, 77, 109],   // 0xff4d6d
+  neutron:  [111, 168, 255],  // 0x6fa8ff
+  glow:     [255, 232, 192],  // 0xffe8c0
+};
+
+class AtomTheme {
+  constructor() {
+    this.contextType = '2d';
+    this.canvas = null;
+    this.ctx = null;
+    this.w = 0;
+    this.h = 0;
+    this.speed = 1.0;
+    this.intensity = 1.0;
+
+    this.p = Object.assign({}, ATOM_PARAMS);
+    this.t = 0;
+    this._lastTs = null;
+
+    this._rings = null;     // per-ring array of world-space [x,y,z] samples
+    this._nucleons = null;  // {type, seeds…}
+    this._stars = null;     // static screen-space background stars
+    this._dust = null;      // slow-drifting motes
+    this._prims = [];       // reused per-frame draw list
+  }
+
+  init(canvas, ctx, opts) {
+    this.canvas = canvas;
+    this.ctx = ctx;
+    this.w = canvas.width;
+    this.h = canvas.height;
+    this.speed = (opts && opts.speed) || 1.0;
+    this.intensity = (opts && opts.intensity) || 1.0;
+    this._buildRings();
+    this._buildNucleus();
+    this._buildBackground();
+  }
+
+  // Ring geometry is fixed in the atom's own frame: a circle in the XY plane,
+  // tilted about X by the shared inclination, then spun about Y so the three
+  // rings fan out 120° apart. (A ring maps to itself under 180°, so 120° apart
+  // reads the same as the "60° apart" description in the source spec.)
+  _buildRings() {
+    const P = this.p;
+    const cI = Math.cos(P.INCLINATION), sI = Math.sin(P.INCLINATION);
+    this._rings = [];
+    for (let i = 0; i < P.N_RINGS; i++) {
+      const spin = i * (Math.PI * 2 / P.N_RINGS);
+      const cS = Math.cos(spin), sS = Math.sin(spin);
+      const pts = new Float32Array((P.RING_SEG + 1) * 3);
+      for (let s = 0; s <= P.RING_SEG; s++) {
+        const a = (s / P.RING_SEG) * Math.PI * 2;
+        const p3 = this._ringPoint(P.RING_R, a, cI, sI, cS, sS);
+        pts[s * 3] = p3[0]; pts[s * 3 + 1] = p3[1]; pts[s * 3 + 2] = p3[2];
+      }
+      this._rings.push({ pts, cI, sI, cS, sS });
+    }
+  }
+
+  _ringPoint(R, a, cI, sI, cS, sS) {
+    const x = R * Math.cos(a), y = R * Math.sin(a);
+    const y2 = y * cI;          // tilt about X (z starts at 0)
+    const z2 = y * sI;
+    const x3 = x * cS - z2 * sS; // spin about Y
+    const z3 = x * sS + z2 * cS;
+    return [x3, y2, z3];
+  }
+
+  _buildNucleus() {
+    const P = this.p;
+    const n = P.PROTONS + P.NEUTRONS;
+    const types = [];
+    for (let i = 0; i < n; i++) types.push(i < P.PROTONS ? 'p' : 'n');
+    // Shuffle so protons/neutrons interleave rather than clump into hemispheres.
+    for (let i = n - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      [types[i], types[j]] = [types[j], types[i]];
+    }
+    this._nucleons = types.map(type => ({
+      type,
+      fx: 0.5 + Math.random() * 0.9, fy: 0.5 + Math.random() * 0.9, fz: 0.5 + Math.random() * 0.9,
+      px: Math.random() * Math.PI * 2, py: Math.random() * Math.PI * 2, pz: Math.random() * Math.PI * 2,
+      amp: 0.05 + Math.random() * 0.08,   // packed-cluster jitter
+    }));
+  }
+
+  _buildBackground() {
+    // Static starfield + a few drifting dust motes, scaled to viewport area so
+    // small previews stay light. Screen-space, independent of the atom's frame.
+    const area = this.w * this.h;
+    const starCount = Math.min(260, Math.round(area / 14000));
+    this._stars = [];
+    for (let i = 0; i < starCount; i++) {
+      this._stars.push({
+        x: Math.random() * this.w,
+        y: Math.random() * this.h,
+        r: (0.4 + Math.random() * 1.1),
+        b: 0.25 + Math.random() * 0.5,          // base brightness
+        tw: Math.random() * Math.PI * 2,        // twinkle phase
+        ts: 0.3 + Math.random() * 0.7,          // twinkle speed
+        hue: Math.random(),                     // white / warm / cool tint pick
+      });
+    }
+    const dustCount = Math.min(50, Math.round(area / 60000));
+    this._dust = [];
+    for (let i = 0; i < dustCount; i++) {
+      this._dust.push({
+        x: Math.random() * this.w,
+        y: Math.random() * this.h,
+        r: 0.6 + Math.random() * 1.6,
+        vx: (Math.random() - 0.5) * 4,
+        vy: (Math.random() - 0.5) * 4,
+        a: 0.05 + Math.random() * 0.12,
+      });
+    }
+  }
+
+  // World → screen. Rigid camera yaw about Y (time-driven), fixed tilt about X,
+  // then a perspective divide. Returns screen x/y, camera-space depth, and the
+  // perspective factor (used to scale sphere sizes with distance).
+  _project(x, y, z) {
+    const cY = this._cy, sY = this._sy, cT = this._ct, sT = this._st;
+    const xr = x * cY + z * sY;
+    const zr = -x * sY + z * cY;
+    const yt = y * cT - zr * sT;
+    const zt = y * sT + zr * cT;
+    const persp = 1 / (1 + (zt + this._camDist) * this.p.PERSP_K);
+    return {
+      sx: this._ox + xr * this._scale * persp,
+      sy: this._oy - yt * this._scale * persp,   // canvas Y points down
+      z: zt,
+      persp,
+    };
+  }
+
+  draw(ts) {
+    if (this._lastTs === null) this._lastTs = ts;
+    let dt = (ts - this._lastTs) / 1000;
+    this._lastTs = ts;
+    if (dt < 0 || dt > 0.1) dt = 0.016;
+    this.t += dt * this.speed;
+
+    const { ctx, w, h } = this;
+    const P = this.p;
+    const t = this.t;
+
+    // Camera basis for this frame.
+    const yaw = P.CAM_YAW_SPEED * t;
+    this._cy = Math.cos(yaw); this._sy = Math.sin(yaw);
+    this._ct = Math.cos(P.CAM_TILT); this._st = Math.sin(P.CAM_TILT);
+    this._camDist = P.RING_R * 2.0;
+    this._scale = Math.min(w, h) * P.FIT_FRAC / P.RING_R;
+    this._ox = w / 2;
+    this._oy = h / 2;
+
+    this._drawBackground(t, dt);
+
+    // Nucleus centre drifts slowly; its glow shell is a soft additive backdrop
+    // drawn BEFORE the sorted primitives so the orbit lines and nucleons always
+    // sit in front of it (the transparent-vs-transparent order the spec calls
+    // out — solved here by draw order, not depth testing).
+    const nc = this._nucleusCenter(t);
+    const gc = this._project(nc.x, nc.y, nc.z);
+    this._drawGlow(gc.sx, gc.sy, P.GLOW_R * this._scale * gc.persp);
+
+    // Collect rings + electrons + nucleons into one list, painter-sorted by
+    // camera depth so near geometry is drawn last.
+    const prims = this._prims;
+    prims.length = 0;
+    this._collectRings(prims);
+    this._collectElectrons(prims, t);
+    this._collectNucleons(prims, nc, t);
+    prims.sort((a, b) => a.z - b.z);
+    for (let i = 0; i < prims.length; i++) prims[i].draw();
+
+    this._drawPost();
+  }
+
+  _nucleusCenter(t) {
+    const d = this.p.NUCLEUS_DRIFT;
+    return {
+      x: Math.sin(t * 0.37) * d + Math.sin(t * 0.71 + 1.3) * d * 0.5,
+      y: Math.cos(t * 0.44 + 0.7) * d * 0.85 + Math.sin(t * 0.29) * d * 0.6,
+      z: Math.sin(t * 0.52 + 2.1) * d,
+    };
+  }
+
+  _collectRings(prims) {
+    const ctx = this.ctx;
+    const [rr, rg, rb] = ATOM_COLORS.ring;
+    const lw = Math.max(1, Math.min(this.w, this.h) * 0.0016);
+    const camDist = this._camDist;
+    for (const ring of this._rings) {
+      const pts = ring.pts;
+      const n = pts.length / 3;
+      // Project every sample once, then emit one primitive per segment.
+      let prev = this._project(pts[0], pts[1], pts[2]);
+      for (let s = 1; s < n; s++) {
+        const cur = this._project(pts[s * 3], pts[s * 3 + 1], pts[s * 3 + 2]);
+        const x1 = prev.sx, y1 = prev.sy, x2 = cur.sx, y2 = cur.sy;
+        const zMid = (prev.z + cur.z) * 0.5;
+        // Depth fade: nearer arc a touch brighter than the arc behind the atom.
+        const d = Math.min(1, Math.max(0, (zMid + camDist) / (camDist * 2)));
+        const alpha = 0.28 + 0.28 * d;
+        prims.push({
+          z: zMid,
+          draw: () => {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.strokeStyle = `rgba(${rr},${rg},${rb},${alpha.toFixed(3)})`;
+            ctx.lineWidth = lw;
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+          },
+        });
+        prev = cur;
+      }
+    }
+  }
+
+  _collectElectrons(prims, t) {
+    const P = this.p;
+    const ctx = this.ctx;
+    const [er, eg, eb] = ATOM_COLORS.electron;
+    for (let i = 0; i < this._rings.length; i++) {
+      const ring = this._rings[i];
+      for (let e = 0; e < P.ELECTRONS_PER_RING; e++) {
+        const angle = t * P.ORBIT_SPEED
+          + e * (Math.PI * 2 / P.ELECTRONS_PER_RING) + i * 0.8;
+        const p3 = this._ringPoint(P.RING_R, angle, ring.cI, ring.sI, ring.cS, ring.sS);
+        const pr = this._project(p3[0], p3[1], p3[2]);
+        const rad = P.ELECTRON_R * this._scale * pr.persp;
+        prims.push({
+          z: pr.z,
+          draw: () => {
+            ctx.globalCompositeOperation = 'lighter';
+            // Soft outer halo…
+            const halo = ctx.createRadialGradient(pr.sx, pr.sy, 0, pr.sx, pr.sy, rad * 3.2);
+            halo.addColorStop(0, `rgba(${er},${eg},${eb},0.55)`);
+            halo.addColorStop(0.4, `rgba(${er},${eg},${eb},0.18)`);
+            halo.addColorStop(1, `rgba(${er},${eg},${eb},0)`);
+            ctx.fillStyle = halo;
+            ctx.beginPath();
+            ctx.arc(pr.sx, pr.sy, rad * 3.2, 0, Math.PI * 2);
+            ctx.fill();
+            // …and a bright solid core so it still reads as a distinct ball.
+            const core = ctx.createRadialGradient(pr.sx, pr.sy, 0, pr.sx, pr.sy, rad);
+            core.addColorStop(0, 'rgba(255,255,240,1)');
+            core.addColorStop(0.5, `rgba(${er},${eg},${eb},1)`);
+            core.addColorStop(1, `rgba(${er},${eg},${eb},0)`);
+            ctx.fillStyle = core;
+            ctx.beginPath();
+            ctx.arc(pr.sx, pr.sy, rad, 0, Math.PI * 2);
+            ctx.fill();
+          },
+        });
+      }
+    }
+  }
+
+  _collectNucleons(prims, nc, t) {
+    const P = this.p;
+    const ctx = this.ctx;
+    for (const s of this._nucleons) {
+      const wx = nc.x + Math.sin(t * s.fx + s.px) * s.amp;
+      const wy = nc.y + Math.sin(t * s.fy + s.py) * s.amp;
+      const wz = nc.z + Math.sin(t * s.fz + s.pz) * s.amp;
+      const pr = this._project(wx, wy, wz);
+      const rad = P.NUCLEON_R * this._scale * pr.persp;
+      const col = s.type === 'p' ? ATOM_COLORS.proton : ATOM_COLORS.neutron;
+      prims.push({
+        z: pr.z,
+        draw: () => {
+          ctx.globalCompositeOperation = 'source-over';
+          // Lit sphere: highlight offset toward upper-left, base colour at rim.
+          const g = ctx.createRadialGradient(
+            pr.sx - rad * 0.35, pr.sy - rad * 0.35, rad * 0.1,
+            pr.sx, pr.sy, rad);
+          g.addColorStop(0, `rgb(${Math.min(255, col[0] + 90)},${Math.min(255, col[1] + 90)},${Math.min(255, col[2] + 90)})`);
+          g.addColorStop(0.55, `rgb(${col[0]},${col[1]},${col[2]})`);
+          g.addColorStop(1, `rgb(${(col[0] * 0.45) | 0},${(col[1] * 0.45) | 0},${(col[2] * 0.45) | 0})`);
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(pr.sx, pr.sy, rad, 0, Math.PI * 2);
+          ctx.fill();
+        },
+      });
+    }
+  }
+
+  _drawGlow(sx, sy, rad) {
+    const ctx = this.ctx;
+    const [r, g, b] = ATOM_COLORS.glow;
+    ctx.globalCompositeOperation = 'lighter';
+    const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, rad);
+    grad.addColorStop(0, `rgba(${r},${g},${b},0.22)`);
+    grad.addColorStop(0.5, `rgba(${r},${g},${b},0.08)`);
+    grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(sx, sy, rad, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  _drawBackground(t, dt) {
+    const { ctx, w, h } = this;
+    ctx.globalCompositeOperation = 'source-over';
+    // Deep radial backdrop — brighter toward the centre, near-black at edges.
+    const bg = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.7);
+    bg.addColorStop(0, '#0a1020');
+    bg.addColorStop(0.55, '#050810');
+    bg.addColorStop(1, '#010204');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+
+    // Faint nebula tints for depth (static, very low alpha).
+    ctx.globalCompositeOperation = 'lighter';
+    this._nebula(w * 0.28, h * 0.34, Math.max(w, h) * 0.32, 'rgba(30,45,90,0.14)');
+    this._nebula(w * 0.74, h * 0.7, Math.max(w, h) * 0.28, 'rgba(40,25,70,0.12)');
+
+    // Starfield with a subtle twinkle.
+    for (const s of this._stars) {
+      const tw = 0.7 + 0.3 * Math.sin(t * s.ts + s.tw);
+      const a = (s.b * tw).toFixed(3);
+      const tint = s.hue < 0.6 ? '255,255,255'
+        : s.hue < 0.82 ? '180,210,255' : '255,225,170';
+      ctx.fillStyle = `rgba(${tint},${a})`;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Slow drifting dust.
+    for (const d of this._dust) {
+      d.x += d.vx * dt; d.y += d.vy * dt;
+      if (d.x < 0) d.x += w; else if (d.x > w) d.x -= w;
+      if (d.y < 0) d.y += h; else if (d.y > h) d.y -= h;
+      ctx.fillStyle = `rgba(150,200,255,${d.a})`;
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  _nebula(cx, cy, r, color) {
+    const ctx = this.ctx;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, color);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  _drawPost() {
+    const { ctx, w, h } = this;
+    ctx.globalCompositeOperation = 'source-over';
+    // Gentle vignette to seat the scene and pull the eye inward.
+    const vg = ctx.createRadialGradient(
+      w / 2, h / 2, Math.min(w, h) * 0.35,
+      w / 2, h / 2, Math.max(w, h) * 0.72);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,0.55)');
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  resize(w, h) {
+    this.w = w;
+    this.h = h;
+    this._buildBackground();
+  }
+
+  destroy() {
+    this._rings = this._nucleons = this._stars = this._dust = null;
+    this._prims = [];
+  }
+}
+
+window.AtomTheme = AtomTheme;
+</script>
+
+<!-- ── Standalone bootstrap: canvas + rAF loop (LiV's engine does this in-app) -->
+<script>
+(function () {
+  const canvas = document.getElementById('c');
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+  function size() {
+    canvas.width  = Math.floor(window.innerWidth  * DPR);
+    canvas.height = Math.floor(window.innerHeight * DPR);
+  }
+  size();
+  const ctx = canvas.getContext('2d');
+  const theme = new AtomTheme();
+  theme.init(canvas, ctx, { intensity: 1.0, speed: 1.0 });
+  window.addEventListener('resize', () => { size(); theme.resize(canvas.width, canvas.height); });
+  (function loop(ts) { theme.draw(ts); requestAnimationFrame(loop); })(0);
+})();
+</script>
+</body>
+</html>

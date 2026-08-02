@@ -4,7 +4,7 @@ A Chrome extension (Manifest V3) that replaces the new tab page with a high-qual
 animated background — a live "home screen" for your browser. Live wallpaper, app-style
 shortcuts, a search bar, and a particle greeting, all configurable per background.
 
-**32 backgrounds** across **Space**, **Nature**, **Passing By**, **Math**, **Science**, and **Interactive** — more coming soon.
+**34 backgrounds** across **Space**, **Nature**, **Passing By**, **Math**, **Science**, and **Interactive** — more coming soon.
 
 Zero network requests. Only `storage`, `search`, and `favicon` permissions.
 
@@ -28,7 +28,7 @@ see `companion-dark-theme/README.md`.
 
 Every new tab works like a phone home screen:
 
-- **Live wallpaper** — one of 32 animated scenes behind everything.
+- **Live wallpaper** — one of 34 animated scenes behind everything.
 - **Quick Links** — app-style shortcut tiles; click to open, press & hold to drag and rearrange on a grid.
 - **Greeting** — an optional particle animation ("Good morning, _name_") on the first tab of each browser session.
 - **Search** — type in the box and press **Enter**.

@@ -1,0 +1,172 @@
+<!--
+  ============================================================================
+  GYROSCOPE RINGS — standalone reference (pure CSS/HTML)
+  ============================================================================
+  This file is a complete, working, pure CSS/HTML background — no JavaScript
+  anywhere, nothing to bundle, nothing to build. It is the canonical, working
+  spec for the scene; the in-extension version (js/themes/gyroscope.js) is a
+  Canvas 2D port of it, since LiV's scene engine is canvas-based. If asked to
+  modify this file further, preserve these details:
+
+  STRUCTURE
+  4 tumbling `.ring-wrapper` shells (sized 4em/8em/16em/32em, doubling each
+  step), each containing 4 `.ring` elements, plus a static `#core` hub at the
+  centre (see THE CENTRE HUB). Every wrapper spins on Z, every ring inside it
+  independently spins on Y with a staggered negative delay
+  (-700ms/-1400ms/-2100ms/-2800ms, each 1/10 of the 7000ms cycle) so the 4
+  rings within one wrapper are always at different points in their rotation —
+  that stagger is what makes each "sphere" look like a tumbling globe of rings
+  instead of 4 identical overlapping circles. Alternating shells spin in
+  reverse direction (1st and 3rd).
+
+  3D REQUIREMENTS — easy to silently break
+  `transform-style: preserve-3d` must stay on both `.container` and
+  `.ring-wrapper`. Without it on the wrapper specifically, each ring's own Y
+  rotation gets flattened into its parent's plane instead of composing in
+  true 3D, and the whole effect collapses into flat spinning ovals. The
+  `perspective: 1400px` on `.scene` is what gives it real depth (near rings
+  bigger, far rings smaller) on top of the base rotation math — removing it
+  doesn't break anything but makes it look flatter.
+
+  THE CENTRE HUB — constant, still
+  `#core` is a solid black disc with a white border light (crisp 1px border +
+  soft white box-shadow bloom). It replaces what used to be the innermost
+  2em spinning shell: the very centre must NOT move — it's a fixed focal point
+  the shells orbit around. It is deliberately placed OUTSIDE the 3D
+  `.container` (as a fixed, centred overlay at z-index 4, under the vignette)
+  so it always renders solid and on top of the rings instead of being
+  depth-sorted into the tumbling stack. Its 7.2vmin size == the old 2em shell
+  (2 × the 3.6vmin base). Do not give it any animation.
+
+  RESPONSIVENESS
+  Sizing is driven by `font-size: 3.6vmin` on `.container` — all the em-based
+  ring dimensions scale from that, so it fills proportionally on any screen
+  size. The `#core` overlay matches it with an explicit 7.2vmin. Don't
+  hardcode pixel sizes in their place.
+
+  ACCESSIBILITY
+  `prefers-reduced-motion: reduce` freezes all animation and locks each ring
+  to a fixed rotation angle (0°/35°/70°/105° increments) instead of just
+  stopping mid-spin, so the layered-rings shape is still visible and legible
+  when frozen, not an arbitrary stopped frame.
+
+  ATTRIBUTION
+  Adapted from "Gyroscope" by Corey Megown (cmegown), originally published as
+  a public Pen on CodePen (https://codepen.io/cmegown/pen/jMoPvQ), used under
+  CodePen's default MIT License for public Pens. Original was written in
+  Haml/SCSS; this is a hand-translated plain HTML/CSS equivalent with the
+  perspective, responsive sizing, and inner pulse glow added on top as new
+  work. Keep this attribution comment attached to the file.
+  ============================================================================
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>LiV — CSS Gyroscope Rings</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body {
+    height:100%;
+    overflow:hidden;
+    background-color:#000;
+    color:#fff;
+  }
+
+  #vignette{
+    position:fixed; inset:0; pointer-events:none; z-index:5;
+    background: radial-gradient(circle at center, transparent 40%, rgba(0,0,0,0.7) 100%);
+  }
+
+  /* the 3D scene */
+  .scene {
+    position:fixed;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    perspective: 1400px;      /* adds real depth-based foreshortening on top of the rotation math */
+}
+
+  .container {
+    position:relative;
+    font-size: 3.6vmin;       /* base unit the ring sizes (2em/4em/8em/16em/32em) scale from */
+    transform-style: preserve-3d;
+  }
+
+  .ring-wrapper {
+    list-style:none;
+    position:absolute;
+    top:50%; left:50%;
+    transform-style: preserve-3d;
+    animation: spinZ 7000ms infinite linear;
+  }
+  /* The old 2em innermost shell is now the static #core hub (below); the four
+     tumbling shells are 4em/8em/16em/32em, alternating spin direction. */
+  .ring-wrapper:nth-child(1) { width:4em;  height:4em;  margin-top:-2em;   margin-left:-2em;  animation-direction: reverse; }
+  .ring-wrapper:nth-child(2) { width:8em;  height:8em;  margin-top:-4em;   margin-left:-4em; }
+  .ring-wrapper:nth-child(3) { width:16em; height:16em; margin-top:-8em;   margin-left:-8em;  animation-direction: reverse; }
+  .ring-wrapper:nth-child(4) { width:32em; height:32em; margin-top:-16em;  margin-left:-16em; }
+
+  /* Constant, still centre: a black hub ringed with a white border light. Sits
+     outside the 3D stack so it stays solid and on top while the shells spin.
+     7.2vmin == the old 2em shell (font-size 3.6vmin). */
+  #core {
+    position:fixed;
+    top:50%; left:50%;
+    width:7.2vmin; height:7.2vmin;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    background:#000;
+    border:1px solid rgba(255,255,255,0.95);
+    box-shadow: 0 0 18px rgba(255,255,255,0.55), 0 0 6px rgba(255,255,255,0.9);
+    z-index:4;               /* above the rings, below the vignette */
+    pointer-events:none;
+  }
+
+  .ring {
+    position:absolute;
+    width:100%; height:100%;
+    border:1px solid rgba(255,255,255,0.55);
+    border-radius:50%;
+    box-shadow: 0 0 12px rgba(140,190,255,0.25);
+    animation: spinY 7000ms infinite linear;
+  }
+  .ring:nth-child(1) { animation-delay: -700ms; }
+  .ring:nth-child(2) { animation-delay: -1400ms; }
+  .ring:nth-child(3) { animation-delay: -2100ms; }
+  .ring:nth-child(4) { animation-delay: -2800ms; }
+
+  @keyframes spinY { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(360deg); } }
+  @keyframes spinZ { 0% { transform: rotateZ(0deg); } 100% { transform: rotateZ(360deg); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ring-wrapper, .ring { animation: none; }
+    .ring-wrapper:nth-child(1), .ring-wrapper:nth-child(3) { transform: rotateZ(35deg); }
+    .ring:nth-child(2) { transform: rotateY(35deg); }
+    .ring:nth-child(3) { transform: rotateY(70deg); }
+    .ring:nth-child(4) { transform: rotateY(105deg); }
+  }
+</style>
+</head>
+<body>
+<div class="scene">
+  <div class="container">
+    <ul class="ring-wrapper">
+      <li class="ring"></li><li class="ring"></li><li class="ring"></li><li class="ring"></li>
+    </ul>
+    <ul class="ring-wrapper">
+      <li class="ring"></li><li class="ring"></li><li class="ring"></li><li class="ring"></li>
+    </ul>
+    <ul class="ring-wrapper">
+      <li class="ring"></li><li class="ring"></li><li class="ring"></li><li class="ring"></li>
+    </ul>
+    <ul class="ring-wrapper">
+      <li class="ring"></li><li class="ring"></li><li class="ring"></li><li class="ring"></li>
+    </ul>
+  </div>
+</div>
+<div id="core"></div>
+<div id="vignette"></div>
+</body>
+</html>
