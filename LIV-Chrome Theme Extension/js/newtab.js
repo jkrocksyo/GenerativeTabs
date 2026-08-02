@@ -30,6 +30,7 @@ const THEME_MAP = {
   newtonsCradle:        NewtonsCradleTheme,
   atom:                 AtomTheme,
   gyroscope:            GyroscopeTheme,
+  dnaHelix:             DnaHelixTheme,
   harmonicSurface:      HarmonicSurfaceTheme,
   maurerRose:           MaurerRoseTheme,
   mobius:               MobiusStripTheme,
@@ -68,6 +69,7 @@ const THEME_LABELS = {
   newtonsCradle:        "Newton's Cradle",
   atom:                 'Atom',
   gyroscope:            'Gyroscope',
+  dnaHelix:             'DNA Helix',
   harmonicSurface:      'Harmonic Surface',
   maurerRose:           'Maurer Rose',
   mobius:               'Möbius Strip',
@@ -81,7 +83,7 @@ const THEME_GROUPS = [
   { key: 'nature',     label: 'Nature',     themes: ['sakura','fireflies','bokeh','snow','oceanLight','goldenHour','windmillRainbowField','rainyWindow','lanterns','fireside'] },
   { key: 'passingby',  label: 'Passing By', themes: ['bikeRide','dogWalk','cityDrive','hotAirBalloon','nightTrain'] },
   { key: 'math',       label: 'Graphs',     themes: ['waveSurface','torusWave','harmonicSphere','harmonicSurface','maurerRose','mobius'] },
-  { key: 'science',    label: 'Science',    themes: ['doublePendulum','newtonsCradle','atom','gyroscope'] },
+  { key: 'science',    label: 'Science',    themes: ['doublePendulum','newtonsCradle','atom','gyroscope','dnaHelix'] },
   { key: 'interactive',label: 'Interactive',themes: ['pointSphere','liquidOrb','lensIllusion'] },
 ];
 
