@@ -9,8 +9,7 @@
 
 // ── Tunable parameters ──────────────────────────────────────────────────────
 const LENS_ILLUSION_PARAMS = {
-  LCOLS:          46,
-  LROWS:          28,
+  LROWS:          28,     // rows across the height set the dot spacing; columns fill the width
   WARP_FRAC:      0.24,   // lens radius vs min(W, H)
   BULGE_STRENGTH: 0.9,    // how strongly dots push outward at the cursor
   BREATHE_AMP:    0.02,   // idle size shimmer amplitude
@@ -80,9 +79,14 @@ class LensIllusionTheme {
     ctx.fillStyle = pal.bg;
     ctx.fillRect(0, 0, W, H);
 
-    const spacing = Math.min(W / p.LCOLS, H / p.LROWS);
-    const ox = (W - p.LCOLS * spacing) / 2 + spacing / 2;
-    const oy = (H - p.LROWS * spacing) / 2 + spacing / 2;
+    // Spacing is driven by the row count over the height; columns are then
+    // derived to tile the full width (plus one dot of overscan each side) so
+    // there is never blank space on wide displays.
+    const spacing = H / p.LROWS;
+    const cols = Math.ceil(W / spacing) + 2;
+    const rows = p.LROWS + 2;
+    const ox = (W - (cols - 1) * spacing) / 2;
+    const oy = (H - (rows - 1) * spacing) / 2;
     const warpR = Math.min(W, H) * p.WARP_FRAC;
     const baseDot = Math.max(1.2, Math.min(W, H) * 0.0018);
 
@@ -90,9 +94,9 @@ class LensIllusionTheme {
     const mx = this.mx, my = this.my;
 
     const path = new Path2D();
-    for (let r = 0; r < p.LROWS; r++) {
+    for (let r = 0; r < rows; r++) {
       const gy = oy + r * spacing;
-      for (let c = 0; c < p.LCOLS; c++) {
+      for (let c = 0; c < cols; c++) {
         const gx = ox + c * spacing;
 
         let px = gx, py = gy;
