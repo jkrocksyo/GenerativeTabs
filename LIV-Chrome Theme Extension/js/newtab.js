@@ -1,43 +1,95 @@
 'use strict';
 
-const THEME_MAP = {
-  starfield:      StarfieldTheme,
-  nebula:         NebulaTheme,
-  galaxy:         GalaxyTheme,
-  particles:      ParticlesTheme,
-  hyperspace:     HyperspaceTheme,
-  meteor:         MeteorShowerTheme,
-  blackhole:      BlackHoleTheme,
-  sakura:         SakuraPetalsTheme,
-  fireflies:      ForestFirefliesTheme,
-  bokeh:          BokehLightsTheme,
-  snow:           FallingSnowTheme,
-  bikeRide:       SunsetBikeRideTheme,
-  dogWalk:        AutumnDogWalkTheme,
-  cityDrive:      NightCityDriveTheme,
-  hotAirBalloon:  HotAirBalloonTheme,
-  rainyWindow:    RainyWindowTheme,
-  lanterns:       FloatingLanternsTheme,
-  fireside:       FiresideTheme,
-  nightTrain:     NightTrainTheme,
-  oceanLight:     OceanLightTheme,
-  goldenHour:           GoldenHourTheme,
-  windmillRainbowField: WindmillRainbowFieldTheme,
-  waveSurface:          WaveSurfaceTheme,
-  torusWave:            TorusWaveTheme,
-  harmonicSphere:       HarmonicSphereTheme,
-  doublePendulum:       DoublePendulumTheme,
-  newtonsCradle:        NewtonsCradleTheme,
-  atom:                 AtomTheme,
-  gyroscope:            GyroscopeTheme,
-  dnaHelix:             DnaHelixTheme,
-  harmonicSurface:      HarmonicSurfaceTheme,
-  maurerRose:           MaurerRoseTheme,
-  mobius:               MobiusStripTheme,
-  pointSphere:          PointSphereTheme,
-  liquidOrb:            LiquidOrbTheme,
-  lensIllusion:         LensIllusionTheme,
+// ── Scene registry + lazy loader ───────────────────────────────────────────────
+// Scenes are NOT all loaded up front. Each key maps to the global class name its
+// script defines; the script (js/themes/<key>.js) is injected on demand. On boot
+// only the active scene is fetched (fast first paint); the rest are pulled in
+// during idle time so the picker and switching stay instant without startup lag.
+// This keeps startup flat no matter how many scenes exist.
+const THEME_CLASS = {
+  starfield: 'StarfieldTheme',
+  nebula: 'NebulaTheme',
+  galaxy: 'GalaxyTheme',
+  particles: 'ParticlesTheme',
+  hyperspace: 'HyperspaceTheme',
+  meteor: 'MeteorShowerTheme',
+  blackhole: 'BlackHoleTheme',
+  sakura: 'SakuraPetalsTheme',
+  fireflies: 'ForestFirefliesTheme',
+  bokeh: 'BokehLightsTheme',
+  snow: 'FallingSnowTheme',
+  bikeRide: 'SunsetBikeRideTheme',
+  dogWalk: 'AutumnDogWalkTheme',
+  cityDrive: 'NightCityDriveTheme',
+  hotAirBalloon: 'HotAirBalloonTheme',
+  rainyWindow: 'RainyWindowTheme',
+  lanterns: 'FloatingLanternsTheme',
+  fireside: 'FiresideTheme',
+  nightTrain: 'NightTrainTheme',
+  oceanLight: 'OceanLightTheme',
+  oceanCycle: 'OceanCycleTheme',
+  goldenHour: 'GoldenHourTheme',
+  windmillRainbowField: 'WindmillRainbowFieldTheme',
+  waveSurface: 'WaveSurfaceTheme',
+  torusWave: 'TorusWaveTheme',
+  harmonicSphere: 'HarmonicSphereTheme',
+  doublePendulum: 'DoublePendulumTheme',
+  newtonsCradle: 'NewtonsCradleTheme',
+  atom: 'AtomTheme',
+  gyroscope: 'GyroscopeTheme',
+  dnaHelix: 'DnaHelixTheme',
+  harmonicSurface: 'HarmonicSurfaceTheme',
+  maurerRose: 'MaurerRoseTheme',
+  mobius: 'MobiusStripTheme',
+  pointSphere: 'PointSphereTheme',
+  liquidOrb: 'LiquidOrbTheme',
+  lensIllusion: 'LensIllusionTheme',
+  smoke: 'SmokeTheme',
+  fractalTunnel: 'FractalTunnelTheme',
 };
+
+const _scenePromises = {};
+// Load one scene's script (idempotent) and resolve with its class.
+function loadScene(key) {
+  const name = THEME_CLASS[key];
+  if (!name) return Promise.reject(new Error('unknown scene: ' + key));
+  if (window[name]) return Promise.resolve(window[name]);
+  if (_scenePromises[key]) return _scenePromises[key];
+  _scenePromises[key] = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'js/themes/' + key + '.js';
+    s.async = false;
+    s.onload = () => window[name] ? resolve(window[name]) : reject(new Error('missing class: ' + name));
+    s.onerror = () => reject(new Error('failed to load: ' + s.src));
+    document.head.appendChild(s);
+  });
+  return _scenePromises[key];
+}
+
+// Load the active scene, falling back to Starfield, then swap it in. A token
+// guards against out-of-order resolves when the user switches quickly.
+let _switchToken = 0;
+async function switchSceneAsync(key) {
+  const token = ++_switchToken;
+  let cls = await loadScene(key).catch(() => null);
+  if (!cls && key !== 'starfield') cls = await loadScene('starfield').catch(() => null);
+  if (token !== _switchToken || !cls) return;
+  engine.switchTheme(cls);
+}
+
+// Pull in the remaining scenes during idle time so the picker/switching are
+// instant later, without competing with first paint or the active scene.
+function preloadRemainingScenes() {
+  const idle = window.requestIdleCallback || (fn => setTimeout(fn, 250));
+  const keys = Object.keys(THEME_CLASS);
+  let i = 0;
+  const step = () => {
+    while (i < keys.length && window[THEME_CLASS[keys[i]]]) i++;  // skip already-loaded
+    if (i >= keys.length) return;
+    loadScene(keys[i++]).catch(() => {}).then(() => idle(step));
+  };
+  idle(step);
+}
 
 const THEME_LABELS = {
   starfield:      'Deep Space',
@@ -60,6 +112,7 @@ const THEME_LABELS = {
   fireside:       'Fireside',
   nightTrain:     'Night Train',
   oceanLight:     'Ocean Light',
+  oceanCycle:     'Ocean Cycle',
   goldenHour:           'Golden Hour',
   windmillRainbowField: 'Rainbow Fields',
   waveSurface:          'Wave Surface',
@@ -76,15 +129,17 @@ const THEME_LABELS = {
   pointSphere:          'Point Sphere',
   liquidOrb:            'Liquid Orb',
   lensIllusion:         'Lens Illusion',
+  smoke:                'Smoke',
+  fractalTunnel:        'Fractal Tunnel',
 };
 
 const THEME_GROUPS = [
   { key: 'space',      label: 'Space',      themes: ['starfield','nebula','galaxy','particles','hyperspace','meteor','blackhole'] },
-  { key: 'nature',     label: 'Nature',     themes: ['sakura','fireflies','bokeh','snow','oceanLight','goldenHour','windmillRainbowField','rainyWindow','lanterns','fireside'] },
+  { key: 'nature',     label: 'Nature',     themes: ['sakura','fireflies','bokeh','snow','oceanLight','oceanCycle','goldenHour','windmillRainbowField','rainyWindow','lanterns','fireside'] },
   { key: 'passingby',  label: 'Passing By', themes: ['bikeRide','dogWalk','cityDrive','hotAirBalloon','nightTrain'] },
   { key: 'math',       label: 'Graphs',     themes: ['waveSurface','torusWave','harmonicSphere','harmonicSurface','maurerRose','mobius'] },
   { key: 'science',    label: 'Science',    themes: ['doublePendulum','newtonsCradle','atom','gyroscope','dnaHelix'] },
-  { key: 'interactive',label: 'Interactive',themes: ['pointSphere','liquidOrb','lensIllusion'] },
+  { key: 'interactive',label: 'Interactive',themes: ['pointSphere','liquidOrb','lensIllusion','smoke','fractalTunnel'] },
 ];
 
 // Pre-rendered thumbnail images (themeKey -> URL). None exist yet; when a
@@ -94,7 +149,11 @@ const THEME_THUMBS = {};
 
 function getThumb(themeKey) {
   if (THEME_THUMBS[themeKey]) return Promise.resolve(THEME_THUMBS[themeKey]);
-  return ScenePreview.getThumbnail(themeKey, THEME_MAP[themeKey]);
+  // Load the scene's script on demand, then snapshot it (also lazy-loads the
+  // scenes in whatever category the user opens).
+  return loadScene(themeKey)
+    .then(cls => ScenePreview.getThumbnail(themeKey, cls))
+    .catch(() => null);
 }
 
 // The category a scene lives in is derived from THEME_GROUPS, never stored.
@@ -107,7 +166,7 @@ function categoryOf(themeKey) {
 // (that belongs to the scene's real group).
 function getCategoryEntry(key) {
   if (key === 'favorites') {
-    return { key, label: 'Favorites', themes: (settings.favorites || []).filter(k => THEME_MAP[k]) };
+    return { key, label: 'Favorites', themes: (settings.favorites || []).filter(k => THEME_CLASS[k]) };
   }
   return THEME_GROUPS.find(g => g.key === key) || null;
 }
@@ -243,8 +302,13 @@ function applyLiveEngine(reinit = false) {
     speed:      live.animSpeed,
     staticMode: live.staticMode,
     scenePalette: paletteFor(settings.theme),
+    oceanTime:    oceanTimeFor(),
   });
-  if (reinit) engine.switchTheme(THEME_MAP[settings.theme] || StarfieldTheme);
+  // Self-managing scenes (e.g. Fractal Tunnel) run their own loop, so push the
+  // fps cap to them directly — the engine's own loop cap doesn't reach them.
+  const t = engine.currentTheme;
+  if (t && typeof t.setFps === 'function') t.setFps(live.fps);
+  if (reinit) switchSceneAsync(settings.theme);
 }
 
 // Re-apply every live-page render from the current `live` object.
@@ -275,8 +339,10 @@ function applyLiveToPage(reinit = false) {
     speed:      live.animSpeed,
     staticMode: live.staticMode,
     scenePalette: paletteFor(settings.theme),
+    oceanTime:    oceanTimeFor(),
   });
-  engine.switchTheme(THEME_MAP[settings.theme] || StarfieldTheme);
+  await switchSceneAsync(settings.theme);   // load ONLY the active scene first
+  preloadRemainingScenes();                 // then pull in the rest during idle
 
   applyFont();
   applyLogoPosition();
@@ -524,20 +590,61 @@ function qlFirstFreeCell(g, taken) {
   return null;
 }
 
+// Where a saved record wants to sit in the CURRENT geometry. Fractional anchors
+// (fx,fy — the tile's centre as a fraction of the viewport) are independent of
+// resolution and cell size, so a link keeps the same visual spot across monitors
+// and when toggling icon-only. Legacy records fall back to their raw row/col.
+function qlDesiredCell(p, g) {
+  if (p && Number.isFinite(p.fx) && Number.isFinite(p.fy)) {
+    return {
+      row: Math.round((p.fy * window.innerHeight - g.oy - g.h / 2) / g.h),
+      col: Math.round((p.fx * window.innerWidth  - g.ox - g.w / 2) / g.w),
+    };
+  }
+  if (p && Number.isInteger(p.row) && Number.isInteger(p.col)) return { row: p.row, col: p.col };
+  return null;
+}
+
+// Free, non-protected cell nearest to (row,col) — resolves the collisions a
+// geometry change can create by nudging a tile to the closest open slot instead
+// of dumping it into the corner.
+function qlNearestFreeCell(g, taken, row, col) {
+  let best = null, bestD = Infinity;
+  for (let r = 0; r < g.rows; r++) for (let c = 0; c < g.cols; c++) {
+    if (taken.has(r + ',' + c) || qlCellBlocked(g, r, c)) continue;
+    const d = (r - row) * (r - row) + (c - col) * (c - col);
+    if (d < bestD) { bestD = d; best = { row: r, col: c }; }
+  }
+  return best;
+}
+
+// A grid record pins a tile to an exact cell (row/col — for previews and
+// same-device restore) AND to a resolution-independent fractional anchor.
+function qlCellRecord(row, col, g) {
+  g = g || qlGeomCache;
+  const cx = g.ox + col * g.w + g.w / 2;
+  const cy = g.oy + row * g.h + g.h / 2;
+  return { row, col, fx: cx / window.innerWidth, fy: cy / window.innerHeight };
+}
+
 function qlPlacements(links, g) {
   // Read the ACTIVE background's grid: its preset's saved arrangement when a
   // preset is showing, otherwise the global grid.
   const map = live.quickLinkGrid || {};
   const taken = new Set();
   const placed = [], rest = [];
+  // Anchored links claim the free cell nearest their remembered spot, so they
+  // stay put across monitor / resolution / display-mode changes.
   links.forEach(link => {
-    const p = map[link.id];
-    const ok = p && Number.isInteger(p.row) && Number.isInteger(p.col) &&
-               p.row < g.rows && p.col < g.cols &&
-               !taken.has(p.row + ',' + p.col) && !qlCellBlocked(g, p.row, p.col);
-    if (ok) { taken.add(p.row + ',' + p.col); placed.push({ link, row: p.row, col: p.col }); }
+    const want = qlDesiredCell(map[link.id], g);
+    if (!want) { rest.push(link); return; }
+    const row = Math.max(0, Math.min(g.rows - 1, want.row));
+    const col = Math.max(0, Math.min(g.cols - 1, want.col));
+    const cell = qlNearestFreeCell(g, taken, row, col);
+    if (cell) { taken.add(cell.row + ',' + cell.col); placed.push({ link, row: cell.row, col: cell.col }); }
     else rest.push(link);
   });
+  // Brand-new links (no saved anchor) fill the first free cells.
   rest.forEach(link => {
     const cell = qlFirstFreeCell(g, taken);
     if (!cell) return;
@@ -566,7 +673,7 @@ function qlSaveGrid(map) {
 function qlPersistFromDom() {
   const map = {};
   document.querySelectorAll('#quick-links .ql-tile').forEach(t => {
-    map[t.dataset.id] = { row: +t.dataset.row, col: +t.dataset.col };
+    map[t.dataset.id] = qlCellRecord(+t.dataset.row, +t.dataset.col);
   });
   qlSaveGrid(map);
 }
@@ -592,8 +699,18 @@ function renderQuickLinks() {
   const g = qlGeomCache = qlGeom();
   const placed = qlPlacements(links, g);
 
+  // Preserve each existing tile's saved anchor verbatim so a mere re-layout (new
+  // monitor, resolution, or mode toggle) never rewrites where a link lives; only
+  // record a fresh anchor for links that had none (brand-new, auto-placed). This
+  // is what keeps links from wandering unless the user drags them or a preset
+  // override supplies its own arrangement.
+  const prevMap = live.quickLinkGrid || {};
   const map = {};
-  placed.forEach(p => { map[p.link.id] = { row: p.row, col: p.col }; });
+  links.forEach(link => {
+    const prev = prevMap[link.id];
+    if (prev && Number.isFinite(prev.fx)) map[link.id] = prev;   // keep the stored anchor untouched
+  });
+  placed.forEach(p => { if (!map[p.link.id]) map[p.link.id] = qlCellRecord(p.row, p.col, g); });
   qlSaveGrid(map);
 
   const placedIds = new Set();
@@ -729,9 +846,13 @@ function decorateQuickTile(box, url, label, iconOnly, brand) {
   const favicon = () => {
     const img = document.createElement('img');
     img.className = 'ql-fav';
-    img.src = BrandColors.faviconUrl(url, 64);
+    // Request the favicon at the icon box's physical-pixel size so it stays crisp
+    // on hi-DPI displays: icon-only boxes are 60 CSS px (→120px at 2×), pills 15.
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    img.src = BrandColors.faviconUrl(url, Math.round((iconOnly ? 64 : 24) * dpr));
     img.alt = '';
     img.decoding = 'async';
+    img.draggable = false;   // don't let a hold-drag start the browser's native image drag
     img.addEventListener('error', () => { img.remove(); letter(); });
     box.appendChild(img);
   };
@@ -924,13 +1045,13 @@ function qlOutsideDown(e) {
 function getRandomThemeFromPool(pool) {
   let keys;
   if (pool === 'all') {
-    keys = Object.keys(THEME_MAP);
+    keys = Object.keys(THEME_CLASS);
   } else if (pool === 'favorites') {
-    keys = (settings.favorites || []).filter(k => THEME_MAP[k]);
-    if (!keys.length) keys = Object.keys(THEME_MAP);
+    keys = (settings.favorites || []).filter(k => THEME_CLASS[k]);
+    if (!keys.length) keys = Object.keys(THEME_CLASS);
   } else {
     const group = THEME_GROUPS.find(g => g.key === pool);
-    keys = group ? group.themes : Object.keys(THEME_MAP);
+    keys = group ? group.themes : Object.keys(THEME_CLASS);
   }
   return keys[Math.floor(Math.random() * keys.length)];
 }
@@ -1064,22 +1185,76 @@ function openPresetPicker() {
 // ── Screen 1: Appearance ─────────────────────────────────────────────────────
 
 function renderAppearance() {
-  document.getElementById('appearance-name').textContent =
-    THEME_LABELS[settings.theme] || '';
+  document.getElementById('appearance-name').textContent = THEME_LABELS[settings.theme] || '';
+  renderSceneControls();
   buildCategoryGrid('home-category-grid');   // category tiles under the preview
   startAppearancePreview();
+}
+
+// Per-scene controls that sit under the preview:
+//   • Ocean Cycle    → time-of-day buttons (Live + one per phase)
+//   • Interactive    → the same colour-swatch circles shown on its grid tile
+function renderSceneControls() {
+  const wrap = document.getElementById('scene-controls');
+  wrap.innerHTML = '';
+  const theme = settings.theme;
+
+  if (theme === 'oceanCycle' && window.OceanCycleTheme) {
+    const current = oceanTimeFor();
+    window.OceanCycleTheme.DAY_TIMES.forEach(t => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'scene-time-btn' + (current === t.key ? ' active' : '');
+      b.dataset.time = t.key;
+      b.textContent = t.label;
+      b.addEventListener('click', () => setOceanTime(t.key));
+      wrap.appendChild(b);
+    });
+    wrap.hidden = false;
+    return;
+  }
+
+  if (PALETTE_THEMES.has(theme)) {
+    wrap.appendChild(makePaletteSwatchRow(theme));
+    wrap.hidden = false;
+    return;
+  }
+
+  wrap.hidden = true;
+}
+
+function setOceanTime(key) {
+  settings.oceanTime = key;
+  Storage.save({ oceanTime: key });
+  // Jump the live background (and, sharing the scene's module clock, the
+  // preview) to the chosen time of day without a reload.
+  const theme = engine && engine.currentTheme;
+  if (settings.theme === 'oceanCycle' && theme && typeof theme.setDayTime === 'function') {
+    theme.setDayTime(key);
+  }
+  document.querySelectorAll('#scene-controls .scene-time-btn').forEach(el =>
+    el.classList.toggle('active', el.dataset.time === key));
 }
 
 function startAppearancePreview() {
   const overlay = document.getElementById('settings-overlay');
   // The preview lives in the Home panel, so only run it while that tab is shown.
   if (!overlay.classList.contains('open') || nav.view !== 'main' || activePanel !== 'home') return;
-  livePreview.show(THEME_MAP[settings.theme] || StarfieldTheme, {
+  const key = settings.theme;
+  const opts = {
     intensity:  Storage.intensityValue(live.intensity),
     quality:    Storage.qualityValue(live.quality),
     fps:        live.fps,
     speed:      live.animSpeed,
     staticMode: live.staticMode,
+    oceanTime:  oceanTimeFor(),
+    scenePalette: paletteFor(key),
+  };
+  loadScene(key).catch(() => loadScene('starfield')).then(cls => {
+    // Still on the Home panel and the same background? (async load may lag.)
+    if (!cls || !overlay.classList.contains('open') || nav.view !== 'main' ||
+        activePanel !== 'home' || settings.theme !== key) return;
+    livePreview.show(cls, opts);
   });
 }
 
@@ -1226,20 +1401,42 @@ function makeBackgroundTile(themeKey) {
   return tile;
 }
 
-// Interactive backgrounds that expose the shared 7-swatch colour picker.
-const PALETTE_THEMES = new Set(['pointSphere', 'liquidOrb', 'lensIllusion']);
+// Backgrounds that expose a colour-swatch picker.
+const PALETTE_THEMES = new Set(['nebula', 'pointSphere', 'liquidOrb', 'lensIllusion', 'smoke', 'fractalTunnel']);
 
-// The colour preset chosen for a scene (defaults to Aurora). Global per scene,
-// independent of the per-background toolbar presets.
+// Scenes with their OWN named presets (instead of the shared 7 palettes) list
+// them here: { name, swatch:[c0,c1] }. name is what gets passed to setPreset().
+const SCENE_PALETTES = {
+  fractalTunnel: [
+    { name: 'frost',    swatch: ['#e0edf5', '#5a8ab0'] },
+    { name: 'ember',    swatch: ['#ffd9a8', '#e0641c'] },
+    { name: 'nocturne', swatch: ['#bcc4f0', '#6a4fd0'] },
+  ],
+};
+
+// Which swatch list a scene uses, and its default preset name.
+function palettesFor(themeKey) { return SCENE_PALETTES[themeKey] || window.INTERACTIVE_PALETTES || []; }
+function defaultPalette(themeKey) {
+  return SCENE_PALETTES[themeKey] ? SCENE_PALETTES[themeKey][0].name : 'Aurora';
+}
+
+// The colour preset chosen for a scene. Global per scene, independent of the
+// per-background toolbar presets.
 function paletteFor(themeKey) {
-  return (settings.palettes || {})[themeKey] || 'Aurora';
+  return (settings.palettes || {})[themeKey] || defaultPalette(themeKey);
+}
+
+// Ocean Cycle time-of-day mode: 'real' (follows the viewer's clock, the
+// default) or a pinned phase key. Stored globally, like the scene palette.
+function oceanTimeFor() {
+  return settings.oceanTime || 'real';
 }
 
 // A row of palette swatches for one Interactive scene. Clicking one applies that
 // colour preset to the scene and, when it's the live background, recolours it
 // instantly (no scene reload).
 function makePaletteSwatchRow(themeKey) {
-  const palettes = window.INTERACTIVE_PALETTES || [];
+  const palettes = palettesFor(themeKey);
   const current = paletteFor(themeKey);
   const wrap = document.createElement('div');
   wrap.className = 'scene-swatches';
@@ -1260,6 +1457,28 @@ function makePaletteSwatchRow(themeKey) {
     });
     wrap.appendChild(sw);
   });
+
+  // Custom-colour picker: a rainbow "colour wheel" circle holding a hidden native
+  // colour input (its own hue/saturation popout). Picking any colour applies it
+  // live and persists it (stored as the '#hex' value in place of a preset name).
+  const isCustom = typeof current === 'string' && current[0] === '#';
+  const pick = document.createElement('button');
+  pick.type = 'button';
+  pick.className = 'scene-swatch scene-swatch-custom' + (isCustom ? ' active' : '');
+  pick.title = 'Custom colour';
+  pick.setAttribute('aria-label', 'Choose a custom colour');
+  const input = document.createElement('input');
+  input.type = 'color';
+  input.className = 'scene-swatch-input';
+  input.value = isCustom ? current : '#5cb8ff';
+  input.addEventListener('click', e => e.stopPropagation());
+  input.addEventListener('input', e => {
+    setScenePalette(themeKey, e.target.value);
+    wrap.querySelectorAll('.scene-swatch').forEach(el => el.classList.remove('active'));
+    pick.classList.add('active');
+  });
+  pick.appendChild(input);
+  wrap.appendChild(pick);
   return wrap;
 }
 
@@ -1394,7 +1613,7 @@ function buildAdvancedPanel() {
 
   const keys = new Set(Object.keys(settings.overrides || {}));
   if (pendingPresetBg) keys.add(pendingPresetBg);
-  const arr = [...keys].filter(k => THEME_MAP[k]);
+  const arr = [...keys].filter(k => THEME_CLASS[k]);
 
   if (!arr.length) {
     const empty = document.createElement('div');
@@ -1430,14 +1649,17 @@ function makePresetCard(themeKey, animate, animQuality) {
     sceneEl.className = 'preset-live';
     thumb.appendChild(sceneEl);
     const preview = new ScenePreview.LivePreview(sceneEl);
-    preview.show(THEME_MAP[themeKey] || StarfieldTheme, {
+    presetPreviews.push(preview);
+    const popts = {
       intensity:  Storage.intensityValue(eff.intensity),
       quality:    Math.min(Storage.qualityValue(eff.quality), animQuality),
       fps:        eff.fps,
       speed:      eff.animSpeed,
       staticMode: eff.staticMode,
+    };
+    loadScene(themeKey).catch(() => loadScene('starfield')).then(cls => {
+      if (cls) preview.show(cls, popts);
     });
-    presetPreviews.push(preview);
   } else {
     thumb.appendChild(makeThumbImg(themeKey));
   }

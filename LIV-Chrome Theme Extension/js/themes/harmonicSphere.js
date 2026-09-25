@@ -43,3 +43,6 @@ class HarmonicSphereTheme extends ParametricSurfaceScene {
     out[2] = r * sinP * Math.sin(theta);
   }
 }
+
+// Lazy-loader hook: expose the class on window so it can be resolved by name.
+window.HarmonicSphereTheme = HarmonicSphereTheme;

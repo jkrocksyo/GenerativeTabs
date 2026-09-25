@@ -42,3 +42,6 @@ class TorusWaveTheme extends ParametricSurfaceScene {
     out[2] = r * Math.sin(v);
   }
 }
+
+// Lazy-loader hook: expose the class on window so it can be resolved by name.
+window.TorusWaveTheme = TorusWaveTheme;

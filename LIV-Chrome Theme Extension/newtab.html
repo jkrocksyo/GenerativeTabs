@@ -113,6 +113,7 @@
           <section class="settings-panel-section active" data-panel="home" role="tabpanel" aria-label="Backgrounds">
             <h2 class="panel-subheader">Backgrounds</h2>
             <div id="appearance-preview" class="appearance-preview"></div>
+            <div id="scene-controls" class="scene-controls" hidden></div>
             <div id="appearance-name" class="appearance-name"></div>
             <button class="theme-option randomize-daily-btn" id="randomize-all-daily" data-pool="all" type="button">
               <span class="rdaily-icon">↻</span><span>Randomize All Daily</span>
@@ -312,49 +313,18 @@
     </div>
   </div>
 
-  <script src="js/storage.js"></script>
-  <script src="js/greeting.js"></script>
-  <script src="js/brandColors.js"></script>
-  <script src="js/scenePreview.js"></script>
-  <script src="js/themes/engine.js"></script>
-  <script src="js/themes/starfield.js"></script>
-  <script src="js/themes/nebula.js"></script>
-  <script src="js/themes/galaxy.js"></script>
-  <script src="js/themes/particles.js"></script>
-  <script src="js/themes/hyperspace.js"></script>
-  <script src="js/themes/meteor.js"></script>
-  <script src="js/themes/blackhole.js"></script>
-  <script src="js/themes/sakura.js"></script>
-  <script src="js/themes/fireflies.js"></script>
-  <script src="js/themes/bokeh.js"></script>
-  <script src="js/themes/snow.js"></script>
-  <script src="js/themes/bikeRide.js"></script>
-  <script src="js/themes/dogWalk.js"></script>
-  <script src="js/themes/cityDrive.js"></script>
-  <script src="js/themes/hotAirBalloon.js"></script>
-  <script src="js/themes/rainyWindow.js"></script>
-  <script src="js/themes/lanterns.js"></script>
-  <script src="js/themes/fireside.js"></script>
-  <script src="js/themes/nightTrain.js"></script>
-  <script src="js/themes/oceanLight.js"></script>
-  <script src="js/themes/goldenHour.js"></script>
-  <script src="js/themes/windmillRainbowField.js"></script>
-  <script src="js/themes/waveSurface.js"></script>
-  <script src="js/themes/parametricSurface.js"></script>
-  <script src="js/themes/torusWave.js"></script>
-  <script src="js/themes/harmonicSphere.js"></script>
-  <script src="js/themes/doublePendulum.js"></script>
-  <script src="js/themes/newtonsCradle.js"></script>
-  <script src="js/themes/harmonicSurface.js"></script>
-  <script src="js/themes/maurerRose.js"></script>
-  <script src="js/themes/mobius.js"></script>
-  <script src="js/themes/interactivePalettes.js"></script>
-  <script src="js/themes/pointSphere.js"></script>
-  <script src="js/themes/liquidOrb.js"></script>
-  <script src="js/themes/lensIllusion.js"></script>
-  <script src="js/themes/atom.js"></script>
-  <script src="js/themes/gyroscope.js"></script>
-  <script src="js/themes/dnaHelix.js"></script>
-  <script src="js/newtab.js"></script>
+  <!-- Core + shared scene dependencies load eagerly. Individual background
+       scripts (js/themes/<key>.js) are loaded on demand by newtab.js: only the
+       active scene at startup, the rest during idle. See THEME_CLASS / loadScene.
+       interactivePalettes.js (palette data) and parametricSurface.js (base used
+       by the Graphs scenes) stay eager because several lazy scenes depend on them. -->
+  <script defer src="js/storage.js"></script>
+  <script defer src="js/greeting.js"></script>
+  <script defer src="js/brandColors.js"></script>
+  <script defer src="js/scenePreview.js"></script>
+  <script defer src="js/themes/engine.js"></script>
+  <script defer src="js/themes/interactivePalettes.js"></script>
+  <script defer src="js/themes/parametricSurface.js"></script>
+  <script defer src="js/newtab.js"></script>
 </body>
 </html>

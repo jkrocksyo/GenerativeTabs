@@ -30,6 +30,7 @@ const Storage = (() => {
     staticMode:         false,
     newTabLinks:        false,      // open quick links in a new tab
     palettes:           {},         // { themeKey: presetName } colour palettes for Interactive scenes
+    oceanTime:          'real',     // Ocean Cycle time-of-day: 'real' (follow clock) | phase key
     favorites:          [],
     randomizeDaily:     null,
     randomizeDailyDate: '',

@@ -11,6 +11,10 @@ const NEBULA_FRAG = `
 precision mediump float;
 uniform float u_time;
 uniform vec2  u_res;
+uniform vec3  u_c1;   // deep base
+uniform vec3  u_c2;   // broad haze
+uniform vec3  u_c3;   // main cloud
+uniform vec3  u_c4;   // highlight streaks
 
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -50,11 +54,8 @@ void main() {
   );
   float f = fbm(uv + 1.5 * r);
 
-  // Deep space palette
-  vec3 c1 = vec3(0.06, 0.03, 0.14);  // deep indigo
-  vec3 c2 = vec3(0.23, 0.04, 0.38);  // violet
-  vec3 c3 = vec3(0.71, 0.09, 0.62);  // magenta
-  vec3 c4 = vec3(0.02, 0.50, 0.72);  // teal
+  // Palette (driven from the chosen colour preset)
+  vec3 c1 = u_c1, c2 = u_c2, c3 = u_c3, c4 = u_c4;
 
   float f2 = f * f;
   float f3 = f2 * f;
@@ -78,6 +79,30 @@ void main() {
 }
 `;
 
+// Colour presets reuse the shared Interactive palettes so Nebula Drift's swatch
+// picker matches the rest of the app. The base tone (c1) is always dark and
+// derived from the main colour — never from the palette's background — so a
+// light-background palette (e.g. Daylight) can't invert the nebula into a
+// washed-out light cloud.
+const NEBULA_DEFAULT_COLS = {
+  c1: [0.06, 0.03, 0.14], c2: [0.23, 0.04, 0.38],
+  c3: [0.71, 0.09, 0.62], c4: [0.02, 0.50, 0.72]
+};
+function _nebHexRgb(hex) {
+  let h = String(hex || '').replace('#', '');
+  if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  const n = parseInt(h, 16);
+  return Number.isFinite(n) ? [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255] : [1, 1, 1];
+}
+function _nebColors(name) {
+  const pal = window.interactivePalette ? window.interactivePalette(name) : null;
+  if (!pal) return NEBULA_DEFAULT_COLS;
+  const dot = _nebHexRgb(pal.dot), acc = _nebHexRgb(pal.accent);
+  const c1 = [dot[0] * 0.10, dot[1] * 0.10, dot[2] * 0.10];  // always-dark, tinted base
+  const c2 = [c1[0] + (dot[0] - c1[0]) * 0.55, c1[1] + (dot[1] - c1[1]) * 0.55, c1[2] + (dot[2] - c1[2]) * 0.55];
+  return { c1, c2, c3: dot, c4: acc };
+}
+
 class NebulaTheme {
   constructor() {
     this.contextType = 'webgl';
@@ -95,6 +120,8 @@ class NebulaTheme {
     this.fallbackStars = [];
     this.intensity = 1.0;
     this.speed = 1.0;
+    this.uC1 = this.uC2 = this.uC3 = this.uC4 = null;
+    this._cols = NEBULA_DEFAULT_COLS;
   }
 
   init(canvas, ctx, opts) {
@@ -103,6 +130,7 @@ class NebulaTheme {
     this.h = canvas.height;
     this.intensity = opts.intensity || 1.0;
     this.speed = opts.speed || 1.0;
+    this._cols = _nebColors(opts.scenePalette);
 
     if (!this.webglFailed) {
       this._initGL(ctx);
@@ -144,6 +172,10 @@ class NebulaTheme {
     this.program = prog;
     this.uTime = gl.getUniformLocation(prog, 'u_time');
     this.uRes  = gl.getUniformLocation(prog, 'u_res');
+    this.uC1 = gl.getUniformLocation(prog, 'u_c1');
+    this.uC2 = gl.getUniformLocation(prog, 'u_c2');
+    this.uC3 = gl.getUniformLocation(prog, 'u_c3');
+    this.uC4 = gl.getUniformLocation(prog, 'u_c4');
 
     // Fullscreen quad
     this.buf = gl.createBuffer();
@@ -253,6 +285,10 @@ class NebulaTheme {
       gl.useProgram(this.program);
       gl.uniform1f(this.uTime, ts * 0.001 * this.speed);
       gl.uniform2f(this.uRes, this.w, this.h);
+      gl.uniform3fv(this.uC1, this._cols.c1);
+      gl.uniform3fv(this.uC2, this._cols.c2);
+      gl.uniform3fv(this.uC3, this._cols.c3);
+      gl.uniform3fv(this.uC4, this._cols.c4);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     } else {
       this._drawFallback(ts);
@@ -264,6 +300,9 @@ class NebulaTheme {
     if (this._glReady && this.gl) this.gl.viewport(0, 0, w, h);
   }
 
+  // Live colour swap from the palette swatches (WebGL picks it up next frame).
+  setPreset(name) { this._cols = _nebColors(name); }
+
   destroy() {
     if (this.gl && this.program) {
       this.gl.deleteProgram(this.program);
@@ -273,3 +312,6 @@ class NebulaTheme {
     this.fallbackStars = [];
   }
 }
+
+// Lazy-loader hook: expose the class on window so it can be resolved by name.
+window.NebulaTheme = NebulaTheme;

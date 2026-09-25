@@ -191,3 +191,6 @@ class MobiusStripTheme {
     this._P = [];
   }
 }
+
+// Lazy-loader hook: expose the class on window so it can be resolved by name.
+window.MobiusStripTheme = MobiusStripTheme;

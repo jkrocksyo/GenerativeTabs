@@ -25,6 +25,20 @@
   const GLOW_BOOST   = 0.45;   // ~0.70 → ~1.15
 
   function deriveLook(name) {
+    // Custom colour: keep Aurora's geometry, override every colour field with the
+    // chosen hex (accent = a lighter tint) so the orb takes on any colour.
+    if (typeof name === 'string' && name[0] === '#') {
+      let h = name.replace('#', '');
+      if (h.length === 3) h = h.split('').map(c => c + c).join('');
+      const n = parseInt(h, 16);
+      const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+      const lite = '#' + [r, g, b].map(v => Math.round(v + (255 - v) * 0.4).toString(16).padStart(2, '0')).join('');
+      return Object.assign({}, PRESETS[0].values, {
+        radius: PRESETS[0].values.radius + RADIUS_BOOST,
+        glowStrength: PRESETS[0].values.glowStrength + GLOW_BOOST,
+        colorBlue: name, colorMagenta: lite, glowA: name, glowB: lite, background: '#07080d',
+      });
+    }
     const p = PRESETS.find(pr => pr.name === name) || PRESETS[0];
     return Object.assign({}, p.values, {
       radius: p.values.radius + RADIUS_BOOST,

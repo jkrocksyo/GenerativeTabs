@@ -196,3 +196,6 @@ class DoublePendulumTheme {
     this.trail = [];
   }
 }
+
+// Lazy-loader hook: expose the class on window so it can be resolved by name.
+window.DoublePendulumTheme = DoublePendulumTheme;

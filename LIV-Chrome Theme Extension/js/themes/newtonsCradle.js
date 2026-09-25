@@ -257,3 +257,6 @@ class NewtonsCradleTheme {
 
   destroy() {}
 }
+
+// Lazy-loader hook: expose the class on window so it can be resolved by name.
+window.NewtonsCradleTheme = NewtonsCradleTheme;

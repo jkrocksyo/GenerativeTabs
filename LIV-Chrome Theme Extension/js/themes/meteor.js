@@ -134,3 +134,6 @@ class MeteorShowerTheme {
   resize(w, h) { this.w = w; this.h = h; this._build(); }
   destroy() { this.stars = []; this.meteors = []; }
 }
+
+// Lazy-loader hook: expose the class on window so it can be resolved by name.
+window.MeteorShowerTheme = MeteorShowerTheme;

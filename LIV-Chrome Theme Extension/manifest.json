@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "LIV - Animated New Tab",
-  "version": "1.3.1",
-  "description": "Animated new tab with 36 live backgrounds. More coming soon. Zero network requests.",
+  "version": "1.3.4",
+  "description": "Animated new tab with 39 live backgrounds. More coming soon. Zero network requests.",
   "chrome_url_overrides": { "newtab": "newtab.html" },
   "action": {},
   "icons": {

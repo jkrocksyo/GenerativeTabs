@@ -170,3 +170,6 @@ class WaveSurfaceTheme {
     this._verts = null;
   }
 }
+
+// Lazy-loader hook: expose the class on window so it can be resolved by name.
+window.WaveSurfaceTheme = WaveSurfaceTheme;

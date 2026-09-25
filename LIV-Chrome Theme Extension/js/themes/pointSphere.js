@@ -174,3 +174,6 @@ class PointSphereTheme {
     this.x = this.y = this.vx = this.vy = this.si = this.ci = null;
   }
 }
+
+// Lazy-loader hook: expose the class on window so it can be resolved by name.
+window.PointSphereTheme = PointSphereTheme;
