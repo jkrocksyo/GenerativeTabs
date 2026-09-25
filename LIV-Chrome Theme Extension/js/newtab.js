@@ -147,13 +147,35 @@ const THEME_GROUPS = [
 // ScenePreview snapshots.
 const THEME_THUMBS = {};
 
+// Optional bundled screenshot per scene, used for the grid tile when present.
+// Drop a real screenshot at the path below and it's used automatically; if the
+// file is missing it falls back to the generated tile. This is the reliable way
+// to give a DOM/CSS scene (Smoke) an accurate tile, since a canvas snapshot
+// can't capture it.
+const THUMB_IMG = {
+  smoke:         'assets/thumbs/smoke.jpg',
+  fractalTunnel: 'assets/thumbs/fractalTunnel.jpg',
+};
+const _probeCache = {};
+function probeImg(src) {
+  if (src in _probeCache) return _probeCache[src];
+  return (_probeCache[src] = new Promise(res => {
+    const im = new Image();
+    im.onload = () => res(true);
+    im.onerror = () => res(false);
+    im.src = src;
+  }));
+}
+
 function getThumb(themeKey) {
   if (THEME_THUMBS[themeKey]) return Promise.resolve(THEME_THUMBS[themeKey]);
-  // Load the scene's script on demand, then snapshot it (also lazy-loads the
-  // scenes in whatever category the user opens).
-  return loadScene(themeKey)
+  // Generate on demand (loads the scene script, then snapshots it).
+  const gen = () => loadScene(themeKey)
     .then(cls => ScenePreview.getThumbnail(themeKey, cls))
     .catch(() => null);
+  const override = THUMB_IMG[themeKey];
+  if (override) return probeImg(override).then(ok => ok ? override : gen());
+  return gen();
 }
 
 // The category a scene lives in is derived from THEME_GROUPS, never stored.

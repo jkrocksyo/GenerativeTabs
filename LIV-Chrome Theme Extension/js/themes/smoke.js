@@ -208,7 +208,9 @@
       root.classList.toggle('paused', !!o.staticMode);
     }
 
-    // Static teal approximation for the picker thumbnail / settings preview.
+    // Static teal approximation for the picker thumbnail (only used if no bundled
+    // screenshot is provided). Many overlapping soft wisps read more like smoke
+    // than a few blobs, but a real screenshot at assets/thumbs/smoke.jpg wins.
     _paintStatic() {
       const ctx = this.ctx, w = this.canvas.width, h = this.canvas.height;
       if (!ctx) return;
@@ -218,17 +220,30 @@
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, w, h);
       const col = smokeColor(this.opts.scenePalette);
+      const d = Math.max(w, h);
       ctx.globalCompositeOperation = 'lighter';
-      const blobs = [[0.34, 0.42, 0.52, 0.16], [0.62, 0.5, 0.55, 0.20],
-                     [0.5, 0.72, 0.6, 0.14], [0.2, 0.6, 0.42, 0.12], [0.8, 0.34, 0.46, 0.13]];
-      for (const [bx, by, br, al] of blobs) {
-        const g = ctx.createRadialGradient(w * bx, h * by, 0, w * bx, h * by, Math.max(w, h) * br);
+      // Deterministic scatter of soft wisps (seeded LCG so the tile is stable).
+      let s = 1337;
+      const rnd = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+      for (let i = 0; i < 16; i++) {
+        const bx = 0.5 + (rnd() - 0.5) * 1.05;
+        const by = 0.5 + (rnd() - 0.5) * 1.05;
+        const br = 0.22 + rnd() * 0.34;
+        const al = 0.05 + rnd() * 0.13;
+        const g = ctx.createRadialGradient(w * bx, h * by, 0, w * bx, h * by, d * br);
         g.addColorStop(0, `rgba(${col}, ${al})`);
+        g.addColorStop(0.55, `rgba(${col}, ${al * 0.35})`);
         g.addColorStop(1, `rgba(${col}, 0)`);
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, w, h);
       }
       ctx.globalCompositeOperation = 'source-over';
+      // Vignette so the wisps sit in darkness like the real scene.
+      const vig = ctx.createRadialGradient(w * 0.5, h * 0.5, d * 0.25, w * 0.5, h * 0.5, d * 0.72);
+      vig.addColorStop(0, 'rgba(0,0,0,0)');
+      vig.addColorStop(1, 'rgba(0,0,0,0.55)');
+      ctx.fillStyle = vig;
+      ctx.fillRect(0, 0, w, h);
     }
 
     // Live colour swap from the palette swatches — no reload.

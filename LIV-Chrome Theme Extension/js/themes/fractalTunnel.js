@@ -292,7 +292,9 @@ void main() {
     // ---------- state ----------
     const mouse = [0, 0];
     const mouseTarget = [0, 0];
-    let target = FRACTAL_TUNNEL_PRESETS[cfg.preset] || FRACTAL_TUNNEL_PRESETS.frost;
+    // cfg.preset may be a preset name OR a resolved preset object (custom colour).
+    let target = (cfg.preset && cfg.preset.light) ? cfg.preset
+               : (FRACTAL_TUNNEL_PRESETS[cfg.preset] || FRACTAL_TUNNEL_PRESETS.frost);
     const pal = {
       light: [...target.light], shadow: [...target.shadow], glow: [...target.glow], grain: target.grain,
     };
@@ -472,7 +474,21 @@ void main() {
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         engineCanvas.width  = Math.max(1, Math.round(cw * dpr));
         engineCanvas.height = Math.max(1, Math.round(ch * dpr));
-        this._paintStatic();
+        // Render one REAL tunnel frame offscreen and blit it into the snapshot 2D
+        // canvas, so the grid thumbnail is accurate. preserveDrawingBuffer keeps
+        // the frame readable for drawImage. Falls back to the gradient if WebGL2
+        // is unavailable.
+        try {
+          const off = document.createElement('canvas');
+          off.style.cssText = `position:fixed;left:-99999px;top:0;width:${Math.max(1, cw)}px;height:${Math.max(1, ch)}px;`;
+          document.body.appendChild(off);
+          this._snapOff = off;
+          this._snapScene = createFractalTunnel(off, { preset: tunnelPresetObj(this.preset), targetFps: 30 });
+        } catch (e) {
+          if (this._snapOff) { this._snapOff.remove(); this._snapOff = null; }
+          this._snapScene = null;
+          this._paintStatic();
+        }
         return;
       }
 
@@ -485,7 +501,7 @@ void main() {
       parent.appendChild(c);
       this._canvas = c;
       try {
-        this.scene = createFractalTunnel(c, { preset: 'frost', targetFps: this._fps });
+        this.scene = createFractalTunnel(c, { preset: tunnelPresetObj(this.preset), targetFps: this._fps });
       } catch (e) {
         // WebGL2 unavailable — fall back to a static frame on the engine canvas.
         c.remove();
@@ -494,7 +510,6 @@ void main() {
         this._paintStatic();
         return;
       }
-      this.scene.setPreset(tunnelPresetObj(this.preset));
       this.scene.start();
     }
 
@@ -518,8 +533,15 @@ void main() {
       ctx.globalCompositeOperation = 'source-over';
     }
 
-    draw() {}  // tunnel self-runs; the static frame is painted once
-    resize() { if (!this.scene) this._paintStatic(); } // running scene owns its own resize
+    // The live/preview tunnel self-runs. For the snapshot, blit the real offscreen
+    // frame each draw() so scenePreview captures an accurate thumbnail.
+    draw() {
+      if (this._snapScene && this._snapOff && this.ctx) {
+        try { this.ctx.drawImage(this._snapOff, 0, 0, this.engineCanvas.width, this.engineCanvas.height); }
+        catch (e) { /* buffer not ready yet */ }
+      }
+    }
+    resize() { if (!this.scene && !this._snapScene) this._paintStatic(); }
 
     setPreset(name) {
       this.preset = name;
@@ -537,6 +559,8 @@ void main() {
 
     destroy() {
       if (this.scene) { try { this.scene.destroy(); } catch (e) { /* ignore */ } this.scene = null; }
+      if (this._snapScene) { try { this._snapScene.destroy(); } catch (e) { /* ignore */ } this._snapScene = null; }
+      if (this._snapOff) { this._snapOff.remove(); this._snapOff = null; }
       if (this._canvas) { this._canvas.remove(); this._canvas = null; }
       if (this.engineCanvas) this.engineCanvas.style.display = '';
     }
