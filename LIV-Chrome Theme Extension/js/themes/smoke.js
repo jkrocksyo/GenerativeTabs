@@ -126,8 +126,96 @@
     return pal ? hexTriple(pal.dot) : DEFAULT_SMOKE;
   }
 
+  // ── Accurate thumbnail (canvas, using the real SVG noise textures) ──────────
+  // DOM smoke can't be captured by the picker's canvas snapshot, so instead we
+  // load the SAME feTurbulence textures as <img>, tint them, and composite the
+  // real puff layout onto a canvas. That's a faithful still of the scene.
+  let _texPromise = null;
+  function loadTextures() {
+    if (_texPromise) return _texPromise;
+    const uris = [MASK_A, MASK_B, MASK_C].map(m => {
+      const mm = m.match(/url\("(.*)"\)/);
+      return (mm ? mm[1] : m).replace(/ /g, '%20');
+    });
+    _texPromise = Promise.all(uris.map(u => new Promise(res => {
+      const im = new Image();
+      im.onload = () => res(im);
+      im.onerror = () => res(null);
+      im.src = u;
+    })));
+    return _texPromise;
+  }
+  // Tint a white-alpha noise texture to the smoke colour (keeps its alpha).
+  function tintTexture(img, col) {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 512;
+    const x = c.getContext('2d');
+    x.drawImage(img, 0, 0, 512, 512);
+    x.globalCompositeOperation = 'source-in';
+    x.fillStyle = `rgb(${col})`;
+    x.fillRect(0, 0, 512, 512);
+    return c;
+  }
+  // Parse the puff layout once from the markup.
+  let _puffCache = null;
+  function puffData() {
+    if (_puffCache) return _puffCache;
+    const d = document.createElement('div');
+    d.innerHTML = PUFFS;
+    _puffCache = [...d.querySelectorAll('.puff')].map(el => {
+      const i = el.querySelector('i');
+      const tex = i.classList.contains('a') ? 0 : i.classList.contains('b') ? 1 : 2;
+      return {
+        x: parseFloat(el.style.getPropertyValue('--x')) || 50,
+        y: parseFloat(el.style.getPropertyValue('--y')) || 50,
+        w: parseFloat(el.style.getPropertyValue('--w')) || 60,
+        o: parseFloat(i.style.getPropertyValue('--o')) || 0.2,
+        s: parseFloat(i.style.getPropertyValue('--s')) || 1,
+        tex,
+      };
+    });
+    return _puffCache;
+  }
+
   class SmokeTheme {
     constructor() { this.contextType = '2d'; }
+
+    // Accurate grid-tile thumbnail built from the real noise textures + puff
+    // layout. Returns a Promise<dataURL|null> (null → caller falls back).
+    static renderThumbnail(w, h, paletteName) {
+      return loadTextures().then(texes => {
+        if (!texes || texes.some(t => !t)) return null;
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        const ctx = cv.getContext('2d');
+        const bg = ctx.createRadialGradient(w * 0.5, h * 0.52, 0, w * 0.5, h * 0.52, Math.max(w, h) * 0.7);
+        bg.addColorStop(0, '#0a2024');
+        bg.addColorStop(1, '#050a0c');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, w, h);
+
+        const col = smokeColor(paletteName);
+        const tinted = texes.map(t => tintTexture(t, col));
+        const vmin = Math.min(w, h);
+        ctx.globalCompositeOperation = 'lighter';   // matches the scene's screen blend
+        for (const p of puffData()) {
+          const size = (p.w / 100) * vmin * p.s;     // --w is a vmin value
+          const cx = (p.x / 100) * w, cy = (p.y / 100) * h;
+          ctx.globalAlpha = p.o;
+          ctx.drawImage(tinted[p.tex], cx - size / 2, cy - size / 2, size, size);
+        }
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
+        const vig = ctx.createRadialGradient(w * 0.5, h * 0.5, vmin * 0.42, w * 0.5, h * 0.5, Math.max(w, h) * 0.72);
+        vig.addColorStop(0, 'rgba(0,0,0,0)');
+        vig.addColorStop(1, 'rgba(0,0,0,0.55)');
+        ctx.fillStyle = vig;
+        ctx.fillRect(0, 0, w, h);
+
+        try { return cv.toDataURL('image/jpeg', 0.85); }
+        catch (e) { return null; }  // tainted (unlikely for feTurbulence) → fall back
+      }).catch(() => null);
+    }
 
     init(canvas, ctx, options) {
       this.canvas = canvas;
@@ -252,6 +340,11 @@
       if (this._live) this._applyVars();
       else this._paintStatic();
     }
+
+    // Live LiV controls (smoke is CSS-driven, so these adjust the DOM directly).
+    setStatic(on) { this.opts.staticMode = on; if (this._root) this._root.classList.toggle('paused', !!on); }
+    setSpeed(v)   { this.opts.speed = v; this.speed = v || 1; if (this._root) this._root.style.setProperty('--speed', String(v > 0 ? 1 / v : 1)); }
+    setQuality()  { /* CSS smoke has no render resolution to scale */ }
 
     // Live smoke is CSS-driven; per frame we nudge each puff near the cursor a
     // little further away and LEAVE it there — the push accumulates into a

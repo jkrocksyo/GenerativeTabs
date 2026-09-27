@@ -266,15 +266,18 @@ void main() {
       resize(true);
     }
 
-    // ---------- resolution ----------
+    // ---------- resolution / speed / static (LiV controls) ----------
     let scale = cfg.scaleStart;
     let ceiling = cfg.scaleMax;
+    let resMul = 1;     // quality slider multiplier on render resolution
+    let speed = 1;      // animation-speed multiplier
+    let paused = false; // static-mode freeze
 
     function resize(force = false) {
       const cssW = canvas.clientWidth || window.innerWidth;
       const cssH = canvas.clientHeight || window.innerHeight;
-      const w = Math.max(1, Math.round(cssW * scale));
-      const h = Math.max(1, Math.round(cssH * scale));
+      const w = Math.max(1, Math.round(cssW * scale * resMul));
+      const h = Math.max(1, Math.round(cssH * scale * resMul));
       if (force || canvas.width !== w || canvas.height !== h) {
         canvas.width = w;
         canvas.height = h;
@@ -365,14 +368,14 @@ void main() {
       const elapsed = lastDraw ? now - lastDraw : interval;
       lastDraw = now;
       const dt = Math.min(elapsed / 1000, 0.1); // a stall never jumps the camera
-      time += dt;
+      time += dt * speed;
       draw(time, dt);
       adapt(elapsed);
     }
 
     function start() {
       if (reduced) { resize(); draw(cfg.stillTime, 1); return; }
-      if (running || document.hidden) return;
+      if (running || document.hidden || paused) return;
       running = true;
       lastDraw = 0;
       resetAdapt();
@@ -394,6 +397,14 @@ void main() {
 
     // Live frame-rate cap change (follows LiV's fps setting).
     function setFps(v) { if (v > 0) cfg.targetFps = v; }
+    function setSpeed(v) { if (v >= 0) speed = v; }
+    // Quality slider → render-resolution multiplier (default 1.5 maps to 1x).
+    function setQuality(q) { resMul = Math.max(0.4, Math.min(2, (q || 1.5) / 1.5)); resize(); }
+    function setStatic(on) {
+      paused = !!on;
+      if (paused) stop();
+      else if (!reduced) start();
+    }
 
     // ---------- listeners ----------
     const onPointer = (e) => {
@@ -424,7 +435,7 @@ void main() {
     }
 
     initGL();
-    return { start, stop, destroy, setPreset, setFps, stats };
+    return { start, stop, destroy, setPreset, setFps, setSpeed, setQuality, setStatic, stats };
   }
 
   // Build a tunnel preset object from a single custom hex colour.
@@ -510,7 +521,10 @@ void main() {
         this._paintStatic();
         return;
       }
+      if (opts && opts.speed != null) this.scene.setSpeed(opts.speed);
+      if (opts && opts.quality != null) this.scene.setQuality(opts.quality);
       this.scene.start();
+      if (opts && opts.staticMode) this.scene.setStatic(true);
     }
 
     _paintStatic() {
@@ -549,8 +563,11 @@ void main() {
       else this._paintStatic();
     }
 
-    // Follow LiV's fps setting live.
-    setFps(v) { this._fps = v; if (this.scene) this.scene.setFps(v); }
+    // Follow LiV's live controls.
+    setFps(v)     { this._fps = v; if (this.scene) this.scene.setFps(v); }
+    setSpeed(v)   { if (this.scene) this.scene.setSpeed(v); }
+    setQuality(q) { if (this.scene) this.scene.setQuality(q); }
+    setStatic(on) { if (this.scene) this.scene.setStatic(on); }
 
     get stats() { return this.scene ? this.scene.stats : null; }
 

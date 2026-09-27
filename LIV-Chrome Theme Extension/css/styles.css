@@ -358,6 +358,29 @@ body.greeting-reveal #search-container { transition: opacity 0.55s ease; }
 #quick-links.editing .ql-del { display: flex; }
 .ql-del:hover { background: rgba(230,70,70,0.95); }
 
+/* Unread-count badge (App Store style), top-right corner of the tile. */
+.ql-badge {
+  position: absolute;
+  top: -6px; right: -6px;
+  min-width: 18px; height: 18px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 9999px;
+  background: #ff3b30;
+  color: #fff;
+  font-family: var(--ui-font);
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1;
+  border: 2px solid rgba(8,8,14,0.5);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.45);
+  pointer-events: none;
+  z-index: 7;
+}
+.ql-badge[hidden] { display: none; }
+#quick-links.editing .ql-badge { display: none; }   /* declutter while arranging */
+
 /* Done button (secondary exit) */
 #ql-done {
   position: fixed;

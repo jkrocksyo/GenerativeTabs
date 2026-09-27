@@ -29,6 +29,7 @@ const Storage = (() => {
     animSpeed:          1.0,
     staticMode:         false,
     newTabLinks:        false,      // open quick links in a new tab
+    notifications:      true,       // show unread-count badges on quick links (from open tabs)
     palettes:           {},         // { themeKey: presetName } colour palettes for Interactive scenes
     oceanTime:          'real',     // Ocean Cycle time-of-day: 'real' (follow clock) | phase key
     favorites:          [],

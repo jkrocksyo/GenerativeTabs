@@ -46,6 +46,7 @@ const THEME_CLASS = {
   lensIllusion: 'LensIllusionTheme',
   smoke: 'SmokeTheme',
   fractalTunnel: 'FractalTunnelTheme',
+  mengerCorridor: 'MengerCorridorTheme',
 };
 
 const _scenePromises = {};
@@ -131,6 +132,7 @@ const THEME_LABELS = {
   lensIllusion:         'Lens Illusion',
   smoke:                'Smoke',
   fractalTunnel:        'Fractal Tunnel',
+  mengerCorridor:       'Menger Corridor',
 };
 
 const THEME_GROUPS = [
@@ -139,7 +141,8 @@ const THEME_GROUPS = [
   { key: 'passingby',  label: 'Passing By', themes: ['bikeRide','dogWalk','cityDrive','hotAirBalloon','nightTrain'] },
   { key: 'math',       label: 'Graphs',     themes: ['waveSurface','torusWave','harmonicSphere','harmonicSurface','maurerRose','mobius'] },
   { key: 'science',    label: 'Science',    themes: ['doublePendulum','newtonsCradle','atom','gyroscope','dnaHelix'] },
-  { key: 'interactive',label: 'Interactive',themes: ['pointSphere','liquidOrb','lensIllusion','smoke','fractalTunnel'] },
+  { key: 'interactive',label: 'Interactive',themes: ['pointSphere','liquidOrb','lensIllusion','smoke'] },
+  { key: 'flythrough', label: 'Flythrough', themes: ['fractalTunnel','mengerCorridor'] },
 ];
 
 // Pre-rendered thumbnail images (themeKey -> URL). None exist yet; when a
@@ -147,15 +150,11 @@ const THEME_GROUPS = [
 // ScenePreview snapshots.
 const THEME_THUMBS = {};
 
-// Optional bundled screenshot per scene, used for the grid tile when present.
-// Drop a real screenshot at the path below and it's used automatically; if the
-// file is missing it falls back to the generated tile. This is the reliable way
-// to give a DOM/CSS scene (Smoke) an accurate tile, since a canvas snapshot
-// can't capture it.
-const THUMB_IMG = {
-  smoke:         'assets/thumbs/smoke.jpg',
-  fractalTunnel: 'assets/thumbs/fractalTunnel.jpg',
-};
+// Optional bundled screenshot override per scene, e.g. { smoke: 'assets/thumbs/smoke.jpg' }.
+// If a path is listed and the file loads, it's used for the grid tile; otherwise
+// the tile is generated. Empty by default now that Smoke/Fractal Tunnel/Menger all
+// generate accurate tiles on their own.
+const THUMB_IMG = {};
 const _probeCache = {};
 function probeImg(src) {
   if (src in _probeCache) return _probeCache[src];
@@ -169,10 +168,18 @@ function probeImg(src) {
 
 function getThumb(themeKey) {
   if (THEME_THUMBS[themeKey]) return Promise.resolve(THEME_THUMBS[themeKey]);
-  // Generate on demand (loads the scene script, then snapshots it).
-  const gen = () => loadScene(themeKey)
-    .then(cls => ScenePreview.getThumbnail(themeKey, cls))
-    .catch(() => null);
+  // Generate on demand (loads the scene script, then snapshots it). A scene may
+  // supply a static renderThumbnail(w,h,palette) for an accurate tile it can't
+  // produce via the canvas snapshot (e.g. DOM/CSS Smoke).
+  const gen = () => loadScene(themeKey).then(cls => {
+    if (cls && typeof cls.renderThumbnail === 'function') {
+      return cls.renderThumbnail(480, 270, paletteFor(themeKey)).then(url => {
+        if (url) { THEME_THUMBS[themeKey] = url; return url; }
+        return ScenePreview.getThumbnail(themeKey, cls);
+      });
+    }
+    return ScenePreview.getThumbnail(themeKey, cls);
+  }).catch(() => null);
   const override = THUMB_IMG[themeKey];
   if (override) return probeImg(override).then(ok => ok ? override : gen());
   return gen();
@@ -326,10 +333,16 @@ function applyLiveEngine(reinit = false) {
     scenePalette: paletteFor(settings.theme),
     oceanTime:    oceanTimeFor(),
   });
-  // Self-managing scenes (e.g. Fractal Tunnel) run their own loop, so push the
-  // fps cap to them directly — the engine's own loop cap doesn't reach them.
+  // Self-managing scenes (Fractal Tunnel, Menger Corridor, Smoke) run their own
+  // loop, so the engine's option handling doesn't reach them — push each live
+  // control directly to whichever setters the scene exposes.
   const t = engine.currentTheme;
-  if (t && typeof t.setFps === 'function') t.setFps(live.fps);
+  if (t) {
+    if (typeof t.setFps === 'function')     t.setFps(live.fps);
+    if (typeof t.setStatic === 'function')  t.setStatic(live.staticMode);
+    if (typeof t.setSpeed === 'function')   t.setSpeed(live.animSpeed);
+    if (typeof t.setQuality === 'function') t.setQuality(Storage.qualityValue(live.quality));
+  }
   if (reinit) switchSceneAsync(settings.theme);
 }
 
@@ -374,6 +387,7 @@ function applyLiveToPage(reinit = false) {
   initClock();
   initSearch();
   renderQuickLinks();
+  initNotifications();
   document.getElementById('ql-done').addEventListener('click', exitQlEdit);
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && qlEditing) exitQlEdit(); });
   let qlResizeTimer;
@@ -759,6 +773,60 @@ function renderQuickLinks() {
       if (need && Math.ceil(need) + QL_OVAL_GAP > g.w + 0.5) renderQuickLinks();
     });
   }
+
+  scheduleNotificationRefresh();   // fill in unread badges (coalesced across re-layouts)
+}
+
+// ── Notification badges ─────────────────────────────────────────────────────
+// Reads open tabs (needs the "tabs" permission) and shows an unread count on any
+// quick link whose site has an open tab whose title carries a "(N)" count — the
+// convention Gmail, Discord, Slack, WhatsApp, X, etc. all use. Local only; no
+// network. Off if the setting is disabled or the API is unavailable.
+const _hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, '').toLowerCase(); } catch (e) { return null; } };
+const _hostsMatch = (a, b) => a === b || a.endsWith('.' + b) || b.endsWith('.' + a);
+
+function clearNotificationBadges() {
+  document.querySelectorAll('#quick-links .ql-badge').forEach(b => { b.hidden = true; b.textContent = ''; });
+}
+
+function refreshNotifications() {
+  if (!live.notifications || typeof chrome === 'undefined' || !chrome.tabs || !chrome.tabs.query) {
+    clearNotificationBadges();
+    return;
+  }
+  chrome.tabs.query({}, (tabs) => {
+    if (chrome.runtime && chrome.runtime.lastError) return;
+    const counts = [];   // { host, n }
+    for (const t of tabs || []) {
+      const host = _hostOf(t.url);
+      if (!host || !t.title) continue;
+      const m = t.title.match(/\((\d+)\+?\)/);
+      if (m) counts.push({ host, n: parseInt(m[1], 10) });
+    }
+    (qlLinks() || []).forEach(link => {
+      const tile = document.querySelector(`#quick-links .ql-tile[data-id="${link.id}"]`);
+      const badge = tile && tile.querySelector('.ql-badge');
+      if (!badge) return;
+      const lh = _hostOf(link.url);
+      let n = 0;
+      if (lh) for (const c of counts) if (_hostsMatch(c.host, lh)) n += c.n;
+      if (n > 0) { badge.textContent = n > 99 ? '99+' : String(n); badge.hidden = false; }
+      else { badge.hidden = true; badge.textContent = ''; }
+    });
+  });
+}
+
+// Refresh badges when other tabs change title / open / close, coalesced.
+let _notifTimer = 0;
+function scheduleNotificationRefresh() {
+  clearTimeout(_notifTimer);
+  _notifTimer = setTimeout(refreshNotifications, 400);
+}
+function initNotifications() {
+  if (typeof chrome === 'undefined' || !chrome.tabs || !chrome.tabs.onUpdated) return;
+  chrome.tabs.onUpdated.addListener((_id, info) => { if (info.title || info.status === 'complete') scheduleNotificationRefresh(); });
+  chrome.tabs.onRemoved.addListener(scheduleNotificationRefresh);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleNotificationRefresh(); });
 }
 
 // Dashed empty slots for every free, non-protected cell (edit mode only).
@@ -808,6 +876,13 @@ function makeQuickLinkTile(link) {
 
   const body = document.createElement('div');
   body.className = 'ql-body';
+
+  // Unread-count badge (App Store style, top-right). Hidden until an open tab for
+  // this link reports a count; refreshNotifications() fills it in.
+  const badge = document.createElement('span');
+  badge.className = 'ql-badge';
+  badge.hidden = true;
+  body.appendChild(badge);
 
   // Delete badge lives on the app body so it sits on the icon/pill's corner.
   const del = document.createElement('button');
@@ -1424,7 +1499,7 @@ function makeBackgroundTile(themeKey) {
 }
 
 // Backgrounds that expose a colour-swatch picker.
-const PALETTE_THEMES = new Set(['nebula', 'pointSphere', 'liquidOrb', 'lensIllusion', 'smoke', 'fractalTunnel']);
+const PALETTE_THEMES = new Set(['nebula', 'pointSphere', 'liquidOrb', 'lensIllusion', 'smoke', 'fractalTunnel', 'mengerCorridor']);
 
 // Scenes with their OWN named presets (instead of the shared 7 palettes) list
 // them here: { name, swatch:[c0,c1] }. name is what gets passed to setPreset().
@@ -1433,6 +1508,13 @@ const SCENE_PALETTES = {
     { name: 'frost',    swatch: ['#e0edf5', '#5a8ab0'] },
     { name: 'ember',    swatch: ['#ffd9a8', '#e0641c'] },
     { name: 'nocturne', swatch: ['#bcc4f0', '#6a4fd0'] },
+  ],
+  mengerCorridor: [
+    { name: 'ember',  swatch: ['#ff8c40', '#ff5a1e'] },
+    { name: 'ice',    swatch: ['#73b8ff', '#3a82ff'] },
+    { name: 'toxic',  swatch: ['#8cff5a', '#33d98a'] },
+    { name: 'violet', swatch: ['#b873ff', '#7a4fd0'] },
+    { name: 'gold',   swatch: ['#ffd24d', '#e0a01c'] },
   ],
 };
 
@@ -2174,6 +2256,7 @@ function buildDisplaySettings() {
   const iconOnlyEl  = document.getElementById('setting-icon-only');
   const textOnlyEl  = document.getElementById('setting-text-only');
   const newTabEl    = document.getElementById('setting-new-tab-links');
+  const notifEl     = document.getElementById('setting-notifications');
 
   const updateSubSections = () => {
     timeSubEl.hidden = settings.layout !== 'time';
@@ -2191,6 +2274,7 @@ function buildDisplaySettings() {
   iconOnlyEl.checked  = settings.iconOnly;
   textOnlyEl.checked  = settings.textOnly;
   newTabEl.checked    = settings.newTabLinks;
+  notifEl.checked     = settings.notifications;
   updateSubSections();
 
   layoutBtns.forEach(btn => {
@@ -2278,6 +2362,14 @@ function buildDisplaySettings() {
     Storage.save({ newTabLinks: newTabEl.checked });
     recomputeLive();   // click handler reads live.newTabLinks
     maybeAdjustPreset(['newTabLinks']);
+  });
+
+  notifEl.addEventListener('change', () => {
+    settings.notifications = notifEl.checked;
+    Storage.save({ notifications: notifEl.checked });
+    recomputeLive();
+    if (notifEl.checked) refreshNotifications();   // populate now
+    else clearNotificationBadges();
   });
 }
 
