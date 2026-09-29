@@ -387,7 +387,6 @@ function applyLiveToPage(reinit = false) {
   initClock();
   initSearch();
   renderQuickLinks();
-  initNotifications();
   document.getElementById('ql-done').addEventListener('click', exitQlEdit);
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && qlEditing) exitQlEdit(); });
   let qlResizeTimer;
@@ -773,60 +772,6 @@ function renderQuickLinks() {
       if (need && Math.ceil(need) + QL_OVAL_GAP > g.w + 0.5) renderQuickLinks();
     });
   }
-
-  scheduleNotificationRefresh();   // fill in unread badges (coalesced across re-layouts)
-}
-
-// ── Notification badges ─────────────────────────────────────────────────────
-// Reads open tabs (needs the "tabs" permission) and shows an unread count on any
-// quick link whose site has an open tab whose title carries a "(N)" count — the
-// convention Gmail, Discord, Slack, WhatsApp, X, etc. all use. Local only; no
-// network. Off if the setting is disabled or the API is unavailable.
-const _hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, '').toLowerCase(); } catch (e) { return null; } };
-const _hostsMatch = (a, b) => a === b || a.endsWith('.' + b) || b.endsWith('.' + a);
-
-function clearNotificationBadges() {
-  document.querySelectorAll('#quick-links .ql-badge').forEach(b => { b.hidden = true; b.textContent = ''; });
-}
-
-function refreshNotifications() {
-  if (!live.notifications || typeof chrome === 'undefined' || !chrome.tabs || !chrome.tabs.query) {
-    clearNotificationBadges();
-    return;
-  }
-  chrome.tabs.query({}, (tabs) => {
-    if (chrome.runtime && chrome.runtime.lastError) return;
-    const counts = [];   // { host, n }
-    for (const t of tabs || []) {
-      const host = _hostOf(t.url);
-      if (!host || !t.title) continue;
-      const m = t.title.match(/\((\d+)\+?\)/);
-      if (m) counts.push({ host, n: parseInt(m[1], 10) });
-    }
-    (qlLinks() || []).forEach(link => {
-      const tile = document.querySelector(`#quick-links .ql-tile[data-id="${link.id}"]`);
-      const badge = tile && tile.querySelector('.ql-badge');
-      if (!badge) return;
-      const lh = _hostOf(link.url);
-      let n = 0;
-      if (lh) for (const c of counts) if (_hostsMatch(c.host, lh)) n += c.n;
-      if (n > 0) { badge.textContent = n > 99 ? '99+' : String(n); badge.hidden = false; }
-      else { badge.hidden = true; badge.textContent = ''; }
-    });
-  });
-}
-
-// Refresh badges when other tabs change title / open / close, coalesced.
-let _notifTimer = 0;
-function scheduleNotificationRefresh() {
-  clearTimeout(_notifTimer);
-  _notifTimer = setTimeout(refreshNotifications, 400);
-}
-function initNotifications() {
-  if (typeof chrome === 'undefined' || !chrome.tabs || !chrome.tabs.onUpdated) return;
-  chrome.tabs.onUpdated.addListener((_id, info) => { if (info.title || info.status === 'complete') scheduleNotificationRefresh(); });
-  chrome.tabs.onRemoved.addListener(scheduleNotificationRefresh);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleNotificationRefresh(); });
 }
 
 // Dashed empty slots for every free, non-protected cell (edit mode only).
@@ -876,13 +821,6 @@ function makeQuickLinkTile(link) {
 
   const body = document.createElement('div');
   body.className = 'ql-body';
-
-  // Unread-count badge (App Store style, top-right). Hidden until an open tab for
-  // this link reports a count; refreshNotifications() fills it in.
-  const badge = document.createElement('span');
-  badge.className = 'ql-badge';
-  badge.hidden = true;
-  body.appendChild(badge);
 
   // Delete badge lives on the app body so it sits on the icon/pill's corner.
   const del = document.createElement('button');
@@ -2256,7 +2194,6 @@ function buildDisplaySettings() {
   const iconOnlyEl  = document.getElementById('setting-icon-only');
   const textOnlyEl  = document.getElementById('setting-text-only');
   const newTabEl    = document.getElementById('setting-new-tab-links');
-  const notifEl     = document.getElementById('setting-notifications');
 
   const updateSubSections = () => {
     timeSubEl.hidden = settings.layout !== 'time';
@@ -2274,7 +2211,6 @@ function buildDisplaySettings() {
   iconOnlyEl.checked  = settings.iconOnly;
   textOnlyEl.checked  = settings.textOnly;
   newTabEl.checked    = settings.newTabLinks;
-  notifEl.checked     = settings.notifications;
   updateSubSections();
 
   layoutBtns.forEach(btn => {
@@ -2362,14 +2298,6 @@ function buildDisplaySettings() {
     Storage.save({ newTabLinks: newTabEl.checked });
     recomputeLive();   // click handler reads live.newTabLinks
     maybeAdjustPreset(['newTabLinks']);
-  });
-
-  notifEl.addEventListener('change', () => {
-    settings.notifications = notifEl.checked;
-    Storage.save({ notifications: notifEl.checked });
-    recomputeLive();
-    if (notifEl.checked) refreshNotifications();   // populate now
-    else clearNotificationBadges();
   });
 }
 
