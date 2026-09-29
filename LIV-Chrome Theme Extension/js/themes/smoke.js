@@ -26,10 +26,10 @@
 
   const STYLE_ID = 'liv-smoke-style';
   const DEFAULT_SMOKE = '125, 215, 210';  // teal, if no palette resolves
-  const PUSH_RADIUS = 0.34;   // pointer influence radius, fraction of the shorter viewport side
-  const PUSH_STEP   = 0.004;  // per-frame drift added while the cursor is near, fraction of it
-  const PUSH_MAX    = 0.12;   // cap on accumulated displacement, fraction of it
-  const PUSH_EASE   = 0.06;   // per-frame ease of the actual offset toward the target
+  const PUSH_RADIUS = 0.40;   // pointer influence radius, fraction of the shorter viewport side
+  const PUSH_STEP   = 0.011;  // per-frame drift added while the cursor is near, fraction of it
+  const PUSH_MAX    = 0.22;   // cap on accumulated displacement, fraction of it
+  const PUSH_EASE   = 0.10;   // per-frame ease of the actual offset toward the target
 
   // Three shared noise textures: coarse (mass), mid (body), fine (filaments).
   const MASK_A = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512'%3E%3Cdefs%3E%3Cfilter id='f' x='0' y='0' width='512' height='512' filterUnits='userSpaceOnUse'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.010' numOctaves='6' seed='11'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1 0 0 0 -0.22'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='gamma' amplitude='1.6' exponent='1.1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3CradialGradient id='g'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='1'/%3E%3Cstop offset='0.45' stop-color='%23fff' stop-opacity='0.9'/%3E%3Cstop offset='0.78' stop-color='%23fff' stop-opacity='0.35'/%3E%3Cstop offset='1' stop-color='%23fff' stop-opacity='0'/%3E%3C/radialGradient%3E%3Cmask id='m'%3E%3Crect width='512' height='512' fill='url(%23g)'/%3E%3C/mask%3E%3C/defs%3E%3Cg mask='url(%23m)'%3E%3Crect width='512' height='512' filter='url(%23f)'/%3E%3C/g%3E%3C/svg%3E\")";
