@@ -1684,6 +1684,37 @@ body[data-logo-position="bottom-right"] #date-line { justify-content: flex-end; 
   color: rgba(255,140,140,0.95);
 }
 
+/* ── Buy Me a Coffee ──────────────────────────────────────────────────────── */
+.bmc-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 10px auto 6px;
+  padding: 10px 20px;
+  width: fit-content;
+  background: #FFDD00;
+  color: #000000;
+  border: 1px solid #000000;
+  border-radius: 10px;
+  font-family: 'Cookie', 'Segoe Script', 'Brush Script MT', cursive;
+  font-size: 22px;
+  line-height: 1;
+  text-decoration: none;
+  box-shadow: 0 3px 2px rgba(190,190,190,0.5);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+.bmc-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 6px rgba(140,140,140,0.5);
+  opacity: 0.95;
+}
+.bmc-button:active { transform: translateY(0); }
+.bmc-button[hidden] { display: none; }
+.bmc-emoji { font-size: 20px; line-height: 1; }
+.bmc-hide-row { margin-top: 18px; }
+.bmc-tear { font-size: 1.25em; vertical-align: -0.1em; filter: saturate(1.4); }
+
 /* ── Utility ──────────────────────────────────────────────────────────────── */
 .hidden { display: none !important; }
 

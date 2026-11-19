@@ -14,6 +14,7 @@ const Storage = (() => {
     greeting:           true,       // particle greeting on the first tab per session
     greetingName:       '',         // who to greet
     hideSearch:         false,
+    hideDonation:       false,     // hide the Buy Me a Coffee button in Backgrounds panel
     // corners + center column: 'center' keeps the classic centered stack
     logoPosition:       'center',
     logoScale:          1.0,        // header text size multiplier (slider only)

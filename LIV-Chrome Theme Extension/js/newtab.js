@@ -2194,6 +2194,8 @@ function buildDisplaySettings() {
   const iconOnlyEl  = document.getElementById('setting-icon-only');
   const textOnlyEl  = document.getElementById('setting-text-only');
   const newTabEl    = document.getElementById('setting-new-tab-links');
+  const hideDonationEl = document.getElementById('setting-hide-donation');
+  const bmcBtn      = document.querySelector('.bmc-button');
 
   const updateSubSections = () => {
     timeSubEl.hidden = settings.layout !== 'time';
@@ -2211,6 +2213,8 @@ function buildDisplaySettings() {
   iconOnlyEl.checked  = settings.iconOnly;
   textOnlyEl.checked  = settings.textOnly;
   newTabEl.checked    = settings.newTabLinks;
+  if (hideDonationEl) hideDonationEl.checked = settings.hideDonation;
+  if (bmcBtn) bmcBtn.hidden = settings.hideDonation;
   updateSubSections();
 
   layoutBtns.forEach(btn => {
@@ -2255,6 +2259,11 @@ function buildDisplaySettings() {
     renderHeader();
     tickClock();
     maybeAdjustPreset(['showTimeInDate']);
+  });
+  if (hideDonationEl) hideDonationEl.addEventListener('change', () => {
+    settings.hideDonation = hideDonationEl.checked;
+    Storage.save({ hideDonation: hideDonationEl.checked });
+    if (bmcBtn) bmcBtn.hidden = hideDonationEl.checked;
   });
   hideTextEl.addEventListener('change', () => {
     settings.hideText = hideTextEl.checked;
